@@ -6,7 +6,7 @@ import tempfile
 from pathlib import Path
 from typing import Sequence
 
-from PySide6.QtCore import QSettings, Qt, QTimer
+from PySide6.QtCore import QEvent, QSettings, Qt, QTimer
 from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -33,6 +33,9 @@ from .preview import PreviewWidget
 from .settingsdialog import SettingsDialog, load_settings, save_settings
 
 REBUILD_DELAY_MS = 150
+TOAST_MS = 900
+TOAST_MARGIN_PX = 8
+TOAST_OFFSET_PX = 12
 
 
 def usable_shots(shots: Sequence[Shot]) -> tuple[list[Shot], list[int]]:
@@ -59,6 +62,8 @@ class MainWindow(QMainWindow):
         self._pdf_bytes = b""
         self._temp_dir = Path(tempfile.mkdtemp(prefix="scorecap-"))
         self._pending_replace: int | None = None
+        self._capturing = False
+        self._dirty = False
 
         self.shot_list = QListWidget()
         self.shot_list.setDragDropMode(QAbstractItemView.InternalMove)
@@ -113,7 +118,23 @@ class MainWindow(QMainWindow):
 
         self._overlay = SelectionOverlay()
         self._overlay.selected.connect(self._on_selected)
-        self._overlay.cancelled.connect(self.showNormal)
+        self._overlay.cancelled.connect(self.finish_capture)
+
+        # Tool tip windows never take the focus, so the browser keeps it.
+        # Parented to the window so Qt owns its lifetime; the flags still make
+        # it a separate, focus-free window.
+        self._toast = QLabel(
+            self,
+            Qt.ToolTip | Qt.FramelessWindowHint | Qt.WindowDoesNotAcceptFocus,
+        )
+        self._toast.setMargin(TOAST_MARGIN_PX)
+        self._toast.setStyleSheet(
+            "background: #202020; color: white; border-radius: 4px;"
+        )
+        self._toast_timer = QTimer(self)
+        self._toast_timer.setSingleShot(True)
+        self._toast_timer.setInterval(TOAST_MS)
+        self._toast_timer.timeout.connect(self._toast.hide)
 
         self._timer = QTimer(self)
         self._timer.setSingleShot(True)
@@ -127,6 +148,11 @@ class MainWindow(QMainWindow):
     @property
     def pdf_bytes(self) -> bytes:
         return self._pdf_bytes
+
+    @property
+    def is_dirty(self) -> bool:
+        """True when shots changed but the preview has not caught up yet."""
+        return self._dirty
 
     def install_hotkey(self, app) -> None:
         app.installNativeEventFilter(self._hotkey)
@@ -142,6 +168,11 @@ class MainWindow(QMainWindow):
         self._timer.start()
 
     def rebuild(self) -> None:
+        if self._capturing:
+            # Mid-series: only remember that work is pending. Rendering every
+            # page after every shot would slow the capture loop down.
+            self._dirty = True
+            return
         shots = self.document.shots
         usable, missing = usable_shots(shots)
         pages = paginate([s.effective_size for s in usable], self.settings)
@@ -153,6 +184,7 @@ class MainWindow(QMainWindow):
         if missing:
             text += f", {len(missing)} Datei(en) fehlen"
         self.status.setText(text)
+        self._dirty = False
 
     def _refresh_list(self, shots: Sequence[Shot], missing: set[int]) -> None:
         blocked = self.shot_list.blockSignals(True)
@@ -181,6 +213,7 @@ class MainWindow(QMainWindow):
 
     def begin_capture(self) -> None:
         self._pending_replace = None
+        self._capturing = True
         self.showMinimized()
         self._overlay.start()
 
@@ -189,19 +222,54 @@ class MainWindow(QMainWindow):
         if index < 0:
             return
         self._pending_replace = index
+        self._capturing = True
         self.showMinimized()
         self._overlay.start()
 
-    def _on_selected(self, rect) -> None:
-        shot = grab(rect, self._temp_dir)
+    def finish_capture(self) -> None:
+        """Leave capture mode: show the window again and catch up on rendering."""
+        self._capturing = False
+        self._toast.hide()
         self.showNormal()
         self.raise_()
-        if self._pending_replace is None:
-            self.document.add(shot)
-        else:
+        self.activateWindow()
+        if self._dirty:
+            self.rebuild()
+
+    def _on_selected(self, rect) -> None:
+        shot = grab(rect, self._temp_dir)
+        replacing = self._pending_replace is not None
+        if replacing:
             self.document.replace_shot(self._pending_replace, shot)
             self._pending_replace = None
-        self.rebuild()
+        else:
+            self.document.add(shot)
+        self._dirty = True
+        if replacing:
+            # Replacing one shot is a deliberate edit - show the result.
+            self.finish_capture()
+            return
+        # Stay minimised so the browser keeps the focus and the next hotkey
+        # press works right away. Rendering waits until capturing is done.
+        self._show_toast(rect, f"Aufnahme {len(self.document.shots)}")
+
+    def changeEvent(self, event) -> None:  # noqa: N802
+        # Restoring from the taskbar also ends a capture series, so the
+        # preview never shows a stale document.
+        if (
+            event.type() == QEvent.WindowStateChange
+            and self._capturing
+            and not self.isMinimized()
+        ):
+            self.finish_capture()
+        super().changeEvent(event)
+
+    def _show_toast(self, rect, text: str) -> None:
+        self._toast.setText(text)
+        self._toast.adjustSize()
+        self._toast.move(rect.left(), rect.bottom() + TOAST_OFFSET_PX)
+        self._toast.show()
+        self._toast_timer.start()
 
     def crop_selected(self) -> None:
         index = self.shot_list.currentRow()
@@ -255,6 +323,11 @@ class MainWindow(QMainWindow):
             self.status.setText(f"Exportiert: {name}")
 
     def closeEvent(self, event) -> None:  # noqa: N802
+        # The overlay is deliberately parentless (a child window would be
+        # hidden along with the minimised main window), so close it by hand.
+        self._overlay.hide()
+        self._overlay.deleteLater()
+        self._toast.hide()
         self._hotkey.unregister()
         for file in self._temp_dir.glob("*.png"):
             file.unlink(missing_ok=True)

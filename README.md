@@ -19,6 +19,11 @@ python -m venv .venv
 
 - `Ctrl+Shift+S` (systemweit) öffnet das Auswahl-Overlay: Rechteck ziehen,
   loslassen. `Esc` bricht ab.
+- **Serienaufnahme:** nach einer Aufnahme bleibt ScoreCap minimiert, der Browser
+  behält den Fokus. Also: scrollen, Hotkey, ziehen, scrollen, Hotkey, … Ein
+  kurzer Hinweis am Cursor zeigt, dass die Aufnahme saß. Zurück ins Fenster:
+  Hotkey drücken und `Esc`, oder das Fenster aus der Taskleiste holen — dann
+  wird die Vorschau nachgezogen.
 - Links die Aufnahmen: per Drag&Drop sortieren, *Neu aufnehmen*, *Zuschneiden*,
   *Löschen*. `Strg+Z` macht rückgängig.
 - Rechts die A4-Seiten, exakt so, wie sie exportiert werden.
