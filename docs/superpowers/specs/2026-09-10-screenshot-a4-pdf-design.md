@@ -19,7 +19,7 @@ Seiten für die Anzeige; Export schreibt die bereits erzeugten Bytes auf Platte.
 ## Technik
 
 - Python 3.11+, PySide6 (Qt)
-- `mss` für Screen Capture, Pillow für Bildverarbeitung
+- Qt `QScreen.grabWindow()` für Screen Capture, Pillow für Crop und PNG-Kodierung
 - PyMuPDF (`fitz`) für PDF-Bau und Vorschau-Rendering
 - Start: `python -m scorecap`. Optional später PyInstaller-EXE.
 
@@ -30,7 +30,8 @@ Jedes Modul hat eine Aufgabe und ist einzeln testbar.
 | Modul | Aufgabe | Kennt nicht |
 |---|---|---|
 | `model.py` | `Shot` (Pfad, Originalgröße, Crop-Rect), `Document` (Shot-Liste, Settings, Undo-Stack) | UI, Dateisystem, PDF |
-| `capture.py` | Globaler Hotkey, Auswahl-Overlay, liefert PNG-Pfad + Pixelgröße | Document, Layout |
+| `capture.py` | Auswahl-Overlay, Aufnahme, liefert PNG-Pfad + Pixelgröße | Document, Layout |
+| `hotkey.py` | Globaler Hotkey über Win32 `RegisterHotKey` | alles andere |
 | `layout.py` | `paginate(sizes, settings) -> list[Page]`, reine Funktion, Ergebnis in PDF-Punkten | Bilder, PDF, UI |
 | `pdf.py` | `build(pages, settings) -> bytes` — Bilder platzieren, Fußzeile zeichnen | UI |
 | `preview.py` | PDF-Bytes seitenweise zu QPixmap, scrollbare Seitenansicht | Layout-Regeln |
@@ -49,9 +50,10 @@ flüssig bleibt.
   `WM_HOTKEY`. Keine Extra-Abhängigkeit, kein Admin nötig. Standard: `Ctrl+Shift+S`.
 - Overlay: randloses Vollbildfenster über den gesamten virtuellen Desktop (alle
   Monitore), abgedunkelt, Fadenkreuz, Rechteck ziehen. `Esc` bricht ab.
-- Aufnahme mit `mss` in physischen Pixeln. Overlay-Koordinaten werden mit
-  `devicePixelRatio` umgerechnet, sonst verschiebt Windows-Skalierung (125/150 %)
-  den aufgenommenen Bereich.
+- Aufnahme über `QScreen.grabWindow()`. Qt rechnet logische Overlay-Koordinaten
+  selbst in physische Pixel um und liefert das Bild in voller Geräteauflösung, auch
+  bei Windows-Skalierung 125/150 %. Damit entfällt eigene `devicePixelRatio`-Mathematik
+  und eine Abhängigkeit.
 - Ergebnis als PNG in einem Session-Tempordner, beim Beenden gelöscht.
 
 ## Layout
@@ -59,11 +61,11 @@ flüssig bleibt.
 Ziel: gut druckbar und möglichst wenig Seiten.
 
 **Seitenmaß.** A4 = 595,3 × 841,9 pt. Ränder: 12 mm seitlich und oben, 15 mm unten
-(Platz für die Fußzeile). Inhaltsbereich ≈ 522 × 765 pt. Ränder in den Settings
+(Platz für die Fußzeile). Inhaltsbereich ≈ 527 × 765 pt. Ränder in den Settings
 änderbar.
 
 **Skalierung.** Jeder Shot wird auf volle Inhaltsbreite skaliert, Seitenverhältnis
-erhalten: `h = 522 * ih / iw`. Nie verzerren, nie beschneiden.
+erhalten: `h = 527 * ih / iw`. Nie verzerren, nie beschneiden.
 
 **Paginierung.**
 
@@ -77,6 +79,9 @@ erhalten: `h = 522 * ih / iw`. Nie verzerren, nie beschneiden.
    Lücken verteilt, gedeckelt bei 3× Mindestabstand. Die letzte Seite ist oben
    bündig mit Mindestabstand.
 5. Horizontal immer zentriert.
+6. Ausnahme Einzelbild: ist ein Shot allein schon höher als die Seite, wird er
+   trotzdem auf seiner eigenen Seite platziert und dafür so weit skaliert, wie
+   nötig — auch unter `s_min`. Sonst käme die Paginierung nicht voran.
 
 **Druck-Guard.** Pro Shot wird die effektive Auflösung berechnet
 (`dpi = iw / Zielbreite_in_Zoll`). Unter 120 dpi erscheint eine gelbe Warnung am
