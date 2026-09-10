@@ -19,6 +19,10 @@ python -m venv .venv
 
 - `Ctrl+Shift+S` (systemweit) öffnet das Auswahl-Overlay: Rechteck ziehen,
   loslassen. `Esc` bricht ab.
+- *Aufnahme vorbereiten* und *Neu aufnehmen* nehmen selbst noch kein Bild auf.
+  Sie stellen nur scharf: das Fenster geht aus dem Weg, du scrollst oder
+  wechselst in Ruhe zum richtigen Fenster, und erst der Hotkey dunkelt den
+  Bildschirm ab. Ein Hinweis am Cursor erinnert an den Hotkey.
 - **Serienaufnahme:** nach einer Aufnahme bleibt ScoreCap minimiert, der Browser
   behält den Fokus. Also: scrollen, Hotkey, ziehen, scrollen, Hotkey, … Ein
   kurzer Hinweis am Cursor zeigt, dass die Aufnahme saß. Zurück ins Fenster:

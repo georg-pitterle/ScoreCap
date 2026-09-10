@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Sequence
 
 from PySide6.QtCore import QEvent, QSettings, Qt, QTimer
-from PySide6.QtGui import QAction, QKeySequence
+from PySide6.QtGui import QAction, QCursor, QKeySequence
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QFileDialog,
@@ -74,8 +74,8 @@ class MainWindow(QMainWindow):
         self.preview = PreviewWidget()
         self.status = QLabel("Noch keine Aufnahme")
 
-        capture_button = QPushButton("Aufnehmen")
-        capture_button.clicked.connect(self.begin_capture)
+        capture_button = QPushButton("Aufnahme vorbereiten")
+        capture_button.clicked.connect(self.arm_capture)
         recapture_button = QPushButton("Neu aufnehmen")
         recapture_button.clicked.connect(self.recapture_selected)
         crop_button = QPushButton("Zuschneiden")
@@ -151,6 +151,11 @@ class MainWindow(QMainWindow):
         return self._pdf_bytes
 
     @property
+    def is_armed(self) -> bool:
+        """True while the window waits out of the way for the hotkey."""
+        return self._capturing
+
+    @property
     def is_dirty(self) -> bool:
         """True when shots changed but the preview has not caught up yet."""
         return self._dirty
@@ -212,24 +217,40 @@ class MainWindow(QMainWindow):
         self.document.add(shot)
         self.rebuild()
 
-    def begin_capture(self) -> None:
+    def arm_capture(self) -> None:
+        """Step aside and wait for the hotkey.
+
+        The button only gets out of the way; opening the overlay right here
+        would freeze the screen before the user has scrolled to the passage
+        they want.
+        """
         self._pending_replace = None
-        self._capturing = True
-        self.showMinimized()
-        self._overlay.start()
+        self._arm()
 
     def recapture_selected(self) -> None:
         index = self.shot_list.currentRow()
         if index < 0:
             return
         self._pending_replace = index
+        self._arm()
+
+    def _arm(self) -> None:
         self._capturing = True
         self.showMinimized()
+        self._hint(f"Bereit — {self.settings.hotkey} drücken")
+
+    def begin_capture(self) -> None:
+        """What the hotkey does: dim the screen and let the user drag."""
+        self._capturing = True
+        if not self.isMinimized():
+            self.showMinimized()
+        self._toast.hide()
         self._overlay.start()
 
     def finish_capture(self) -> None:
         """Leave capture mode: show the window again and catch up on rendering."""
         self._capturing = False
+        self._pending_replace = None
         self._toast.hide()
         self.showNormal()
         self.raise_()
@@ -266,11 +287,20 @@ class MainWindow(QMainWindow):
         super().changeEvent(event)
 
     def _show_toast(self, rect, text: str) -> None:
+        self._place_toast(text, rect.left(), rect.bottom() + TOAST_OFFSET_PX)
+        self._toast_timer.start()
+
+    def _hint(self, text: str) -> None:
+        """A hint that stays put - it tells the user what to press next."""
+        self._toast_timer.stop()
+        cursor = QCursor.pos()
+        self._place_toast(text, cursor.x() + TOAST_OFFSET_PX, cursor.y() + TOAST_OFFSET_PX)
+
+    def _place_toast(self, text: str, x: int, y: int) -> None:
         self._toast.setText(text)
         self._toast.adjustSize()
-        self._toast.move(rect.left(), rect.bottom() + TOAST_OFFSET_PX)
+        self._toast.move(x, y)
         self._toast.show()
-        self._toast_timer.start()
 
     def crop_selected(self) -> None:
         index = self.shot_list.currentRow()
