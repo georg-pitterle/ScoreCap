@@ -78,3 +78,27 @@ def test_restoring_from_the_taskbar_ends_capture_mode(window):
     window.showNormal()  # what clicking the taskbar button does
     assert window.is_dirty is False
     assert window.pdf_bytes != b""
+
+
+def test_capture_trims_the_white_margin(window, monkeypatch, tmp_path):
+    from PIL import Image, ImageDraw
+
+    from scorecap import app as app_module
+    from scorecap.model import Shot
+
+    path = tmp_path / "grabbed.png"
+    image = Image.new("RGB", (400, 200), (255, 255, 255))
+    ImageDraw.Draw(image).rectangle([50, 40, 349, 159], fill=(0, 0, 0))
+    image.save(path)
+    monkeypatch.setattr(
+        app_module, "grab", lambda rect, target: Shot(path=path, width=400, height=200)
+    )
+
+    window.begin_capture()
+    window._on_selected(QRect(0, 0, 400, 200))
+    shot = window.document.shots[0]
+    assert shot.crop == (48, 38, 352, 162)  # two pixels of padding
+
+    window.settings = window.settings.__class__(auto_trim=False)
+    window._on_selected(QRect(0, 0, 400, 200))
+    assert window.document.shots[1].crop is None

@@ -29,6 +29,18 @@ python -m venv .venv
 - Rechts die A4-Seiten, exakt so, wie sie exportiert werden.
 - *Als PDF exportieren* schreibt die Datei.
 
+## Weiße Ränder
+
+Jede Aufnahme wird beim Anlegen automatisch auf ihren Inhalt beschnitten: alles
+heller als 245 gilt als Hintergrund, um den Rest bleiben 2 px Luft. Beschnitten
+wird nur als Rechteck, die PNG-Datei bleibt unangetastet — *Zuschneiden →
+Zurücksetzen* holt den vollen Screenshot zurück, und ein selbst gezogener
+Zuschnitt wird nie überschrieben. Eine leere, ganz weiße Aufnahme bleibt wie sie
+ist. Abschaltbar in den Einstellungen.
+
+Das spart Seiten: zwölf Notenzeilen mit großzügigem Weißraum brauchen ohne Trim
+zwei Seiten, mit Trim eine.
+
 ## Layout
 
 Jede Aufnahme wird auf die Inhaltsbreite skaliert und untereinander gesetzt.

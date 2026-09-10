@@ -21,6 +21,9 @@ def test_roundtrip_keeps_every_field(store):
         footer_enabled=False,
         min_dpi=150.0,
         hotkey="Alt+F9",
+        auto_trim=False,
+        trim_threshold=200,
+        trim_padding_px=7,
     )
     save_settings(original, store)
     assert load_settings(store) == original
@@ -44,5 +47,7 @@ def test_dialog_returns_the_edited_settings(qapp):
     dialog = SettingsDialog(Settings())
     dialog._shrink_min.setValue(0.70)
     dialog._footer.setChecked(False)
+    dialog._auto_trim.setChecked(False)
     assert dialog.settings.shrink_min == pytest.approx(0.70)
     assert dialog.settings.footer_enabled is False
+    assert dialog.settings.auto_trim is False

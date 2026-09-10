@@ -75,6 +75,8 @@ class SettingsDialog(QDialog):
         self._min_dpi = _spin(settings.min_dpi, 0.0, 600.0, 10.0, 0)
         self._footer = QCheckBox("Seitenzahl als Fußzeile")
         self._footer.setChecked(settings.footer_enabled)
+        self._auto_trim = QCheckBox("Weiße Ränder automatisch abschneiden")
+        self._auto_trim.setChecked(settings.auto_trim)
         self._hotkey = QLineEdit(settings.hotkey)
 
         form = QFormLayout()
@@ -86,6 +88,7 @@ class SettingsDialog(QDialog):
         form.addRow("Warnschwelle dpi", self._min_dpi)
         form.addRow("Hotkey", self._hotkey)
         form.addRow(self._footer)
+        form.addRow(self._auto_trim)
 
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         buttons.accepted.connect(self.accept)
@@ -107,4 +110,7 @@ class SettingsDialog(QDialog):
             footer_enabled=self._footer.isChecked(),
             min_dpi=self._min_dpi.value(),
             hotkey=self._hotkey.text().strip() or self._base.hotkey,
+            auto_trim=self._auto_trim.isChecked(),
+            trim_threshold=self._base.trim_threshold,
+            trim_padding_px=self._base.trim_padding_px,
         )

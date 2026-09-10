@@ -21,29 +21,34 @@ Partitur ist geöffnet.
    Erwartet: keine neue Aufnahme, keine Fehlermeldung, Fenster kommt zurück.
 6. **Zu kleine Auswahl.** Hotkey drücken, nur wenige Pixel ziehen.
    Erwartet: keine neue Aufnahme, keine Fehlermeldung.
-7. **Seitenfüllung.** So viele Zeilen aufnehmen, bis eine zweite Seite beginnt.
+7. **Weißer Rand.** Bewusst großzügig um eine Notenzeile herum auswählen, mit
+   viel Weiß über und unter den Noten.
+   Erwartet: in der Vorschau sitzt die Zeile ohne den weißen Rand auf der Seite;
+   *Zuschneiden → Zurücksetzen* zeigt wieder den vollen Screenshot. Mit
+   abgeschaltetem Auto-Trim in den Einstellungen bleibt der Rand erhalten.
+8. **Seitenfüllung.** So viele Zeilen aufnehmen, bis eine zweite Seite beginnt.
    Erwartet: Seite eins ist gleichmäßig gefüllt, nichts überlappt, alle Bilder
    haben dieselbe Breite.
-8. **Umsortieren.** Einen Eintrag in der Liste an eine andere Position ziehen.
+9. **Umsortieren.** Einen Eintrag in der Liste an eine andere Position ziehen.
    Erwartet: Vorschau folgt der neuen Reihenfolge.
-9. **Neu aufnehmen.** Eintrag wählen, *Neu aufnehmen*, neues Rechteck ziehen.
+10. **Neu aufnehmen.** Eintrag wählen, *Neu aufnehmen*, neues Rechteck ziehen.
    Erwartet: Bild wird an derselben Listenposition ersetzt.
-10. **Zuschneiden.** Eintrag wählen, *Zuschneiden*, Rechteck ziehen, OK.
+11. **Zuschneiden.** Eintrag wählen, *Zuschneiden*, Rechteck ziehen, OK.
     Erwartet: Vorschau zeigt den beschnittenen Ausschnitt. *Zurücksetzen* stellt
     das volle Bild wieder her.
-11. **Löschen und Undo.** Eintrag löschen, dann `Strg+Z`.
+12. **Löschen und Undo.** Eintrag löschen, dann `Strg+Z`.
     Erwartet: Eintrag ist wieder da, an derselben Position.
-12. **Fußzeile.** In den Einstellungen die Fußzeile aus- und wieder einschalten.
+13. **Fußzeile.** In den Einstellungen die Fußzeile aus- und wieder einschalten.
     Erwartet: `1 von N` verschwindet und erscheint wieder, zentriert unten.
-13. **Export.** *Als PDF exportieren*, speichern, im PDF-Reader öffnen.
+14. **Export.** *Als PDF exportieren*, speichern, im PDF-Reader öffnen.
     Erwartet: Seiten sehen exakt aus wie die Vorschau, A4, sauber druckbar.
-14. **Export-Fehler.** Die exportierte Datei im Reader geöffnet lassen und
+15. **Export-Fehler.** Die exportierte Datei im Reader geöffnet lassen und
     erneut auf denselben Namen exportieren.
     Erwartet: Fehlerdialog, Anwendung läuft weiter, Aufnahmen bleiben erhalten.
-15. **HiDPI.** Auf einem Bildschirm mit 150 % Windows-Skalierung aufnehmen.
+16. **HiDPI.** Auf einem Bildschirm mit 150 % Windows-Skalierung aufnehmen.
     Erwartet: Ausschnitt entspricht genau dem gezogenen Rechteck, Bild ist
     scharf, bei normal gezoomtem Browser erscheint keine dpi-Warnung.
-16. **Aufräumen.** Anwendung schließen, `%TEMP%` prüfen.
+17. **Aufräumen.** Anwendung schließen, `%TEMP%` prüfen.
     Erwartet: der Ordner `scorecap-*` ist gelöscht.
 
 ## Automatisch bereits geprüft

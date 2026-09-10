@@ -31,6 +31,7 @@ from .layout import effective_dpi, paginate
 from .model import Document, Shot, normalize_move
 from .preview import PreviewWidget
 from .settingsdialog import SettingsDialog, load_settings, save_settings
+from .trim import auto_crop
 
 REBUILD_DELAY_MS = 150
 TOAST_MS = 900
@@ -237,7 +238,7 @@ class MainWindow(QMainWindow):
             self.rebuild()
 
     def _on_selected(self, rect) -> None:
-        shot = grab(rect, self._temp_dir)
+        shot = auto_crop(grab(rect, self._temp_dir), self.settings)
         replacing = self._pending_replace is not None
         if replacing:
             self.document.replace_shot(self._pending_replace, shot)

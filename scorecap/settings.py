@@ -19,6 +19,9 @@ class Settings:
     shrink_min: float = 0.85
     footer_enabled: bool = True
     min_dpi: float = 120.0
+    auto_trim: bool = True
+    trim_threshold: int = 245
+    trim_padding_px: int = 2
     hotkey: str = "Ctrl+Shift+S"
 
     @property
