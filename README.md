@@ -33,6 +33,16 @@ python -m venv .venv
 - Rechts die A4-Seiten, exakt so, wie sie exportiert werden.
 - *Als PDF exportieren* schreibt die Datei.
 
+## Oberfläche
+
+Die Palette kommt aus dem Notendruck: ein einziger Akzent im tiefen Ultramarin
+der Urtext-Ausgaben, warme Neutraltöne für die Flächen, und das einzige kräftige
+Schwarz auf dem Bildschirm sind die Noten selbst. Die Vorschau zeigt die Seiten
+als Druckfahne — Papier mit Blattkante auf dunkler Fläche, Seitenzahl im
+Bundsteg. Schrift ist Segoe UI Variable, Zahlen stehen in Cascadia Mono mit
+Tabellenziffern untereinander, Symbole kommen aus Segoe Fluent Icons. Hell und
+Dunkel folgen der Windows-Einstellung.
+
 ## Weiße Ränder
 
 Jede Aufnahme wird beim Anlegen automatisch auf ihren Inhalt beschnitten: alles

@@ -14,8 +14,10 @@ from PySide6.QtWidgets import (
 )
 
 from .model import Shot
+from .theme import LIGHT, Palette
 
-BORDER_COLOR = QColor(255, 90, 90)
+DIM = QColor(0, 0, 0, 120)
+HANDLE_PX = 7
 MIN_CROP_PX = 5
 
 
@@ -43,10 +45,16 @@ def widget_to_source(point: QPoint, display: QRect, source: QSize) -> QPoint:
 class _CropCanvas(QWidget):
     """Shows the shot scaled to fit and lets the user drag a rectangle on it."""
 
-    def __init__(self, pixmap: QPixmap, crop: tuple[int, int, int, int] | None) -> None:
+    def __init__(
+        self,
+        pixmap: QPixmap,
+        crop: tuple[int, int, int, int] | None,
+        palette: Palette,
+    ) -> None:
         super().__init__()
         self._pixmap = pixmap
         self._crop = crop
+        self._palette = palette
         self._start: QPoint | None = None
         self.setMinimumSize(480, 360)
         self.setCursor(Qt.CrossCursor)
@@ -64,22 +72,55 @@ class _CropCanvas(QWidget):
 
     def paintEvent(self, event) -> None:  # noqa: N802
         painter = QPainter(self)
+        painter.fillRect(self.rect(), QColor(self._palette.canvas))
         display = self._display()
         painter.drawPixmap(display, self._pixmap)
         if self._crop is None:
             return
+        selection = self._selection_rect(display)
+        # Dim what falls away, the same language the capture overlay speaks.
+        for outside in (
+            QRect(display.left(), display.top(), display.width(), selection.top() - display.top()),
+            QRect(
+                display.left(),
+                selection.bottom(),
+                display.width(),
+                display.bottom() - selection.bottom(),
+            ),
+            QRect(display.left(), selection.top(), selection.left() - display.left(), selection.height()),
+            QRect(
+                selection.right(),
+                selection.top(),
+                display.right() - selection.right(),
+                selection.height(),
+            ),
+        ):
+            painter.fillRect(outside, DIM)
+        painter.setPen(QPen(QColor(self._palette.accent), 1))
+        painter.setBrush(Qt.NoBrush)
+        painter.drawRect(selection)
+        painter.setBrush(QColor(self._palette.accent))
+        painter.setPen(Qt.NoPen)
+        for corner in (
+            selection.topLeft(),
+            selection.topRight(),
+            selection.bottomLeft(),
+            selection.bottomRight(),
+        ):
+            handle = QRect(0, 0, HANDLE_PX, HANDLE_PX)
+            handle.moveCenter(corner)
+            painter.drawRect(handle)
+
+    def _selection_rect(self, display: QRect) -> QRect:
         left, top, right, bottom = self._crop
         source = self._pixmap.size()
         scale_x = display.width() / source.width()
         scale_y = display.height() / source.height()
-        painter.setPen(QPen(BORDER_COLOR, 2))
-        painter.drawRect(
-            QRect(
-                display.x() + round(left * scale_x),
-                display.y() + round(top * scale_y),
-                round((right - left) * scale_x),
-                round((bottom - top) * scale_y),
-            )
+        return QRect(
+            display.x() + round(left * scale_x),
+            display.y() + round(top * scale_y),
+            round((right - left) * scale_x),
+            round((bottom - top) * scale_y),
         )
 
     def mousePressEvent(self, event) -> None:  # noqa: N802
@@ -108,13 +149,22 @@ class _CropCanvas(QWidget):
 
 
 class CropDialog(QDialog):
-    def __init__(self, shot: Shot, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        shot: Shot,
+        parent: QWidget | None = None,
+        palette: Palette = LIGHT,
+    ) -> None:
         super().__init__(parent)
         self.setWindowTitle("Zuschneiden")
-        self._canvas = _CropCanvas(QPixmap(str(shot.path)), shot.crop)
-        reset_button = QPushButton("Zurücksetzen")
+        self._canvas = _CropCanvas(QPixmap(str(shot.path)), shot.crop, palette)
+        reset_button = QPushButton("Ganzes Bild")
+        reset_button.setObjectName("Quiet")
+        reset_button.setToolTip("Zuschnitt verwerfen und den vollen Screenshot verwenden")
         reset_button.clicked.connect(self.reset)
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons.button(QDialogButtonBox.Ok).setText("Übernehmen")
+        buttons.button(QDialogButtonBox.Cancel).setText("Abbrechen")
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         row = QHBoxLayout()

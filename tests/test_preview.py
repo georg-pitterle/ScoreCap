@@ -53,3 +53,57 @@ def test_preview_widget_reports_its_page_count(tmp_path, qapp):
     assert widget.page_count == page_count
     widget.set_pdf(b"")
     assert widget.page_count == 0
+
+
+def test_fit_zoom_scales_a_page_into_the_viewport():
+    from scorecap.preview import MAX_ZOOM, MIN_ZOOM, fit_zoom
+
+    narrow = fit_zoom(500)
+    wide = fit_zoom(1100)
+    assert wide > narrow
+    assert MIN_ZOOM <= narrow <= MAX_ZOOM
+
+
+@pytest.mark.parametrize("viewport", [620, 900, 1100, 1600])
+def test_a_fitted_page_never_needs_horizontal_scrolling(viewport):
+    from scorecap.preview import fit_zoom, page_chrome_px
+
+    used = A4_WIDTH_PT * fit_zoom(viewport) + page_chrome_px()
+    assert used <= viewport + 0.5
+
+
+def test_fit_zoom_never_leaves_the_allowed_range():
+    from scorecap.preview import MAX_ZOOM, MIN_ZOOM, fit_zoom
+
+    assert fit_zoom(60) == MIN_ZOOM
+    assert fit_zoom(20000) == MAX_ZOOM
+
+
+def test_setting_a_zoom_turns_fit_mode_off(tmp_path, qapp):
+    from scorecap.preview import PreviewWidget
+
+    pdf_bytes, _ = make_pdf(tmp_path, 1)
+    widget = PreviewWidget()
+    widget.set_pdf(pdf_bytes)
+    assert widget.fits_width is True
+    widget.set_zoom(1.0)
+    assert widget.fits_width is False
+    assert widget.zoom == pytest.approx(1.0)
+    widget.fit_to_width()
+    assert widget.fits_width is True
+
+
+def test_each_page_gets_its_number_in_the_gutter(tmp_path, qapp):
+    from PySide6.QtWidgets import QLabel
+
+    from scorecap.preview import PreviewWidget
+
+    pdf_bytes, page_count = make_pdf(tmp_path, 4)
+    widget = PreviewWidget()
+    widget.set_pdf(pdf_bytes)
+    numbers = [
+        label.text()
+        for label in widget.findChildren(QLabel)
+        if label.objectName() == "PageNumber"
+    ]
+    assert numbers == [str(n) for n in range(1, page_count + 1)]

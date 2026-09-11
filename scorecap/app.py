@@ -1,4 +1,4 @@
-"""Main window: shot list on the left, live PDF preview on the right."""
+"""Main window: captures on the left, the printed proof on the right."""
 
 from __future__ import annotations
 
@@ -9,34 +9,35 @@ from typing import Sequence
 from PySide6.QtCore import QEvent, QSettings, Qt, QTimer
 from PySide6.QtGui import QAction, QCursor, QKeySequence
 from PySide6.QtWidgets import (
-    QAbstractItemView,
     QFileDialog,
     QHBoxLayout,
     QLabel,
-    QListWidget,
-    QListWidgetItem,
     QMainWindow,
     QMessageBox,
     QPushButton,
     QSplitter,
+    QStackedWidget,
     QVBoxLayout,
     QWidget,
 )
 
-from . import pdf
+from . import icons, pdf
 from .capture import SelectionOverlay, grab
 from .cropdialog import CropDialog
 from .hotkey import HotkeyFilter
-from .layout import effective_dpi, paginate
+from .layout import paginate
 from .model import Document, Shot, normalize_move
 from .preview import PreviewWidget
 from .settingsdialog import SettingsDialog, load_settings, save_settings
+from .shotlist import ShotList, row_data
+from .theme import Palette, palette_for, stylesheet, system_prefers_dark
 from .trim import auto_crop
 
 REBUILD_DELAY_MS = 150
 TOAST_MS = 900
 TOAST_MARGIN_PX = 8
 TOAST_OFFSET_PX = 12
+ZOOM_STEP = 1.25
 
 
 def usable_shots(shots: Sequence[Shot]) -> tuple[list[Shot], list[int]]:
@@ -55,10 +56,11 @@ class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("ScoreCap")
-        self.resize(1200, 850)
+        self.resize(1240, 880)
 
         self._store = QSettings("ScoreCap", "ScoreCap")
         self.settings = load_settings(self._store)
+        self.palette_tokens: Palette = palette_for(system_prefers_dark())
         self.document = Document()
         self._pdf_bytes = b""
         self._temp_dir = Path(tempfile.mkdtemp(prefix="scorecap-"))
@@ -66,48 +68,126 @@ class MainWindow(QMainWindow):
         self._capturing = False
         self._dirty = False
 
-        self.shot_list = QListWidget()
-        self.shot_list.setDragDropMode(QAbstractItemView.InternalMove)
-        self.shot_list.setSelectionMode(QAbstractItemView.SingleSelection)
+        self._build_ui()
+        self._build_capture_parts()
+        self.setStyleSheet(stylesheet(self.palette_tokens))
+
+    # --- construction ----------------------------------------------------
+
+    def _button(self, text: str, glyph: str, name: str = "Quiet") -> QPushButton:
+        button = QPushButton(text)
+        button.setObjectName(name)
+        button.setProperty("glyph", glyph)
+        self._apply_icon(button)
+        return button
+
+    def _apply_icon(self, button: QPushButton) -> None:
+        if not icons.available():
+            return
+        primary = button.objectName() == "Primary"
+        colour = self.palette_tokens.paper if primary else self.palette_tokens.text
+        button.setIcon(icons.icon(button.property("glyph"), colour))
+
+    def apply_palette(self, palette: Palette) -> None:
+        """Switch theme: stylesheet, icon colours and the painted widgets."""
+        self.palette_tokens = palette
+        self.setStyleSheet(stylesheet(palette))
+        for button in self.findChildren(QPushButton):
+            if button.property("glyph"):
+                self._apply_icon(button)
+        self.shot_list.set_palette(palette)
+        self.preview.set_palette(palette)
+        self._toast.setStyleSheet(
+            f"background: {palette.text}; color: {palette.app}; border-radius: 4px;"
+        )
+
+    def _build_ui(self) -> None:
+        self.capture_button = self._button("Aufnahme vorbereiten", icons.CAPTURE, "Primary")
+        self.capture_button.clicked.connect(self.arm_capture)
+        self.capture_button.setToolTip(
+            "Fenster tritt zur Seite; die Aufnahme startet erst mit dem Hotkey"
+        )
+        self.recapture_button = self._button("Neu aufnehmen", icons.RECAPTURE)
+        self.recapture_button.clicked.connect(self.recapture_selected)
+        self.crop_button = self._button("Zuschneiden", icons.CROP)
+        self.crop_button.clicked.connect(self.crop_selected)
+        self.delete_button = self._button("Löschen", icons.DELETE)
+        self.delete_button.clicked.connect(self.delete_selected)
+        self.settings_button = self._button("Einstellungen", icons.SETTINGS)
+        self.settings_button.clicked.connect(self.edit_settings)
+
+        toolbar = QWidget()
+        toolbar.setObjectName("Toolbar")
+        bar = QHBoxLayout(toolbar)
+        bar.setContentsMargins(12, 8, 12, 8)
+        bar.setSpacing(8)
+        bar.addWidget(self.capture_button)
+        bar.addSpacing(8)
+        for button in (self.recapture_button, self.crop_button, self.delete_button):
+            bar.addWidget(button)
+        bar.addStretch(1)
+        bar.addWidget(self.settings_button)
+
+        self.shot_list = ShotList(self.palette_tokens)
         self.shot_list.model().rowsMoved.connect(self._on_rows_moved)
+        self.shot_list.currentRowChanged.connect(self._update_actions)
 
-        self.preview = PreviewWidget()
+        self.empty_state = QLabel(
+            f"Noch nichts aufgenommen.\n\n{self.settings.hotkey} drücken, "
+            "dann den Bereich aufziehen."
+        )
+        self.empty_state.setObjectName("EmptyState")
+        self.empty_state.setAlignment(Qt.AlignCenter)
+        self.empty_state.setWordWrap(True)
+
+        self._list_stack = QStackedWidget()
+        self._list_stack.addWidget(self.empty_state)
+        self._list_stack.addWidget(self.shot_list)
+
+        heading = QLabel("Aufnahmen")
+        heading.setObjectName("Heading")
+
+        side = QWidget()
+        side.setObjectName("SidePanel")
+        side_layout = QVBoxLayout(side)
+        side_layout.setContentsMargins(12, 12, 12, 12)
+        side_layout.setSpacing(8)
+        side_layout.addWidget(heading)
+        side_layout.addWidget(self._list_stack, 1)
+
+        self.preview = PreviewWidget(self.palette_tokens)
+        preview_panel = QWidget()
+        preview_layout = QVBoxLayout(preview_panel)
+        preview_layout.setContentsMargins(0, 0, 0, 0)
+        preview_layout.setSpacing(0)
+        preview_layout.addWidget(self.preview, 1)
+        preview_layout.addWidget(self._build_zoom_bar())
+
+        splitter = QSplitter()
+        splitter.addWidget(side)
+        splitter.addWidget(preview_panel)
+        splitter.setStretchFactor(1, 1)
+        splitter.setSizes([320, 920])
+
         self.status = QLabel("Noch keine Aufnahme")
-
-        capture_button = QPushButton("Aufnahme vorbereiten")
-        capture_button.clicked.connect(self.arm_capture)
-        recapture_button = QPushButton("Neu aufnehmen")
-        recapture_button.clicked.connect(self.recapture_selected)
-        crop_button = QPushButton("Zuschneiden")
-        crop_button.clicked.connect(self.crop_selected)
-        delete_button = QPushButton("Löschen")
-        delete_button.clicked.connect(self.delete_selected)
-        settings_button = QPushButton("Einstellungen")
-        settings_button.clicked.connect(self.edit_settings)
-        self.export_button = QPushButton("Als PDF exportieren")
+        self.status.setObjectName("StatusText")
+        self.export_button = self._button("Als PDF exportieren", icons.EXPORT, "Primary")
         self.export_button.clicked.connect(self.export)
         self.export_button.setEnabled(False)
 
-        left = QVBoxLayout()
-        left.addWidget(capture_button)
-        left.addWidget(self.shot_list, 1)
-        for button in (recapture_button, crop_button, delete_button, settings_button):
-            left.addWidget(button)
-        left_panel = QWidget()
-        left_panel.setLayout(left)
-
-        splitter = QSplitter()
-        splitter.addWidget(left_panel)
-        splitter.addWidget(self.preview)
-        splitter.setStretchFactor(1, 1)
-
-        bottom = QHBoxLayout()
-        bottom.addWidget(self.status, 1)
-        bottom.addWidget(self.export_button)
+        status_bar = QWidget()
+        status_bar.setObjectName("StatusBar")
+        status_layout = QHBoxLayout(status_bar)
+        status_layout.setContentsMargins(12, 8, 12, 8)
+        status_layout.addWidget(self.status, 1)
+        status_layout.addWidget(self.export_button)
 
         root = QVBoxLayout()
+        root.setContentsMargins(0, 0, 0, 0)
+        root.setSpacing(0)
+        root.addWidget(toolbar)
         root.addWidget(splitter, 1)
-        root.addLayout(bottom)
+        root.addWidget(status_bar)
         container = QWidget()
         container.setLayout(root)
         self.setCentralWidget(container)
@@ -116,7 +196,35 @@ class MainWindow(QMainWindow):
         undo_action.setShortcut(QKeySequence.Undo)
         undo_action.triggered.connect(self.undo)
         self.addAction(undo_action)
+        self._update_actions()
 
+    def _build_zoom_bar(self) -> QWidget:
+        self.zoom_out_button = self._button("", icons.ZOOM_OUT)
+        self.zoom_out_button.setToolTip("Verkleinern")
+        self.zoom_out_button.clicked.connect(lambda: self._step_zoom(1 / ZOOM_STEP))
+        self.zoom_in_button = self._button("", icons.ZOOM_IN)
+        self.zoom_in_button.setToolTip("Vergrößern")
+        self.zoom_in_button.clicked.connect(lambda: self._step_zoom(ZOOM_STEP))
+        self.fit_button = self._button("Einpassen", icons.ZOOM_FIT)
+        self.fit_button.setCheckable(True)
+        self.fit_button.setChecked(True)
+        self.fit_button.clicked.connect(self._fit_width)
+        self.zoom_label = QLabel("100 %")
+        self.zoom_label.setObjectName("Numeric")
+
+        bar = QWidget()
+        bar.setObjectName("ZoomBar")
+        layout = QHBoxLayout(bar)
+        layout.setContentsMargins(12, 6, 12, 6)
+        layout.setSpacing(6)
+        layout.addStretch(1)
+        layout.addWidget(self.zoom_out_button)
+        layout.addWidget(self.zoom_label)
+        layout.addWidget(self.zoom_in_button)
+        layout.addWidget(self.fit_button)
+        return bar
+
+    def _build_capture_parts(self) -> None:
         self._overlay = SelectionOverlay()
         self._overlay.selected.connect(self._on_selected)
         self._overlay.cancelled.connect(self.finish_capture)
@@ -130,7 +238,9 @@ class MainWindow(QMainWindow):
         )
         self._toast.setMargin(TOAST_MARGIN_PX)
         self._toast.setStyleSheet(
-            "background: #202020; color: white; border-radius: 4px;"
+            f"background: {self.palette_tokens.text};"
+            f"color: {self.palette_tokens.app};"
+            "border-radius: 4px;"
         )
         self._toast_timer = QTimer(self)
         self._toast_timer.setSingleShot(True)
@@ -190,6 +300,7 @@ class MainWindow(QMainWindow):
         if missing:
             text += f", {len(missing)} Datei(en) fehlen"
         self.status.setText(text)
+        self._update_zoom_label()
         self._dirty = False
 
     def _refresh_list(self, shots: Sequence[Shot], missing: set[int]) -> None:
@@ -197,19 +308,33 @@ class MainWindow(QMainWindow):
         current = self.shot_list.currentRow()
         self.shot_list.clear()
         for index, shot in enumerate(shots):
-            width, height = shot.effective_size
-            label = f"{index + 1}. {width}x{height} px"
-            item = QListWidgetItem(label)
-            if index in missing:
-                item.setText(f"{label} — Datei fehlt")
-                item.setForeground(Qt.red)
-            elif effective_dpi(shot.effective_size, self.settings) < self.settings.min_dpi:
-                item.setText(f"{label} — niedrige Druckqualität")
-                item.setForeground(Qt.darkYellow)
-            self.shot_list.addItem(item)
+            self.shot_list.add_row(
+                row_data(index, shot, self.settings, missing=index in missing)
+            )
         if 0 <= current < self.shot_list.count():
             self.shot_list.setCurrentRow(current)
         self.shot_list.blockSignals(blocked)
+        self._list_stack.setCurrentWidget(
+            self.shot_list if shots else self.empty_state
+        )
+        self._update_actions()
+
+    def _update_actions(self, *_args) -> None:
+        has_selection = self.shot_list.currentRow() >= 0
+        for button in (self.recapture_button, self.crop_button, self.delete_button):
+            button.setEnabled(has_selection)
+
+    def _update_zoom_label(self) -> None:
+        self.zoom_label.setText(f"{round(self.preview.zoom * 100)} %")
+        self.fit_button.setChecked(self.preview.fits_width)
+
+    def _fit_width(self) -> None:
+        self.preview.fit_to_width()
+        self._update_zoom_label()
+
+    def _step_zoom(self, factor: float) -> None:
+        self.preview.set_zoom(self.preview.zoom * factor)
+        self._update_zoom_label()
 
     # --- actions ---------------------------------------------------------
 
@@ -306,7 +431,7 @@ class MainWindow(QMainWindow):
         index = self.shot_list.currentRow()
         if index < 0:
             return
-        dialog = CropDialog(self.document.shots[index], self)
+        dialog = CropDialog(self.document.shots[index], self, self.palette_tokens)
         if dialog.exec():
             self.document.set_crop(index, dialog.crop)
             self.rebuild()

@@ -42,3 +42,17 @@ def test_dialog_starts_with_the_existing_crop_and_can_reset(tmp_path, qapp):
     assert dialog.crop == (10, 10, 150, 90)
     dialog.reset()
     assert dialog.crop is None
+
+
+def test_dialog_buttons_speak_german(tmp_path, qapp):
+    from PySide6.QtWidgets import QPushButton
+
+    from scorecap.cropdialog import CropDialog
+
+    path = tmp_path / "a.png"
+    Image.new("RGB", (200, 100), (0, 0, 0)).save(path)
+    dialog = CropDialog(Shot(path=path, width=200, height=100))
+    labels = {b.text() for b in dialog.findChildren(QPushButton)}
+    assert "Abbrechen" in labels
+    assert "Übernehmen" in labels
+    assert not any(label in {"Cancel", "OK"} for label in labels)
