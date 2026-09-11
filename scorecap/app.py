@@ -6,7 +6,7 @@ import tempfile
 from pathlib import Path
 from typing import Sequence
 
-from PySide6.QtCore import QEvent, QSettings, Qt, QTimer
+from PySide6.QtCore import QEvent, QObject, QRunnable, QSettings, Qt, QThreadPool, QTimer, Signal
 from PySide6.QtGui import QAction, QCursor, QKeySequence
 from PySide6.QtWidgets import (
     QFileDialog,
@@ -32,12 +32,32 @@ from .settingsdialog import SettingsDialog, load_settings, save_settings
 from .shotlist import ShotList, row_data
 from .theme import Palette, palette_for, stylesheet, system_prefers_dark
 from .trim import auto_crop
+from .updater import PendingUpdate, UpdateService
 
 REBUILD_DELAY_MS = 150
 TOAST_MS = 900
 TOAST_MARGIN_PX = 8
 TOAST_OFFSET_PX = 12
 ZOOM_STEP = 1.25
+UPDATE_CHECK_DELAY_MS = 2000
+
+
+class _UpdateSignals(QObject):
+    found = Signal(object)
+
+
+class _UpdateCheck(QRunnable):
+    """Asks GitHub for a newer release without holding up the window."""
+
+    def __init__(self, service: UpdateService) -> None:
+        super().__init__()
+        self.signals = _UpdateSignals()
+        self._service = service
+
+    def run(self) -> None:
+        update = self._service.check()
+        if update is not None:
+            self.signals.found.emit(update)
 
 
 def usable_shots(shots: Sequence[Shot]) -> tuple[list[Shot], list[int]]:
@@ -171,6 +191,9 @@ class MainWindow(QMainWindow):
 
         self.status = QLabel("Noch keine Aufnahme")
         self.status.setObjectName("StatusText")
+        self.update_button = self._button("", icons.RECAPTURE)
+        self.update_button.clicked.connect(self._apply_update)
+        self.update_button.hide()
         self.export_button = self._button("Als PDF exportieren", icons.EXPORT, "Primary")
         self.export_button.clicked.connect(self.export)
         self.export_button.setEnabled(False)
@@ -180,6 +203,7 @@ class MainWindow(QMainWindow):
         status_layout = QHBoxLayout(status_bar)
         status_layout.setContentsMargins(12, 8, 12, 8)
         status_layout.addWidget(self.status, 1)
+        status_layout.addWidget(self.update_button)
         status_layout.addWidget(self.export_button)
 
         root = QVBoxLayout()
@@ -254,6 +278,11 @@ class MainWindow(QMainWindow):
 
         self._hotkey = HotkeyFilter(self.begin_capture)
 
+        self.updates = UpdateService()
+        self._pending_update: PendingUpdate | None = None
+        # Deferred so the first capture is never waiting on a network call.
+        QTimer.singleShot(UPDATE_CHECK_DELAY_MS, self.check_for_updates)
+
     # --- state -----------------------------------------------------------
 
     @property
@@ -327,6 +356,34 @@ class MainWindow(QMainWindow):
     def _update_zoom_label(self) -> None:
         self.zoom_label.setText(f"{round(self.preview.zoom * 100)} %")
         self.fit_button.setChecked(self.preview.fits_width)
+
+    # --- updates ---------------------------------------------------------
+
+    def _update_check_task(self) -> _UpdateCheck:
+        task = _UpdateCheck(self.updates)
+        task.signals.found.connect(self._on_update_found)
+        return task
+
+    def check_for_updates(self) -> None:
+        if not self.updates.is_available():
+            return  # running from source, or not installed
+        QThreadPool.globalInstance().start(self._update_check_task())
+
+    def _on_update_found(self, update: PendingUpdate) -> None:
+        self._pending_update = update
+        self.update_button.setText(f"Version {update.version} installieren")
+        self.update_button.setToolTip("Lädt die neue Version und startet ScoreCap neu")
+        self.update_button.show()
+
+    def _apply_update(self) -> None:
+        if self._pending_update is None:
+            return
+        if not self.updates.apply(self._pending_update):
+            self.status.setText(
+                "Update fehlgeschlagen — die Aufnahmen sind unberührt, "
+                "beim nächsten Start wird es erneut versucht."
+            )
+            self.update_button.hide()
 
     def _fit_width(self) -> None:
         self.preview.fit_to_width()
