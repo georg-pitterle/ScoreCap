@@ -4,16 +4,19 @@ version = "0.1.0"
 description = "Capture screen regions and tile them onto A4 pages as PDF"
 requires-python = ">=3.11"
 dependencies = [
-    "PySide6",
+    # Essentials only: the app uses QtCore, QtGui and QtWidgets. The addons
+    # (WebEngine, 3D, Multimedia, Charts) would only bloat the bundle.
+    "PySide6-Essentials",
     "PyMuPDF>=1.24",
     "Pillow",
+    "velopack",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "pytest-qt"]
+dev = ["pytest", "pytest-qt", "pyinstaller"]
 
 [project.scripts]
-scorecap = "scorecap.__main__:main"
+scorecap = "scorecap.cli:main"
 
 [build-system]
 requires = ["setuptools>=68"]

@@ -4,6 +4,8 @@ __pycache__/
 venv/
 dist/
 build/
-*.spec
+# ScoreCap.spec is hand-written and belongs in the repo.
 .pytest_cache/
 *.egg-info/
+Releases/
+selftest.txt

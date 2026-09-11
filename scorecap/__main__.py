@@ -1,21 +1,10 @@
-"""Entry point: python -m scorecap"""
+"""Entry point: python -m scorecap
 
-from __future__ import annotations
+Kept to a shim: PyInstaller skips modules named __main__, so the real work
+lives in scorecap.cli where both the module run and the bundle can reach it.
+"""
 
-import sys
-
-from PySide6.QtWidgets import QApplication
-
-from .app import MainWindow
-
-
-def main() -> int:
-    app = QApplication(sys.argv)
-    window = MainWindow()
-    window.install_hotkey(app)
-    window.show()
-    return app.exec()
-
+from .cli import main
 
 if __name__ == "__main__":
     raise SystemExit(main())
