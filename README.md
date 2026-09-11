@@ -139,3 +139,8 @@ permissions* muss „Allow GitHub Actions to create and approve pull requests"
 angehakt sein. GitHub verbietet das standardmäßig, und der Workflow scheitert
 sonst mit „GitHub Actions is not permitted to create or approve pull requests" —
 unabhängig davon, dass er `pull-requests: write` anfordert.
+
+Auf dem Release-PR selbst läuft bewusst keine CI: er enthält nur Versionssprung
+und Changelog, und der Release-Workflow testet ohnehin erneut, bevor er packt.
+GitHub hält Workflows aus Bot-PRs außerdem zur manuellen Freigabe zurück — so
+entfällt dieser Klick.
