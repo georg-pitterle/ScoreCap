@@ -133,3 +133,9 @@ Delta-Paket an das Release. Ein Tag wie `v1.4.0` bezeichnet damit unveränderlic
 den Stand, aus dem ein Paket entstanden ist.
 
 Vorabversionen laufen über Tags der Form `v1.4.0-beta.1`.
+
+**Einmalig einzustellen:** unter *Settings → Actions → General → Workflow
+permissions* muss „Allow GitHub Actions to create and approve pull requests"
+angehakt sein. GitHub verbietet das standardmäßig, und der Workflow scheitert
+sonst mit „GitHub Actions is not permitted to create or approve pull requests" —
+unabhängig davon, dass er `pull-requests: write` anfordert.

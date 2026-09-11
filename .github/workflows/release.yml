@@ -11,6 +11,12 @@ permissions:
 jobs:
   # Keeps a release PR open. Merging it is what cuts a release: it bumps the
   # version, writes the changelog, tags and creates the GitHub release.
+  #
+  # Needs a one-off repository setting on top of the permissions below:
+  # Settings -> Actions -> General -> Workflow permissions ->
+  # "Allow GitHub Actions to create and approve pull requests".
+  # Without it the step fails with "GitHub Actions is not permitted to create
+  # or approve pull requests", however the workflow permissions are declared.
   release-please:
     runs-on: ubuntu-latest
     outputs:
