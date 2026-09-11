@@ -56,9 +56,17 @@ jobs:
       - name: Self-test the bundle
         # Proves the packaged app really works - PyMuPDF data files, Pillow and
         # the Qt platform plugins - instead of only that the exe exists.
+        #
+        # Start-Process -Wait, because ScoreCap.exe is a windowed application:
+        # PowerShell does not wait for those and would read the report before
+        # it exists. timeout-minutes guards the other half of being windowed -
+        # an unexpected dialog would block rather than fail.
+        timeout-minutes: 5
         run: |
-          .\dist\ScoreCap\ScoreCap.exe --selftest selftest.txt
-          Get-Content selftest.txt
+          $run = Start-Process -FilePath .\dist\ScoreCap\ScoreCap.exe `
+            -ArgumentList '--selftest', 'selftest.txt' -Wait -PassThru
+          if (Test-Path selftest.txt) { Get-Content selftest.txt }
+          if ($run.ExitCode -ne 0) { throw "self-test failed with $($run.ExitCode)" }
 
       - uses: actions/setup-dotnet@v6
         with:

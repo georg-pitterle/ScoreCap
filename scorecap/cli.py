@@ -36,9 +36,17 @@ def _icon_path() -> Path:
 
 
 def _write_report(report: Path, lines: list[str]) -> None:
-    with report.open("w", encoding="utf-8") as handle:
-        for line in lines:
-            print(line, file=handle)
+    """Best effort: the exit code is the real channel, the file is a courtesy.
+
+    A windowed executable turns an unhandled exception into a dialog, which
+    would hang a build job rather than fail it.
+    """
+    try:
+        with report.open("w", encoding="utf-8") as handle:
+            for line in lines:
+                print(line, file=handle)
+    except OSError:
+        pass
 
 
 def _selftest(report: Path) -> int:
@@ -76,12 +84,11 @@ def _selftest(report: Path) -> int:
             raise RuntimeError("output is not a PDF")
 
         os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
-        app = QApplication(sys.argv[:1])
+        app = QApplication.instance() or QApplication(sys.argv[:1])
         from .app import MainWindow
 
         window = MainWindow()
         window.close()
-        app.quit()
         lines.append("qt: window constructed")
         lines.append("RESULT: ok")
         _write_report(report, lines)
