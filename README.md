@@ -48,7 +48,7 @@ Dunkel folgen der Windows-Einstellung.
 Jede Aufnahme wird beim Anlegen automatisch auf ihren Inhalt beschnitten: alles
 heller als 245 gilt als Hintergrund, um den Rest bleiben 2 px Luft. Beschnitten
 wird nur als Rechteck, die PNG-Datei bleibt unangetastet — *Zuschneiden →
-Zurücksetzen* holt den vollen Screenshot zurück, und ein selbst gezogener
+Ganzes Bild* holt den vollen Screenshot zurück, und ein selbst gezogener
 Zuschnitt wird nie überschrieben. Eine leere, ganz weiße Aufnahme bleibt wie sie
 ist. Abschaltbar in den Einstellungen.
 

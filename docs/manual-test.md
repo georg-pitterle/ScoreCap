@@ -31,7 +31,7 @@ Partitur ist geöffnet.
 9. **Weißer Rand.** Bewusst großzügig um eine Notenzeile herum auswählen, mit
    viel Weiß über und unter den Noten.
    Erwartet: in der Vorschau sitzt die Zeile ohne den weißen Rand auf der Seite;
-   *Zuschneiden → Zurücksetzen* zeigt wieder den vollen Screenshot. Mit
+   *Zuschneiden → Ganzes Bild* zeigt wieder den vollen Screenshot. Mit
    abgeschaltetem Auto-Trim in den Einstellungen bleibt der Rand erhalten.
 10. **Seitenfüllung.** So viele Zeilen aufnehmen, bis eine zweite Seite beginnt.
    Erwartet: Seite eins ist gleichmäßig gefüllt, nichts überlappt, alle Bilder
@@ -41,8 +41,8 @@ Partitur ist geöffnet.
 12. **Neu aufnehmen.** Eintrag wählen, *Neu aufnehmen*, neues Rechteck ziehen.
    Erwartet: Bild wird an derselben Listenposition ersetzt.
 13. **Zuschneiden.** Eintrag wählen, *Zuschneiden*, Rechteck ziehen, OK.
-    Erwartet: Vorschau zeigt den beschnittenen Ausschnitt. *Zurücksetzen* stellt
-    das volle Bild wieder her.
+    Erwartet: außerhalb der Auswahl dunkelt das Bild ab, die Vorschau zeigt den
+    beschnittenen Ausschnitt. *Ganzes Bild* stellt den vollen Screenshot wieder her.
 14. **Löschen und Undo.** Eintrag löschen, dann `Strg+Z`.
     Erwartet: Eintrag ist wieder da, an derselben Position.
 15. **Fußzeile.** In den Einstellungen die Fußzeile aus- und wieder einschalten.
