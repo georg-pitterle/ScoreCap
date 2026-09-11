@@ -2,18 +2,28 @@
 
 Bildschirmbereiche per Hotkey aufnehmen, bündig auf A4 stapeln, als PDF exportieren.
 
-## Installation
+## Installieren
+
+Unter [Releases](https://github.com/georg-pitterle/ScoreCap/releases) die Datei
+`ScoreCap-win-Setup.exe` laden und ausführen. Windows zeigt beim ersten Start
+„Der Computer wurde geschützt" — die Anwendung ist nicht signiert. Über *Weitere
+Informationen → Trotzdem ausführen* startet sie.
+
+ScoreCap prüft beim Start im Hintergrund, ob eine neuere Version vorliegt. Wenn
+ja, erscheint unten rechts ein Knopf *Version X installieren*; ein Klick lädt sie
+und startet das Programm neu. Ohne Klick passiert nichts, und ohne Internet
+passiert ebenfalls nichts Sichtbares.
+
+## Aus dem Quellcode starten
 
 ```bash
 python -m venv .venv
 .venv/Scripts/python.exe -m pip install -e ".[dev]"
-```
-
-## Starten
-
-```bash
 .venv/Scripts/python.exe -m scorecap
 ```
+
+So gestartet ist die Update-Prüfung stillgelegt — sie greift nur in einer
+installierten Fassung.
 
 ## Bedienung
 
@@ -76,7 +86,11 @@ neu aufnehmen.
 | `capture.py` | Auswahl-Overlay und Bildschirmaufnahme |
 | `hotkey.py` | systemweiter Hotkey über Win32 |
 | `cropdialog.py`, `settingsdialog.py` | Dialoge |
+| `shotlist.py` | Aufnahmeliste mit Vorschaubildern |
+| `theme.py`, `icons.py` | Farb- und Schrift-Tokens, Symbole |
+| `updater.py` | Selbst-Update über die GitHub-Releases |
 | `app.py` | Hauptfenster, verdrahtet alles |
+| `cli.py` | Start: Velopack-Übergabe, Symbol, Selbsttest |
 
 Vorschau und Export teilen sich denselben Renderpfad: gebaut wird immer ein PDF,
 die Vorschau zeigt genau dieses PDF. Was zu sehen ist, wird auch gedruckt.
@@ -89,3 +103,33 @@ die Vorschau zeigt genau dieses PDF. Was zu sehen ist, wird auch gedruckt.
 
 Der manuelle Abnahmetest steht in [docs/manual-test.md](docs/manual-test.md),
 Spec und Plan unter `docs/superpowers/`.
+
+## Paket bauen
+
+```bash
+.venv/Scripts/python.exe -m PyInstaller ScoreCap.spec --noconfirm
+dist/ScoreCap/ScoreCap.exe --selftest selftest.txt   # prüft das fertige Paket
+```
+
+Der Selbsttest baut im gepackten Zustand ein PDF und konstruiert das Fenster.
+Er findet genau die Fehler, die erst beim Paketieren entstehen — fehlende
+PyMuPDF-Daten, fehlende Qt-Plugins — und schreibt sein Ergebnis in die
+angegebene Datei, weil eine fensterbasierte Anwendung nichts ausgeben kann.
+
+Das Symbol entsteht aus der Palette: `.venv/Scripts/python.exe tools/make_icon.py`.
+
+## Wie ein Release entsteht
+
+`main` ist immer auslieferbar; es gibt keinen Entwicklungszweig. Bei jedem Push
+nach `main` aktualisiert [release-please](https://github.com/googleapis/release-please)
+einen offenen Release-PR: es sammelt die Commits seit dem letzten Release, leitet
+daraus die nächste Version ab (`fix:` → Patch, `feat:` → Minor, `feat!:` → Major)
+und schreibt den Changelog.
+
+Solange dieser PR offen liegt, ist nichts veröffentlicht. **Der Merge ist die
+Veröffentlichung**: er erzeugt Tag und Release, und erst dann baut der Workflow
+das Paket, prüft es mit dem Selbsttest und hängt Setup, portables ZIP und
+Delta-Paket an das Release. Ein Tag wie `v1.4.0` bezeichnet damit unveränderlich
+den Stand, aus dem ein Paket entstanden ist.
+
+Vorabversionen laufen über Tags der Form `v1.4.0-beta.1`.

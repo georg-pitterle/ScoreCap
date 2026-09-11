@@ -58,11 +58,38 @@ Partitur ist geöffnet.
 19. **Aufräumen.** Anwendung schließen, `%TEMP%` prüfen.
     Erwartet: der Ordner `scorecap-*` ist gelöscht.
 
+## Paket und Selbst-Update
+
+Diese Punkte gelten für die installierte Fassung, nicht für den Start aus dem
+Quellcode.
+
+1. **Installation.** `ScoreCap-win-Setup.exe` aus dem Release ausführen.
+   Erwartet: SmartScreen-Hinweis (unsigniert), nach *Trotzdem ausführen*
+   installiert sich die App nach `%LocalAppData%\ScoreCap` und startet.
+2. **Symbol.** Taskleiste und Startmenü ansehen.
+   Erwartet: blaues Notensymbol, nicht das Python-Standardsymbol.
+3. **Voller Durchlauf im Paket.** Aufnehmen, sortieren, zuschneiden, als PDF
+   exportieren.
+   Erwartet: identisch zum Start aus dem Quellcode.
+4. **Kein Update vorhanden.** App mit der neuesten Version starten.
+   Erwartet: kein Hinweis unten rechts, keine Fehlermeldung, keine Verzögerung
+   beim Öffnen des Fensters.
+5. **Update vorhanden.** Eine neuere Version veröffentlichen, dann die
+   installierte ältere starten.
+   Erwartet: nach wenigen Sekunden erscheint *Version X installieren*; ein Klick
+   lädt, startet neu, und die App meldet danach die neue Version.
+6. **Ohne Netz.** Netzwerk trennen und starten.
+   Erwartet: App läuft normal, kein Hinweis, kein Fehlerdialog.
+7. **Delta-Paket.** Im zweiten Release die angehängten Dateien prüfen.
+   Erwartet: eine `*-delta.nupkg` liegt bei — sonst hat der Schritt
+   *Fetch the previous release* nicht gegriffen und jedes Update lädt voll.
+
 ## Automatisch bereits geprüft
 
 - `RegisterHotKey` für `Ctrl+Shift+S` gibt gegen das laufende Windows `True`
   zurück und lässt sich wieder freigeben.
 - Fenster startet mit echter Qt-Windows-Plattform, zeigt sich und schließt
   sauber (Tempordner wird entfernt).
-- Bildplatzierung im PDF stimmt auf unter 1 pt mit dem berechneten Layout
-  überein; Punkte 1-14 decken das ab, was nur ein Mensch sehen kann.
+- Bildplatzierung im PDF stimmt auf unter 1 pt mit dem berechneten Layout überein.
+- Das gebaute Paket besteht seinen Selbsttest: PDF-Erzeugung und Fensteraufbau
+  laufen im gepackten Zustand.
