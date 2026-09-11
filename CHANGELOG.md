@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.1](https://github.com/georg-pitterle/ScoreCap/compare/v0.2.0...v0.2.1) (2026-09-11)
+
+
+### Bug Fixes
+
+* key the CI skip on the pull request author, not the branch name ([b716dd7](https://github.com/georg-pitterle/ScoreCap/commit/b716dd74832526bb4094b5548b6da24c09f3f280))
+* make the bundle self-test survive its own build step ([c702385](https://github.com/georg-pitterle/ScoreCap/commit/c70238598467e3573c27d0769dbac975514688ee))
+
 ## [0.2.0](https://github.com/georg-pitterle/ScoreCap/compare/v0.1.0...v0.2.0) (2026-09-11)
 
 
