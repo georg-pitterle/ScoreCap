@@ -105,6 +105,7 @@ class PreviewWidget(QScrollArea):
         self._fit = True
         self._pdf_bytes = b""
         self._page_count = 0
+        self._rebuilding = False
 
         self._container = QWidget()
         self._container.setObjectName("PreviewCanvas")
@@ -133,6 +134,16 @@ class PreviewWidget(QScrollArea):
         self._palette = palette
         self._rebuild()
 
+    def _fit_source_width(self) -> int:
+        """Width to fit into, measured so a scrollbar cannot change it.
+
+        The viewport narrows when the vertical scrollbar appears and widens
+        again while the pages are torn down for a rebuild. Fitting to that
+        number makes the zoom chase its own scrollbar forever, so measure the
+        scroll area instead - page_chrome_px() already reserves the bar.
+        """
+        return self.width() - 2 * self.frameWidth()
+
     def set_zoom(self, zoom: float) -> None:
         self._fit = False
         self._zoom = _clamp(zoom)
@@ -140,22 +151,23 @@ class PreviewWidget(QScrollArea):
 
     def fit_to_width(self) -> None:
         self._fit = True
-        self._zoom = fit_zoom(self.viewport().width())
+        self._zoom = fit_zoom(self._fit_source_width())
         self._rebuild()
 
     def set_pdf(self, pdf_bytes: bytes) -> None:
         self._pdf_bytes = pdf_bytes
         if self._fit:
-            self._zoom = fit_zoom(self.viewport().width())
+            self._zoom = fit_zoom(self._fit_source_width())
         self._rebuild()
 
     def resizeEvent(self, event) -> None:  # noqa: N802 (Qt naming)
         super().resizeEvent(event)
-        if self._fit:
-            new_zoom = fit_zoom(self.viewport().width())
-            if abs(new_zoom - self._zoom) > 0.01:
-                self._zoom = new_zoom
-                self._rebuild()
+        if not self._fit or self._rebuilding:
+            return
+        new_zoom = fit_zoom(self._fit_source_width())
+        if abs(new_zoom - self._zoom) > 0.01:
+            self._zoom = new_zoom
+            self._rebuild()
 
     def _clear(self) -> None:
         while self._layout.count():
@@ -165,8 +177,16 @@ class PreviewWidget(QScrollArea):
                 widget.deleteLater()
 
     def _rebuild(self) -> None:
-        self._clear()
-        images = render_pages(self._pdf_bytes, self._zoom)
-        self._page_count = len(images)
-        for number, image in enumerate(images, start=1):
-            self._layout.addWidget(PageView(image, number, self._palette), 0, Qt.AlignHCenter)
+        # Tearing down and re-adding pages resizes this widget; ignore the
+        # resize events that causes rather than rebuilding again.
+        self._rebuilding = True
+        try:
+            self._clear()
+            images = render_pages(self._pdf_bytes, self._zoom)
+            self._page_count = len(images)
+            for number, image in enumerate(images, start=1):
+                self._layout.addWidget(
+                    PageView(image, number, self._palette), 0, Qt.AlignHCenter
+                )
+        finally:
+            self._rebuilding = False
