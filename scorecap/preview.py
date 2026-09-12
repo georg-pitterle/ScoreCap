@@ -7,7 +7,7 @@ surface, with a soft shadow and the page number set in the gutter beside it.
 from __future__ import annotations
 
 import pymupdf
-from PySide6.QtCore import QRect, QSize, Qt
+from PySide6.QtCore import QRect, QSize, Qt, QTimer
 from PySide6.QtGui import QColor, QImage, QPainter, QPixmap
 from PySide6.QtWidgets import (
     QGraphicsDropShadowEffect,
@@ -26,6 +26,7 @@ GUTTER_PX = 34
 SHADOW_BLUR = 24
 SHADOW_MARGIN = 14
 SCROLLBAR_PX = 16
+RESIZE_SETTLE_MS = 120
 MIN_ZOOM = 0.35
 MAX_ZOOM = 3.0
 
@@ -73,8 +74,8 @@ class PageView(QWidget):
         super().__init__()
         label = QLabel()
         label.setObjectName("PageSheet")
-        label.setPixmap(QPixmap.fromImage(image))
-        label.setFixedSize(image.size())
+        self._sheet = label
+        self.set_image(image)
         shadow = QGraphicsDropShadowEffect(self)
         shadow.setBlurRadius(SHADOW_BLUR)
         shadow.setColor(QColor(0, 0, 0, 90))
@@ -95,6 +96,11 @@ class PageView(QWidget):
         row.addWidget(label, 0, Qt.AlignTop)
         row.addSpacing(GUTTER_PX + 12)  # mirror the number column
 
+    def set_image(self, image: QImage) -> None:
+        """Swap the rendered sheet in place; the widget itself stays."""
+        self._sheet.setPixmap(QPixmap.fromImage(image))
+        self._sheet.setFixedSize(image.size())
+
 
 class PreviewWidget(QScrollArea):
     def __init__(self, palette: Palette = LIGHT) -> None:
@@ -106,6 +112,12 @@ class PreviewWidget(QScrollArea):
         self._pdf_bytes = b""
         self._page_count = 0
         self._rebuilding = False
+        self._pages: list[PageView] = []
+        # A drag delivers dozens of resize events; render once it settles.
+        self._refit_timer = QTimer(self)
+        self._refit_timer.setSingleShot(True)
+        self._refit_timer.setInterval(RESIZE_SETTLE_MS)
+        self._refit_timer.timeout.connect(self._refit)
 
         self._container = QWidget()
         self._container.setObjectName("PreviewCanvas")
@@ -129,6 +141,9 @@ class PreviewWidget(QScrollArea):
     @property
     def fits_width(self) -> bool:
         return self._fit
+
+    def page_views(self) -> list[PageView]:
+        return list(self._pages)
 
     def set_palette(self, palette: Palette) -> None:
         self._palette = palette
@@ -162,31 +177,39 @@ class PreviewWidget(QScrollArea):
 
     def resizeEvent(self, event) -> None:  # noqa: N802 (Qt naming)
         super().resizeEvent(event)
-        if not self._fit or self._rebuilding:
-            return
+        if self._fit and not self._rebuilding:
+            self._refit_timer.start()  # restarts on every event of a drag
+
+    def _refit(self) -> None:
         new_zoom = fit_zoom(self._fit_source_width())
         if abs(new_zoom - self._zoom) > 0.01:
             self._zoom = new_zoom
             self._rebuild()
 
-    def _clear(self) -> None:
-        while self._layout.count():
-            item = self._layout.takeAt(0)
-            widget = item.widget()
-            if widget is not None:
-                widget.deleteLater()
-
     def _rebuild(self) -> None:
-        # Tearing down and re-adding pages resizes this widget; ignore the
-        # resize events that causes rather than rebuilding again.
+        """Bring the page widgets up to date without ever emptying the canvas.
+
+        Deleting every page and adding new ones leaves Qt at least one frame
+        with nothing on the canvas - visible as flicker whenever several
+        rebuilds follow each other, as they do while a window opens. Existing
+        pages get new pixmaps instead; only a changed page count adds or
+        removes widgets at the end.
+        """
+        # Swapping pixmaps resizes this widget; ignore the resize events that
+        # causes rather than scheduling another rebuild.
         self._rebuilding = True
         try:
-            self._clear()
             images = render_pages(self._pdf_bytes, self._zoom)
             self._page_count = len(images)
-            for number, image in enumerate(images, start=1):
-                self._layout.addWidget(
-                    PageView(image, number, self._palette), 0, Qt.AlignHCenter
-                )
+            for page, image in zip(self._pages, images):
+                page.set_image(image)
+            for number in range(len(self._pages) + 1, len(images) + 1):
+                page = PageView(images[number - 1], number, self._palette)
+                self._pages.append(page)
+                self._layout.addWidget(page, 0, Qt.AlignHCenter)
+            while len(self._pages) > len(images):
+                page = self._pages.pop()
+                self._layout.removeWidget(page)
+                page.deleteLater()
         finally:
             self._rebuilding = False
