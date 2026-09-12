@@ -18,6 +18,16 @@ def test_a_working_build_reports_ok(tmp_path, qapp):
     assert "qt: window constructed" in text
 
 
+def test_the_report_says_whether_velopack_sees_an_installation(tmp_path, qapp):
+    # From the source tree there is no installation, and no update check may
+    # reach out to the network - CI runs this very path.
+    report = tmp_path / "selftest.txt"
+    assert _selftest(report) == 0
+    text = report.read_text(encoding="utf-8")
+    assert "velopack: installed=False" in text
+    assert "newest=" not in text
+
+
 def test_an_unwritable_report_does_not_raise(qapp):
     # No dialog, no traceback: the exit code is the channel that matters.
     unwritable = Path("Z:/does-not-exist/scorecap/selftest.txt")

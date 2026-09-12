@@ -90,6 +90,20 @@ def _selftest(report: Path) -> int:
         window = MainWindow()
         window.close()
         lines.append("qt: window constructed")
+
+        # Makes an installed copy's update wiring observable from a script.
+        # Only an installed copy asks GitHub; the build job must stay offline.
+        from .updater import UpdateService
+
+        updates = UpdateService()
+        installed = updates.is_available()
+        lines.append(
+            f"velopack: installed={installed} current={updates.current_version()}"
+        )
+        if installed:
+            pending = updates.check()
+            newest = "up to date" if pending is None else pending.version
+            lines.append(f"velopack: newest={newest}")
         lines.append("RESULT: ok")
         _write_report(report, lines)
         return 0
