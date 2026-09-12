@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.4.0](https://github.com/georg-pitterle/ScoreCap/compare/v0.3.0...v0.4.0) (2026-09-12)
+
+
+### Features
+
+* download updates quietly and install them when the app closes ([b7fc670](https://github.com/georg-pitterle/ScoreCap/commit/b7fc67031295c4fba7c1793c2817e68c7008a4db))
+* log start-up and update diagnostics to a file ([59ce9e3](https://github.com/georg-pitterle/ScoreCap/commit/59ce9e37c865d840224dcaacec1d052054df7611))
+
+
+### Bug Fixes
+
+* stop the preview re-rendering on every step of a window resize ([23ab86a](https://github.com/georg-pitterle/ScoreCap/commit/23ab86ab544dd1e96e477a637fa0ba48d91a85f3))
+
 ## [0.3.0](https://github.com/georg-pitterle/ScoreCap/compare/v0.2.1...v0.3.0) (2026-09-12)
 
 
