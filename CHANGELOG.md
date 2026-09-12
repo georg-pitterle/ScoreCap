@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/georg-pitterle/ScoreCap/compare/v0.2.1...v0.3.0) (2026-09-12)
+
+
+### Features
+
+* report the Velopack installation state from the self-test ([f54b83a](https://github.com/georg-pitterle/ScoreCap/commit/f54b83abd3c0d5d403e28533213ed14d5e537546))
+
 ## [0.2.1](https://github.com/georg-pitterle/ScoreCap/compare/v0.2.0...v0.2.1) (2026-09-11)
 
 
