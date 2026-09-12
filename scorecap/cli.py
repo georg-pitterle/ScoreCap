@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
+import logging
 import sys
 from pathlib import Path
 
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
 
+from . import logs
 from ._version import __version__
 from .app import MainWindow
+
+log = logging.getLogger(__name__)
 
 
 def _start_velopack() -> None:
@@ -23,8 +27,9 @@ def _start_velopack() -> None:
         import velopack
 
         velopack.App().run()
-    except Exception:  # not installed, or velopack unavailable
-        pass
+        log.info("velopack hand-off done")
+    except Exception as error:  # not installed, or velopack unavailable
+        log.info("velopack hand-off skipped: %s", error)
 
 
 def _icon_path() -> Path:
@@ -121,6 +126,8 @@ def main() -> int:
         index = sys.argv.index("--selftest")
         target = sys.argv[index + 1] if len(sys.argv) > index + 1 else "selftest.txt"
         return _selftest(Path(target))
+    logs.configure(logs.log_path())
+    log.info("scorecap %s starting, argv=%s", __version__, sys.argv[1:])
     _start_velopack()
     app = QApplication(sys.argv)
     app.setApplicationName("ScoreCap")

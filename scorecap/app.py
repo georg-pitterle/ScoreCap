@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import tempfile
 from pathlib import Path
 from typing import Sequence
@@ -41,6 +42,8 @@ TOAST_OFFSET_PX = 12
 ZOOM_STEP = 1.25
 UPDATE_CHECK_DELAY_MS = 2000
 
+log = logging.getLogger(__name__)
+
 
 class _UpdateSignals(QObject):
     found = Signal(object)
@@ -55,7 +58,14 @@ class _UpdateCheck(QRunnable):
         self._service = service
 
     def run(self) -> None:
-        update = self._service.check()
+        # Runs on a pool thread: an exception here would otherwise vanish.
+        log.info("update check started")
+        try:
+            update = self._service.check()
+        except BaseException:  # noqa: BLE001 - logged, never raised into Qt
+            log.exception("update check crashed")
+            return
+        log.info("update check finished: %s", update.version if update else "up to date")
         if update is not None:
             self.signals.found.emit(update)
 
@@ -365,11 +375,14 @@ class MainWindow(QMainWindow):
         return task
 
     def check_for_updates(self) -> None:
-        if not self.updates.is_available():
+        available = self.updates.is_available()
+        log.info("updates available to this copy: %s", available)
+        if not available:
             return  # running from source, or not installed
         QThreadPool.globalInstance().start(self._update_check_task())
 
     def _on_update_found(self, update: PendingUpdate) -> None:
+        log.info("offering update to %s", update.version)
         self._pending_update = update
         self.update_button.setText(f"Version {update.version} installieren")
         self.update_button.setToolTip("Lädt die neue Version und startet ScoreCap neu")

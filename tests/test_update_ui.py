@@ -48,3 +48,15 @@ def test_checking_runs_off_the_ui_thread(window):
     from PySide6.QtCore import QRunnable
 
     assert isinstance(window._update_check_task(), QRunnable)
+
+
+def test_a_crashing_check_is_logged_not_lost(caplog):
+    from scorecap.app import _UpdateCheck
+
+    class Exploding:
+        def check(self):
+            raise RuntimeError("velopack blew up in the worker")
+
+    with caplog.at_level("INFO"):
+        _UpdateCheck(Exploding()).run()  # must not raise out of the thread
+    assert "velopack blew up in the worker" in caplog.text
