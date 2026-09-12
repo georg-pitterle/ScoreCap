@@ -24,6 +24,7 @@ class FakeManager:
         self._error = error
         self.downloaded: list = []
         self.restarted: list = []
+        self.on_exit: list = []
 
     def get_current_version(self):
         return self._current
@@ -38,6 +39,9 @@ class FakeManager:
 
     def apply_updates_and_restart(self, info):
         self.restarted.append(info)
+
+    def wait_exit_then_apply_updates(self, info, silent=False, restart=True):
+        self.on_exit.append((info, silent, restart))
 
 
 def service_with(manager) -> UpdateService:
@@ -82,25 +86,48 @@ def test_a_failing_check_is_swallowed():
     assert service.check() is None
 
 
-def test_applying_downloads_first_then_restarts():
-    manager = FakeManager(info=FakeInfo("0.2.0"))
+def test_download_hands_the_update_info_to_velopack():
+    manager = FakeManager(info=FakeInfo("0.3.0"))
     service = service_with(manager)
     update = service.check()
-    assert service.apply(update) is True
+    assert service.download(update) is True
     assert manager.downloaded == [update.raw]
-    assert manager.restarted == [update.raw]
+    assert manager.restarted == []  # downloading never restarts
 
 
-def test_a_failing_apply_reports_false_instead_of_raising():
+def test_a_failing_download_reports_false_instead_of_raising():
     class Broken(FakeManager):
         def download_updates(self, info):
             raise OSError("download interrupted")
 
-    manager = Broken(info=FakeInfo("0.2.0"))
+    service = service_with(Broken(info=FakeInfo("0.3.0")))
+    assert service.download(service.check()) is False
+
+
+def test_restart_into_applies_and_restarts():
+    manager = FakeManager(info=FakeInfo("0.3.0"))
     service = service_with(manager)
     update = service.check()
-    assert service.apply(update) is False
-    assert manager.restarted == []
+    assert service.restart_into(update) is True
+    assert manager.restarted == [update.raw]
+
+
+def test_install_on_exit_waits_silently_without_restarting():
+    # Closing the app is the user saying they are done; reopening it on
+    # their behalf would be the opposite.
+    manager = FakeManager(info=FakeInfo("0.3.0"))
+    service = service_with(manager)
+    update = service.check()
+    assert service.install_on_exit(update) is True
+    assert manager.on_exit == [(update.raw, True, False)]
+
+
+def test_nothing_is_applied_when_updates_are_unavailable():
+    service = failing_service(RuntimeError("not properly installed"))
+    update = PendingUpdate(version="0.3.0", raw=object())
+    assert service.download(update) is False
+    assert service.restart_into(update) is False
+    assert service.install_on_exit(update) is False
 
 
 def test_current_version_comes_from_the_manager():

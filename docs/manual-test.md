@@ -74,10 +74,16 @@ Quellcode.
 4. **Kein Update vorhanden.** App mit der neuesten Version starten.
    Erwartet: kein Hinweis unten rechts, keine Fehlermeldung, keine Verzögerung
    beim Öffnen des Fensters.
-5. **Update vorhanden.** Eine neuere Version veröffentlichen, dann die
-   installierte ältere starten.
-   Erwartet: nach wenigen Sekunden erscheint *Version X installieren*; ein Klick
-   lädt, startet neu, und die App meldet danach die neue Version.
+5. **Update vorhanden, beim Schließen.** Eine neuere Version veröffentlichen,
+   die installierte ältere starten, warten bis „ist bereit — wird beim
+   Schließen installiert" erscheint, App schließen, wieder öffnen.
+   Erwartet: die App ist jetzt die neue Version.
+   Per Skript prüfbar: `%LocalAppData%\ScoreCap\current\ScoreCap.exe --selftest out.txt`
+   meldet `velopack: installed=True current=<neue Version>`.
+5a. **Update vorhanden, sofort.** Wie oben, aber *Jetzt neu starten* klicken.
+   Erwartet: ohne Aufnahmen startet die App direkt neu in der neuen Version;
+   mit Aufnahmen erscheint vorher die Rückfrage, und *Nein* lässt alles, wie es
+   ist.
 6. **Ohne Netz.** Netzwerk trennen und starten.
    Erwartet: App läuft normal, kein Hinweis, kein Fehlerdialog.
 7. **Delta-Paket.** Im zweiten Release die angehängten Dateien prüfen.
@@ -93,3 +99,10 @@ Quellcode.
 - Bildplatzierung im PDF stimmt auf unter 1 pt mit dem berechneten Layout überein.
 - Das gebaute Paket besteht seinen Selbsttest: PDF-Erzeugung und Fensteraufbau
   laufen im gepackten Zustand.
+- Selbst-Update auf einer echten Installation durchgelaufen (0.2.1 → 0.3.0,
+  noch mit Klick-Knopf): die installierte Kopie meldet danach
+  `velopack: installed=True current=0.3.0`, Release v0.3.0 trägt ein
+  62-KB-Delta-Paket.
+- Laden und Anbieten über den Thread-Pool mit realistischer Dauer und
+  erzwungener Garbage Collection, einschließlich Schließen des Fensters
+  während eines laufenden Checks.

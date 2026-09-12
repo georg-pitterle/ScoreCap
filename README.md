@@ -9,10 +9,18 @@ Unter [Releases](https://github.com/georg-pitterle/ScoreCap/releases) die Datei
 „Der Computer wurde geschützt" — die Anwendung ist nicht signiert. Über *Weitere
 Informationen → Trotzdem ausführen* startet sie.
 
-ScoreCap prüft beim Start im Hintergrund, ob eine neuere Version vorliegt. Wenn
-ja, erscheint unten rechts ein Knopf *Version X installieren*; ein Klick lädt sie
-und startet das Programm neu. Ohne Klick passiert nichts, und ohne Internet
-passiert ebenfalls nichts Sichtbares.
+ScoreCap prüft beim Start im Hintergrund, ob eine neuere Version vorliegt, und
+lädt sie still herunter. Ist sie da, steht unten rechts „Version X ist bereit —
+wird beim Schließen installiert", daneben *Jetzt neu starten*.
+
+- **Nichts tun:** beim nächsten Schließen installiert sich das Update, der
+  folgende Start ist die neue Version.
+- ***Jetzt neu starten*:** sofort umsteigen. Liegen Aufnahmen vor, fragt ScoreCap
+  vorher nach — sie liegen nur in einem temporären Ordner und gehen bei einem
+  Neustart verloren, wenn sie nicht als PDF exportiert sind.
+
+Ohne Internet oder bei einem Fehler passiert nichts Sichtbares. Was geschehen
+ist, steht in `%LocalAppData%\ScoreCap\logs\scorecap.log`.
 
 ## Aus dem Quellcode starten
 

@@ -46,15 +46,33 @@ log = logging.getLogger(__name__)
 
 
 class _UpdateSignals(QObject):
+    """Created on the UI thread and parented to the window.
+
+    A QRunnable is not a QObject and nothing keeps its Python wrapper alive
+    once the pool has it, so signals owned by the task itself can be
+    collected mid-run - the result then vanishes with "Signal source has been
+    deleted". Owned by the window, they live exactly as long as the receiver.
+    """
+
     found = Signal(object)
+    done = Signal(object, bool)
+    finished = Signal()
+
+
+def _emit(signal, *args) -> None:
+    """Deliver a result unless the window is already gone."""
+    try:
+        signal.emit(*args)
+    except RuntimeError:
+        log.info("window closed before a background result arrived")
 
 
 class _UpdateCheck(QRunnable):
     """Asks GitHub for a newer release without holding up the window."""
 
-    def __init__(self, service: UpdateService) -> None:
+    def __init__(self, service: UpdateService, signals: _UpdateSignals | None = None) -> None:
         super().__init__()
-        self.signals = _UpdateSignals()
+        self.signals = signals or _UpdateSignals()
         self._service = service
 
     def run(self) -> None:
@@ -64,10 +82,38 @@ class _UpdateCheck(QRunnable):
             update = self._service.check()
         except BaseException:  # noqa: BLE001 - logged, never raised into Qt
             log.exception("update check crashed")
-            return
-        log.info("update check finished: %s", update.version if update else "up to date")
+            update = None
+        else:
+            log.info(
+                "update check finished: %s", update.version if update else "up to date"
+            )
         if update is not None:
-            self.signals.found.emit(update)
+            _emit(self.signals.found, update)
+        _emit(self.signals.finished)
+
+
+class _UpdateDownload(QRunnable):
+    """Fetches an update in the background; reports success either way."""
+
+    def __init__(
+        self,
+        service: UpdateService,
+        update: PendingUpdate,
+        signals: _UpdateSignals | None = None,
+    ) -> None:
+        super().__init__()
+        self.signals = signals or _UpdateSignals()
+        self._service = service
+        self._update = update
+
+    def run(self) -> None:
+        try:
+            ok = bool(self._service.download(self._update))
+        except BaseException:  # noqa: BLE001 - logged, never raised into Qt
+            log.exception("update download crashed")
+            ok = False
+        _emit(self.signals.done, self._update, ok)
+        _emit(self.signals.finished)
 
 
 def usable_shots(shots: Sequence[Shot]) -> tuple[list[Shot], list[int]]:
@@ -201,8 +247,11 @@ class MainWindow(QMainWindow):
 
         self.status = QLabel("Noch keine Aufnahme")
         self.status.setObjectName("StatusText")
-        self.update_button = self._button("", icons.RECAPTURE)
-        self.update_button.clicked.connect(self._apply_update)
+        self.update_label = QLabel()
+        self.update_label.setObjectName("StatusText")
+        self.update_label.hide()
+        self.update_button = self._button("Jetzt neu starten", icons.RECAPTURE, "Primary")
+        self.update_button.clicked.connect(self._restart_into_update)
         self.update_button.hide()
         self.export_button = self._button("Als PDF exportieren", icons.EXPORT, "Primary")
         self.export_button.clicked.connect(self.export)
@@ -213,6 +262,7 @@ class MainWindow(QMainWindow):
         status_layout = QHBoxLayout(status_bar)
         status_layout.setContentsMargins(12, 8, 12, 8)
         status_layout.addWidget(self.status, 1)
+        status_layout.addWidget(self.update_label)
         status_layout.addWidget(self.update_button)
         status_layout.addWidget(self.export_button)
 
@@ -289,7 +339,10 @@ class MainWindow(QMainWindow):
         self._hotkey = HotkeyFilter(self.begin_capture)
 
         self.updates = UpdateService()
-        self._pending_update: PendingUpdate | None = None
+        self._ready_update: PendingUpdate | None = None
+        self._restarting = False
+        # Keeps each background task's wrapper alive until it has reported.
+        self._running_tasks: set[QRunnable] = set()
         # Deferred so the first capture is never waiting on a network call.
         QTimer.singleShot(UPDATE_CHECK_DELAY_MS, self.check_for_updates)
 
@@ -369,10 +422,15 @@ class MainWindow(QMainWindow):
 
     # --- updates ---------------------------------------------------------
 
-    def _update_check_task(self) -> _UpdateCheck:
-        task = _UpdateCheck(self.updates)
-        task.signals.found.connect(self._on_update_found)
+    def _track(self, task: QRunnable) -> QRunnable:
+        self._running_tasks.add(task)
+        task.signals.finished.connect(lambda: self._running_tasks.discard(task))
         return task
+
+    def _update_check_task(self) -> _UpdateCheck:
+        signals = _UpdateSignals(self)
+        signals.found.connect(self._on_update_found)
+        return self._track(_UpdateCheck(self.updates, signals))
 
     def check_for_updates(self) -> None:
         available = self.updates.is_available()
@@ -382,21 +440,59 @@ class MainWindow(QMainWindow):
         QThreadPool.globalInstance().start(self._update_check_task())
 
     def _on_update_found(self, update: PendingUpdate) -> None:
-        log.info("offering update to %s", update.version)
-        self._pending_update = update
-        self.update_button.setText(f"Version {update.version} installieren")
-        self.update_button.setToolTip("Lädt die neue Version und startet ScoreCap neu")
+        log.info("downloading update %s", update.version)
+        self.update_label.setText(f"Version {update.version} wird geladen …")
+        self.update_label.show()
+        self._start_download(update)
+
+    def _start_download(self, update: PendingUpdate) -> None:
+        signals = _UpdateSignals(self)
+        signals.done.connect(self._on_update_downloaded)
+        task = self._track(_UpdateDownload(self.updates, update, signals))
+        QThreadPool.globalInstance().start(task)
+
+    def _on_update_downloaded(self, update: PendingUpdate, ok: bool) -> None:
+        if not ok:
+            # Stay quiet; the next start tries again.
+            self.update_label.hide()
+            self.update_button.hide()
+            return
+        log.info("update %s ready", update.version)
+        self._ready_update = update
+        self.update_label.setText(
+            f"Version {update.version} ist bereit — wird beim Schließen installiert"
+        )
+        self.update_label.show()
+        self.update_button.setToolTip(
+            f"Startet ScoreCap sofort in Version {update.version}"
+        )
         self.update_button.show()
 
-    def _apply_update(self) -> None:
-        if self._pending_update is None:
+    def _restart_into_update(self) -> None:
+        update = self._ready_update
+        if update is None:
             return
-        if not self.updates.apply(self._pending_update):
-            self.status.setText(
-                "Update fehlgeschlagen — die Aufnahmen sind unberührt, "
-                "beim nächsten Start wird es erneut versucht."
+        shots = len(self.document.shots)
+        if shots:
+            # Captures live in a temporary folder and do not survive a restart.
+            answer = QMessageBox.question(
+                self,
+                "Jetzt neu starten?",
+                f"ScoreCap startet in Version {update.version} neu. "
+                f"{'Die Aufnahme geht' if shots == 1 else f'Die {shots} Aufnahmen gehen'} "
+                "dabei verloren, wenn sie nicht als PDF exportiert sind.\n\n"
+                "Ohne Neustart wird das Update beim Schließen installiert.",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
             )
-            self.update_button.hide()
+            if answer != QMessageBox.StandardButton.Yes:
+                return
+        self._restarting = True
+        if not self.updates.restart_into(update):
+            self._restarting = False
+            self.update_label.setText(
+                "Neustart nicht möglich — das Update wird beim Schließen installiert"
+            )
 
     def _fit_width(self) -> None:
         self.preview.fit_to_width()
@@ -549,6 +645,8 @@ class MainWindow(QMainWindow):
             self.status.setText(f"Exportiert: {name}")
 
     def closeEvent(self, event) -> None:  # noqa: N802
+        if self._ready_update is not None and not self._restarting:
+            self.updates.install_on_exit(self._ready_update)
         # The overlay is deliberately parentless (a child window would be
         # hidden along with the minimised main window), so close it by hand.
         self._overlay.hide()

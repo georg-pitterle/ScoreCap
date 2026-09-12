@@ -80,15 +80,44 @@ class UpdateService:
             return None
         return PendingUpdate(version=str(info.TargetFullRelease.Version), raw=info)
 
-    def apply(self, update: PendingUpdate) -> bool:
-        """Download and restart into the new version. True if it got that far."""
+    def download(self, update: PendingUpdate) -> bool:
+        """Fetch the update into the packages folder. Never restarts anything."""
         manager = self._get_manager()
         if manager is None or update is None:
             return False
         try:
             manager.download_updates(update.raw)
+        except Exception as error:
+            log.warning("update %s could not be downloaded: %s", update.version, error)
+            return False
+        log.info("update %s downloaded", update.version)
+        return True
+
+    def restart_into(self, update: PendingUpdate) -> bool:
+        """Apply a downloaded update and restart. True if it got that far."""
+        manager = self._get_manager()
+        if manager is None or update is None:
+            return False
+        try:
             manager.apply_updates_and_restart(update.raw)
         except Exception as error:
-            log.warning("update could not be applied: %s", error)
+            log.warning("update %s could not be applied: %s", update.version, error)
             return False
+        return True
+
+    def install_on_exit(self, update: PendingUpdate) -> bool:
+        """Have Velopack apply the update once this process has exited.
+
+        Silent and without a restart: closing the app means the user is done,
+        so reopening it for them would be the opposite of what they asked.
+        """
+        manager = self._get_manager()
+        if manager is None or update is None:
+            return False
+        try:
+            manager.wait_exit_then_apply_updates(update.raw, silent=True, restart=False)
+        except Exception as error:
+            log.warning("update %s could not be scheduled: %s", update.version, error)
+            return False
+        log.info("update %s will be installed on exit", update.version)
         return True
