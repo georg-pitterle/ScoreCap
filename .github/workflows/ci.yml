@@ -9,9 +9,11 @@ jobs:
   test:
     # Skip the release PR. It only carries a version bump and the changelog,
     # and the release workflow runs the suite again before it packages
-    # anything. GitHub also holds workflows from github-actions[bot] pull
-    # requests for manual approval, so this avoids a pointless click per
-    # release.
+    # anything.
+    #
+    # This does not remove GitHub's approval prompt on that PR: runs triggered
+    # by github-actions[bot] are held before job conditions are evaluated. The
+    # prompt blocks nothing - the PR merges without approving it.
     #
     # Keyed on the pull request author, never on the branch name: anyone can
     # name a branch 'release-please--...' and would otherwise get a pull

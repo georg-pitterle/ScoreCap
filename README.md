@@ -148,7 +148,14 @@ angehakt sein. GitHub verbietet das standardmäßig, und der Workflow scheitert
 sonst mit „GitHub Actions is not permitted to create or approve pull requests" —
 unabhängig davon, dass er `pull-requests: write` anfordert.
 
-Auf dem Release-PR selbst läuft bewusst keine CI: er enthält nur Versionssprung
-und Changelog, und der Release-Workflow testet ohnehin erneut, bevor er packt.
-GitHub hält Workflows aus Bot-PRs außerdem zur manuellen Freigabe zurück — so
-entfällt dieser Klick.
+Auf dem Release-PR selbst laufen bewusst keine Tests: er enthält nur
+Versionssprung und Changelog, und der Release-Workflow testet ohnehin erneut,
+bevor er packt. GitHub zeigt dort trotzdem „workflow awaiting approval", weil es
+Läufe aus Bot-PRs vor jeder Job-Bedingung zurückhält. Das blockiert nichts — der
+PR lässt sich ohne Freigabe mergen.
+
+Das Release entsteht zunächst als **Entwurf** und wird erst veröffentlicht,
+wenn Setup, Pakete und Update-Feed angehängt sind. Sonst wäre es für die Minuten
+des Builds öffentlich die neueste Version, ohne dass installierte Kopien sich
+darauf aktualisieren könnten — und ein gescheiterter Build hinterließe ein leeres
+Release.

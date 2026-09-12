@@ -5,8 +5,12 @@
       "release-type": "python",
       "package-name": "scorecap",
       "changelog-path": "CHANGELOG.md",
-      "extra-files": ["scorecap/_version.py"],
-      "include-component-in-tag": false
+      "extra-files": [
+        "scorecap/_version.py"
+      ],
+      "include-component-in-tag": false,
+      "draft": true,
+      "force-tag-creation": true
     }
   }
 }

@@ -12,6 +12,12 @@ jobs:
   # Keeps a release PR open. Merging it is what cuts a release: it bumps the
   # version, writes the changelog, tags and creates the GitHub release.
   #
+  # The release is created as a draft (see release-please-config.json) and
+  # only published by the build job once its packages are attached. Otherwise
+  # it is public as the newest version for the minutes the build takes, without
+  # the update feed: an installed copy starting in that window finds nothing,
+  # and a failed build leaves an empty release behind.
+  #
   # Needs a one-off repository setting on top of the permissions below:
   # Settings -> Actions -> General -> Workflow permissions ->
   # "Allow GitHub Actions to create and approve pull requests".
@@ -100,3 +106,10 @@ jobs:
         run: |
           $files = Get-ChildItem Releases -File | ForEach-Object { $_.FullName }
           gh release upload ${{ needs.release-please.outputs.tag_name }} $files --clobber
+
+      - name: Publish the release
+        # Last step on purpose: installed copies see the new version only now,
+        # when everything they need to update is already there.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit ${{ needs.release-please.outputs.tag_name }} --draft=false --latest
