@@ -63,6 +63,9 @@ Reihenfolge und den Zuschnitten. *Öffnen …* (`Strg+O`) holt sie zurück, um
 weiterzuarbeiten oder neu zu exportieren; *Speichern unter* liegt auf `F12`
 (`Strg+Umschalt+S` ist der Aufnahme-Hotkey).
 
+Die Dateidialoge öffnen im zuletzt benutzten Ordner, getrennt nach Projekten,
+Scans und PDFs, auch nach einem Neustart.
+
 Ungespeicherte Aufnahmen gehen nicht still verloren: Beim Schließen, beim
 Öffnen eines anderen Projekts und beim Update-Neustart fragt ScoreCap
 „Speichern / Nicht speichern / Abbrechen". Die Titelleiste zeigt Projektname

@@ -76,6 +76,11 @@ class _ScanSignals(QObject):
     finished = Signal()
 
 
+def settings_store() -> QSettings:
+    """Where settings and remembered folders live: the user's registry."""
+    return QSettings("ScoreCap", "ScoreCap")
+
+
 def _attach_debugger_to_this_thread() -> None:
     """Let breakpoints fire in a Qt pool thread.
 
@@ -238,7 +243,7 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("ScoreCap")
         self.resize(1240, 880)
 
-        self._store = QSettings("ScoreCap", "ScoreCap")
+        self._store = settings_store()
         self.settings = load_settings(self._store)
         self.palette_tokens: Palette = palette_for(system_prefers_dark())
         self.document = Document()
@@ -644,12 +649,25 @@ class MainWindow(QMainWindow):
         self.document.add(shot)
         self.rebuild()
 
+    # --- remembered folders ----------------------------------------------
+
+    def _last_folder(self, kind: str) -> str:
+        """The folder a file dialog of this kind was last used in, if it still exists."""
+        folder = self._store.value(f"last_folder/{kind}")
+        if not folder or not Path(str(folder)).is_dir():
+            return ""
+        return str(folder)
+
+    def _remember_folder(self, kind: str, path: Path) -> None:
+        self._store.setValue(f"last_folder/{kind}", str(path.parent))
+
     def choose_scans(self) -> None:
         patterns = " ".join(f"*{suffix}" for suffix in sorted(SCAN_SUFFIXES))
         names, _ = QFileDialog.getOpenFileNames(
-            self, "Scans importieren", "", f"Scans ({patterns})"
+            self, "Scans importieren", self._last_folder("scans"), f"Scans ({patterns})"
         )
         if names:
+            self._remember_folder("scans", Path(names[0]))
             self.import_files([Path(name) for name in names])
 
     @property
@@ -832,11 +850,12 @@ class MainWindow(QMainWindow):
 
     def shrink_pdf(self) -> None:
         name, _ = QFileDialog.getOpenFileName(
-            self, "PDF verkleinern", "", "PDF (*.pdf)"
+            self, "PDF verkleinern", self._last_folder("pdf"), "PDF (*.pdf)"
         )
         if not name:
             return
         source = Path(name)
+        self._remember_folder("pdf", source)
         target_name, _ = QFileDialog.getSaveFileName(
             self, "Verkleinerte Kopie speichern", str(shrunk_name(source)), "PDF (*.pdf)"
         )
@@ -908,6 +927,7 @@ class MainWindow(QMainWindow):
         save_project(path, usable)
         self._project_path = path
         self._saved_revision = self.document.revision
+        self._remember_folder("project", path)
         self._update_title()
         self.status.setText(f"Gespeichert: {path.name}")
 
@@ -917,7 +937,8 @@ class MainWindow(QMainWindow):
         return self._save_reporting(self._project_path)
 
     def save_as(self) -> bool:
-        suggestion = self._project_path or Path.home() / f"Partitur{SUFFIX}"
+        folder = self._last_folder("project") or str(Path.home())
+        suggestion = self._project_path or Path(folder) / f"Partitur{SUFFIX}"
         name, _ = QFileDialog.getSaveFileName(
             self, "Projekt speichern", str(suggestion), f"ScoreCap-Projekt (*{SUFFIX})"
         )
@@ -940,7 +961,7 @@ class MainWindow(QMainWindow):
         if not self._confirm_discard():
             return
         name, _ = QFileDialog.getOpenFileName(
-            self, "Projekt öffnen", "", f"ScoreCap-Projekt (*{SUFFIX})"
+            self, "Projekt öffnen", self._last_folder("project"), f"ScoreCap-Projekt (*{SUFFIX})"
         )
         if name:
             self.load_from(Path(name))
@@ -954,6 +975,7 @@ class MainWindow(QMainWindow):
         self.document.replace_all(shots)
         self._project_path = path
         self._saved_revision = self.document.revision
+        self._remember_folder("project", path)
         self.rebuild()
         self.status.setText(f"Geöffnet: {path.name}")
 
@@ -961,8 +983,12 @@ class MainWindow(QMainWindow):
         path.write_bytes(self._pdf_bytes)
 
     def export(self) -> None:
+        stem = self._project_path.stem if self._project_path else "noten"
+        folder = self._last_folder("pdf") or (
+            str(self._project_path.parent) if self._project_path else ""
+        )
         name, _ = QFileDialog.getSaveFileName(
-            self, "Als PDF speichern", "noten.pdf", "PDF (*.pdf)"
+            self, "Als PDF speichern", str(Path(folder) / f"{stem}.pdf"), "PDF (*.pdf)"
         )
         if not name:
             return
@@ -971,6 +997,7 @@ class MainWindow(QMainWindow):
         except OSError as error:
             QMessageBox.critical(self, "Export fehlgeschlagen", str(error))
         else:
+            self._remember_folder("pdf", Path(name))
             self.status.setText(f"Exportiert: {name}")
 
     def closeEvent(self, event) -> None:  # noqa: N802

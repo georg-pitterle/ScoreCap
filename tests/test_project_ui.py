@@ -179,3 +179,57 @@ def test_no_button_of_the_save_question_is_cut_off(window, qapp):
             assert button.width() >= button.sizeHint().width(), button.text()
     finally:
         box.done(0)
+
+
+def test_open_and_save_start_in_the_last_project_folder(window, tmp_path, monkeypatch):
+    folder = tmp_path / "Chor"
+    folder.mkdir()
+    window.add_shot(capture(tmp_path, "a.png"))
+    window.save_to(folder / "Stueck.scorecap")
+    asked = []
+    monkeypatch.setattr(
+        QFileDialog, "getOpenFileName", lambda *a, **k: asked.append(a[2]) or ("", "")
+    )
+    monkeypatch.setattr(
+        QFileDialog, "getSaveFileName", lambda *a, **k: asked.append(a[2]) or ("", "")
+    )
+    window._project_path = None  # a fresh document proposes the folder too
+    window.save_as()
+    window.open_project()
+    assert Path(asked[0]).parent == folder
+    assert Path(asked[1]) == folder
+
+
+def test_the_last_folders_survive_a_restart(window, tmp_path, monkeypatch, qapp):
+    from scorecap.app import MainWindow
+
+    folder = tmp_path / "Scans"
+    folder.mkdir()
+    scan = folder / "seite.png"
+    Image.new("L", (100, 100), 255).save(scan)
+    monkeypatch.setattr(QFileDialog, "getOpenFileNames", lambda *a, **k: ([str(scan)], ""))
+    window.choose_scans()
+    window.close()
+    asked = []
+    monkeypatch.setattr(
+        QFileDialog, "getOpenFileNames", lambda *a, **k: asked.append(a[2]) or ([], "")
+    )
+    again = MainWindow()
+    again.choose_scans()
+    again.close()
+    assert Path(asked[0]) == folder
+
+
+def test_a_vanished_folder_is_not_proposed(window, tmp_path, monkeypatch):
+    folder = tmp_path / "weg"
+    folder.mkdir()
+    window.add_shot(capture(tmp_path, "a.png"))
+    window.save_to(folder / "x.scorecap")
+    (folder / "x.scorecap").unlink()
+    folder.rmdir()
+    asked = []
+    monkeypatch.setattr(
+        QFileDialog, "getOpenFileName", lambda *a, **k: asked.append(a[2]) or ("", "")
+    )
+    window.open_project()
+    assert asked == [""]
