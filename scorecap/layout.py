@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Sequence
 
-from .settings import Settings
+from .settings import MM_TO_PT, Settings
 
 
 @dataclass(frozen=True)
@@ -66,11 +66,46 @@ def _group(heights: Sequence[float], settings: Settings) -> list[tuple[list[int]
     return groups
 
 
-def paginate(sizes: Sequence[tuple[int, int]], settings: Settings) -> list[Page]:
+# An overhanging mark must stay this far from the paper edge.
+PAPER_EDGE_CLEARANCE_MM = 3.0
+
+
+def _span_widths(
+    sizes: Sequence[tuple[int, int]],
+    spans: Sequence[int | None] | None,
+    settings: Settings,
+) -> list[int]:
+    """The pixel width of each capture that has to fill the content width.
+
+    Normally the whole capture. When the staff lines end short of the right
+    edge - a divisi arrow after the system, say - the staff end is aligned to
+    the margin instead, and whatever lies beyond it hangs into the margin. An
+    overhang that would come closer to the paper edge than the clearance is
+    not taken: then the capture is laid out edge to edge as before.
+    """
+    room = max(settings.margin_side_mm - PAPER_EDGE_CLEARANCE_MM, 0.0) * MM_TO_PT
+    widths: list[int] = []
+    for index, (width, _height) in enumerate(sizes):
+        span = spans[index] if spans is not None else None
+        if span is None or not 0 < span < width:
+            widths.append(width)
+            continue
+        overhang = settings.content_width_pt * (width - span) / span
+        widths.append(span if overhang <= room else width)
+    return widths
+
+
+def paginate(
+    sizes: Sequence[tuple[int, int]],
+    settings: Settings,
+    spans: Sequence[int | None] | None = None,
+) -> list[Page]:
     content_width = settings.content_width_pt
     content_height = settings.content_height_pt
     gap_min = settings.gap_min_pt
-    heights = [content_width * h / w for w, h in sizes]
+    span_widths = _span_widths(sizes, spans, settings)
+    # Heights follow the span that fills the content width, not the capture.
+    heights = [content_width * h / span for (w, h), span in zip(sizes, span_widths)]
     groups = _group(heights, settings)
 
     pages: list[Page] = []
@@ -84,11 +119,13 @@ def paginate(sizes: Sequence[tuple[int, int]], settings: Settings) -> list[Page]
                 max(slack / (len(members) - 1), gap_min),
                 gap_min * settings.gap_max_factor,
             )
-        width = content_width * scale
-        x = settings.content_x_pt + (content_width - width) / 2.0
+        span_width = content_width * scale
+        x = settings.content_x_pt + (content_width - span_width) / 2.0
         y = settings.content_top_pt
         placements: list[Placement] = []
         for member, height in zip(members, scaled):
+            capture_width, _ = sizes[member]
+            width = span_width * capture_width / span_widths[member]
             placements.append(Placement(index=member, x=x, y=y, w=width, h=height))
             y += height + gap
         pages.append(Page(placements=tuple(placements), scale=scale))

@@ -36,6 +36,12 @@ Partitur ist geöffnet.
 10. **Seitenfüllung.** So viele Zeilen aufnehmen, bis eine zweite Seite beginnt.
    Erwartet: Seite eins ist gleichmäßig gefüllt, nichts überlappt, alle Bilder
    haben dieselbe Breite.
+10a. **Systemende mit Teilungspfeil.** Ein System aufnehmen, hinter dessen
+    Ende Teilungspfeile stehen, dazu ein System ohne.
+    Erwartet: die Notenlinien beider Systeme enden auf derselben Höhe am
+    rechten Satzrand, die Pfeile stehen außerhalb im Seitenrand. Mit
+    abgeschaltetem „Systemenden bündig ausrichten" enden die Linien des
+    Pfeil-Systems wieder früher.
 11. **Umsortieren.** Einen Eintrag in der Liste an eine andere Position ziehen.
    Erwartet: Vorschau folgt der neuen Reihenfolge.
 12. **Neu aufnehmen.** Eintrag wählen, *Neu aufnehmen*, neues Rechteck ziehen.

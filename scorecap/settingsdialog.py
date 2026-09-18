@@ -77,6 +77,12 @@ class SettingsDialog(QDialog):
         self._footer.setChecked(settings.footer_enabled)
         self._auto_trim = QCheckBox("Weiße Ränder automatisch abschneiden")
         self._auto_trim.setChecked(settings.auto_trim)
+        self._align_staff_ends = QCheckBox("Systemenden bündig ausrichten")
+        self._align_staff_ends.setToolTip(
+            "Notenlinien enden am rechten Rand; Zeichen dahinter, etwa "
+            "Teilungspfeile, ragen in den Seitenrand"
+        )
+        self._align_staff_ends.setChecked(settings.align_staff_ends)
         self._hotkey = QLineEdit(settings.hotkey)
 
         form = QFormLayout()
@@ -89,6 +95,7 @@ class SettingsDialog(QDialog):
         form.addRow("Hotkey", self._hotkey)
         form.addRow(self._footer)
         form.addRow(self._auto_trim)
+        form.addRow(self._align_staff_ends)
 
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         buttons.button(QDialogButtonBox.Ok).setText("Speichern")
@@ -113,6 +120,7 @@ class SettingsDialog(QDialog):
             min_dpi=self._min_dpi.value(),
             hotkey=self._hotkey.text().strip() or self._base.hotkey,
             auto_trim=self._auto_trim.isChecked(),
+            align_staff_ends=self._align_staff_ends.isChecked(),
             trim_threshold=self._base.trim_threshold,
             trim_padding_px=self._base.trim_padding_px,
         )

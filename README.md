@@ -82,6 +82,20 @@ Das spart Seiten, ohne die Noten unlesbar zu machen. Aufnahmen unter 120 dpi
 markiert die Liste als niedrige Druckqualität; dann im Browser hineinzoomen und
 neu aufnehmen.
 
+## Systemenden
+
+Zeichen hinter dem Ende eines Systems — etwa die Pfeile, die eine Teilung im
+nächsten System ankündigen — gehören mit auf den Screenshot. Würde die ganze
+Aufnahme auf Satzbreite gebracht, endeten die Notenlinien dieses Systems vor
+denen aller anderen, und das System wäre kleiner. ScoreCap erkennt deshalb, wo
+die Notenlinien enden, legt dieses Ende auf den rechten Satzrand und lässt
+alles dahinter in den Seitenrand ragen, wie im Notensatz üblich.
+
+Erkannt wird ein System an mindestens fünf Linien, die über mehr als die Hälfte
+der Aufnahme laufen. Ohne erkanntes System, oder wenn der Überstand näher als
+3 mm an die Blattkante käme, bleibt es beim Einpassen der ganzen Aufnahme.
+Abschaltbar in den Einstellungen.
+
 ## Dateigröße
 
 Aufnahmen landen in Graustufen und verlustfrei komprimiert im PDF: neun Seiten
@@ -108,6 +122,7 @@ nicht angefasst, und größer als vorher wird eine Datei nie.
 | `hotkey.py` | systemweiter Hotkey über Win32 |
 | `cropdialog.py`, `settingsdialog.py` | Dialoge |
 | `shotlist.py` | Aufnahmeliste mit Vorschaubildern |
+| `staff.py` | erkennt, wo die Notenlinien eines Systems enden |
 | `theme.py`, `icons.py` | Farb- und Schrift-Tokens, Symbole |
 | `optimize.py` | vorhandene PDFs verkleinern |
 | `updater.py` | Selbst-Update über die GitHub-Releases |

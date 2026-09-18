@@ -90,3 +90,53 @@ def test_undo_restores_a_removed_shot(tmp_path, qapp):
     window.undo()
     assert len(window.document.shots) == 2
     assert window.shot_list.count() == 2
+
+
+def arrow_system(tmp_path: Path) -> Shot:
+    from PIL import ImageDraw
+
+    image = Image.new("L", (1000, 260), 255)
+    draw = ImageDraw.Draw(image)
+    # Proportions of the real Perseus capture: the arrow takes the last
+    # 2.5 % of the width, which lands about 5 mm into the margin.
+    for line in range(5):
+        draw.line([10, 40 + line * 12, 972, 40 + line * 12], fill=0, width=2)
+    draw.line([978, 64, 996, 40], fill=0, width=2)  # the divisi arrow
+    draw.line([978, 64, 996, 88], fill=0, width=2)
+    path = tmp_path / "arrow.png"
+    image.save(path)
+    return Shot(path=path, width=1000, height=260)
+
+
+def image_right_edge(pdf_bytes: bytes) -> float:
+    doc = pymupdf.open(stream=pdf_bytes, filetype="pdf")
+    try:
+        page = doc.load_page(0)
+        xref = page.get_images(full=True)[0][0]
+        return page.get_image_rects(xref)[0].x1
+    finally:
+        doc.close()
+
+
+def test_a_divisi_arrow_hangs_into_the_margin(tmp_path, qapp):
+    from dataclasses import replace
+
+    from scorecap.app import MainWindow
+
+    window = MainWindow()
+    window.settings = replace(window.settings, align_staff_ends=True)
+    window.add_shot(arrow_system(tmp_path))
+    margin = window.settings.content_x_pt + window.settings.content_width_pt
+    assert image_right_edge(window.pdf_bytes) > margin + 1
+
+
+def test_flush_ends_can_be_switched_off(tmp_path, qapp):
+    from dataclasses import replace
+
+    from scorecap.app import MainWindow
+
+    window = MainWindow()
+    window.settings = replace(window.settings, align_staff_ends=False)
+    window.add_shot(arrow_system(tmp_path))
+    margin = window.settings.content_x_pt + window.settings.content_width_pt
+    assert image_right_edge(window.pdf_bytes) == pytest.approx(margin, abs=0.5)
