@@ -47,6 +47,10 @@ installierten Fassung.
   wird die Vorschau nachgezogen.
 - Links die Aufnahmen: per Drag&Drop sortieren, *Neu aufnehmen*, *Zuschneiden*,
   *Löschen*. `Strg+Z` macht rückgängig.
+- Beim *Zuschneiden* lässt sich ein vorhandener Rahmen nachbessern, statt ihn
+  neu aufzuziehen: an den Ecken oder Kanten ziehen ändert die Größe, im Rahmen
+  ziehen verschiebt ihn, außerhalb ziehen zeichnet einen neuen. Ohne Rahmen
+  lassen sich die Bildkanten selbst hereinziehen.
 - Rechts die A4-Seiten, exakt so, wie sie exportiert werden.
 - *Als PDF exportieren* schreibt die Datei.
 
@@ -84,7 +88,8 @@ ScoreCap bereinigt jede Seite und zerlegt sie in Systeme:
   Taktstrich verbindet, bleiben zusammen (Klavier, Chor). Liedtext und Dynamik
   kommen zum richtigen System, Titel, Kopfzeilen und Seitenzahlen bleiben
   außen vor. Den Titel holt *Zuschneiden* zurück: jede Aufnahme enthält den
-  ganzen Streifen der Seite bis zum Nachbarsystem.
+  ganzen Streifen der Seite bis zum Nachbarsystem, der obere Rand des Rahmens
+  lässt sich einfach hochziehen.
 - Eine Seite ohne Notenlinien — Titelblatt, Text — wird ganz übernommen, eine
   leere übersprungen. Die Statuszeile sagt, welche.
 

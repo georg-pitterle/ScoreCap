@@ -56,3 +56,81 @@ def test_dialog_buttons_speak_german(tmp_path, qapp):
     assert "Abbrechen" in labels
     assert "Übernehmen" in labels
     assert not any(label in {"Cancel", "OK"} for label in labels)
+
+
+# --- adjusting an existing crop ---------------------------------------------
+
+from scorecap.cropdialog import adjust_crop, hit_test
+
+SELECTION = QRect(100, 100, 200, 100)  # right edge at 300, bottom at 200
+
+
+def test_corners_edges_and_inside_are_told_apart():
+    assert hit_test(SELECTION, QPoint(102, 98)) == "tl"
+    assert hit_test(SELECTION, QPoint(299, 201)) == "br"
+    assert hit_test(SELECTION, QPoint(300, 100)) == "tr"
+    assert hit_test(SELECTION, QPoint(100, 200)) == "bl"
+    assert hit_test(SELECTION, QPoint(200, 101)) == "t"
+    assert hit_test(SELECTION, QPoint(302, 150)) == "r"
+    assert hit_test(SELECTION, QPoint(200, 150)) == "move"
+    assert hit_test(SELECTION, QPoint(50, 50)) is None
+
+
+def test_dragging_a_corner_moves_only_its_two_edges():
+    assert adjust_crop((10, 10, 100, 60), "tl", -5, 3, (200, 100)) == (5, 13, 100, 60)
+    assert adjust_crop((10, 10, 100, 60), "br", 20, 10, (200, 100)) == (10, 10, 120, 70)
+
+
+def test_dragging_an_edge_moves_only_that_edge():
+    assert adjust_crop((10, 10, 100, 60), "r", 30, 40, (200, 100)) == (10, 10, 130, 60)
+    assert adjust_crop((10, 10, 100, 60), "t", 30, -4, (200, 100)) == (10, 6, 100, 60)
+
+
+def test_edges_stay_on_the_image_and_never_cross():
+    assert adjust_crop((10, 10, 100, 60), "tl", -50, -50, (200, 100)) == (0, 0, 100, 60)
+    assert adjust_crop((10, 10, 100, 60), "l", 500, 0, (200, 100)) == (95, 10, 100, 60)
+
+
+def test_moving_keeps_the_size_and_stays_inside():
+    assert adjust_crop((10, 10, 100, 60), "move", 20, 5, (200, 100)) == (30, 15, 120, 65)
+    assert adjust_crop((10, 10, 100, 60), "move", 500, 500, (200, 100)) == (110, 50, 200, 100)
+
+
+def test_dragging_a_corner_in_the_dialog_keeps_the_rest(tmp_path, qapp):
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+
+    from scorecap.cropdialog import CropDialog
+
+    path = tmp_path / "a.png"
+    Image.new("RGB", (400, 200), (255, 255, 255)).save(path)
+    dialog = CropDialog(Shot(path=path, width=400, height=200, crop=(40, 20, 360, 180)))
+    canvas = dialog._canvas
+    canvas.resize(800, 400)  # two widget pixels per image pixel
+    QTest.mousePress(canvas, Qt.LeftButton, pos=QPoint(720, 360))
+    QTest.mouseMove(canvas, QPoint(760, 380))
+    QTest.mouseRelease(canvas, Qt.LeftButton, pos=QPoint(760, 380))
+    assert dialog.crop == (40, 20, 380, 190)
+
+
+def test_without_a_crop_the_image_edges_can_be_dragged_in(tmp_path, qapp):
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+
+    from scorecap.cropdialog import CropDialog
+
+    path = tmp_path / "a.png"
+    Image.new("RGB", (400, 200), (255, 255, 255)).save(path)
+    dialog = CropDialog(Shot(path=path, width=400, height=200))
+    canvas = dialog._canvas
+    canvas.resize(800, 400)
+    QTest.mousePress(canvas, Qt.LeftButton, pos=QPoint(0, 200))  # left edge
+    QTest.mouseMove(canvas, QPoint(100, 210))
+    QTest.mouseRelease(canvas, Qt.LeftButton, pos=QPoint(100, 210))
+    assert dialog.crop == (50, 0, 400, 200)
+    # Inside, a drag still draws a new rectangle.
+    dialog.reset()
+    QTest.mousePress(canvas, Qt.LeftButton, pos=QPoint(200, 100))
+    QTest.mouseMove(canvas, QPoint(400, 300))
+    QTest.mouseRelease(canvas, Qt.LeftButton, pos=QPoint(400, 300))
+    assert dialog.crop == (100, 50, 200, 150)
