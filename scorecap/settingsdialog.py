@@ -7,6 +7,7 @@ from dataclasses import fields
 from PySide6.QtCore import QSettings
 from PySide6.QtWidgets import (
     QCheckBox,
+    QComboBox,
     QDialog,
     QDialogButtonBox,
     QDoubleSpinBox,
@@ -84,6 +85,14 @@ class SettingsDialog(QDialog):
         )
         self._align_staff_ends.setChecked(settings.align_staff_ends)
         self._hotkey = QLineEdit(settings.hotkey)
+        self._scan_mode = QComboBox()
+        self._scan_mode.addItem("Schwarz/Weiß", "bw")
+        self._scan_mode.addItem("Graustufen", "grey")
+        self._scan_mode.setToolTip(
+            "Schwarz/Weiß druckt am saubersten und ergibt die kleinsten PDFs; "
+            "Graustufen bleiben näher am Original"
+        )
+        self._scan_mode.setCurrentIndex(max(0, self._scan_mode.findData(settings.scan_mode)))
 
         form = QFormLayout()
         form.addRow("Rand seitlich (mm)", self._margin_side)
@@ -93,6 +102,7 @@ class SettingsDialog(QDialog):
         form.addRow("Kleinster Schrumpffaktor", self._shrink_min)
         form.addRow("Warnschwelle dpi", self._min_dpi)
         form.addRow("Hotkey", self._hotkey)
+        form.addRow("Scans bereinigen", self._scan_mode)
         form.addRow(self._footer)
         form.addRow(self._auto_trim)
         form.addRow(self._align_staff_ends)
@@ -123,4 +133,5 @@ class SettingsDialog(QDialog):
             align_staff_ends=self._align_staff_ends.isChecked(),
             trim_threshold=self._base.trim_threshold,
             trim_padding_px=self._base.trim_padding_px,
+            scan_mode=self._scan_mode.currentData(),
         )

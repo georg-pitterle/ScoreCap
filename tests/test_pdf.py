@@ -146,3 +146,26 @@ def test_a_score_sized_document_stays_small(tmp_path):
     pages = paginate([s.effective_size for s in shots], settings)
     data = build(shots, pages, settings)
     assert len(data) < 1_000_000, f"{len(data) / 1e6:.1f} MB"
+
+
+def test_black_and_white_images_stay_one_bit(tmp_path):
+    settings = Settings(footer_enabled=False)
+    grey = line_art(tmp_path, "grey.png")
+    with Image.open(grey.path) as image:
+        image.convert("L").point(lambda v: 255 if v > 128 else 0).convert("1").save(
+            tmp_path / "bw.png"
+        )
+    bw = Shot(path=tmp_path / "bw.png", width=grey.width, height=grey.height)
+    sizes = {}
+    for name, shot in (("grey", grey), ("bw", bw)):
+        pages = paginate([shot.effective_size], settings)
+        data = build([shot], pages, settings)
+        sizes[name] = len(data)
+        doc = pymupdf.open(stream=data, filetype="pdf")
+        try:
+            info = doc.load_page(0).get_images(full=True)[0]
+            if name == "bw":
+                assert info[4] == 1  # bits per component
+        finally:
+            doc.close()
+    assert sizes["bw"] < sizes["grey"]

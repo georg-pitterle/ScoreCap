@@ -70,6 +70,11 @@ class Document:
         self._snapshot()
         self._shots.append(shot)
 
+    def extend(self, shots: list[Shot]) -> None:
+        """Append several shots - one import - as a single undo step."""
+        self._snapshot()
+        self._shots.extend(shots)
+
     def remove(self, index: int) -> None:
         self._snapshot()
         del self._shots[index]

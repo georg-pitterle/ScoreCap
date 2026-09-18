@@ -82,6 +82,37 @@ Partitur ist geöffnet.
 19. **Aufräumen.** Anwendung schließen, `%TEMP%` prüfen.
     Erwartet: der Ordner `scorecap-*` ist gelöscht.
 
+## Scans
+
+1. **Import per Dialog.** *Scans importieren …*, ein mehrseitiges Scan-PDF
+   wählen.
+   Erwartet: Fenster bleibt bedienbar, die Statuszeile zählt die Seiten mit,
+   danach „N Systeme aus M Seiten importiert".
+2. **Drag&Drop.** Ein JPG und ein TIFF aus dem Explorer ins Fenster ziehen.
+   Erwartet: beide werden importiert; eine `.txt` wird nicht angenommen.
+3. **Schräg und mit Bundschatten.** Eine Buchseite leicht schräg und nicht
+   ganz flach scannen.
+   Erwartet: Notenlinien in der Vorschau waagrecht, Papier überall weiß, kein
+   Schatten, kein dunkler Rand.
+4. **Systeme.** Eine Klavier- und eine Chorpartitur mit Liedtext importieren.
+   Erwartet: je ein Eintrag pro System, Liedtext beim richtigen System,
+   Seitenzahlen und Kopfzeilen nicht in den Aufnahmen.
+5. **Titel zurückholen.** Erstes System einer Seite mit Titel wählen,
+   *Zuschneiden*, *Ganzes Bild*.
+   Erwartet: der Titel ist wieder da.
+6. **Bereinigung umstellen.** In den Einstellungen *Graustufen* wählen, erneut
+   importieren.
+   Erwartet: weiche Graustufen statt reinem Schwarz/Weiß; das exportierte PDF
+   ist größer.
+7. **Undo und Projekt.** Nach einem Import `Strg+Z`, dann erneut importieren,
+   speichern, schließen, öffnen.
+   Erwartet: Undo nimmt den ganzen Import zurück; das Projekt kommt mit allen
+   Zuschnitten wieder.
+8. **Schließen während des Imports.** Großes PDF importieren und sofort
+   schließen.
+   Erwartet: schließt nach höchstens einer Seite, keine Fehlermeldung, `%TEMP%`
+   aufgeräumt.
+
 ## Paket und Selbst-Update
 
 Diese Punkte gelten für die installierte Fassung, nicht für den Start aus dem

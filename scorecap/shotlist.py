@@ -37,6 +37,7 @@ class RowData:
     chip: str | None
     chip_kind: str | None  # "warn" or "missing"
     path: str | None
+    crop: tuple[int, int, int, int] | None = None
 
 
 def row_data(index: int, shot: Shot, settings: Settings, missing: bool) -> RowData:
@@ -51,6 +52,7 @@ def row_data(index: int, shot: Shot, settings: Settings, missing: bool) -> RowDa
         chip=chip,
         chip_kind="warn" if chip else None,
         path=str(shot.path),
+        crop=shot.crop,
     )
 
 
@@ -58,20 +60,27 @@ class ShotDelegate(QStyledItemDelegate):
     def __init__(self, palette: Palette) -> None:
         super().__init__()
         self.palette = palette
-        self._thumbs: dict[str, QPixmap] = {}
+        self._thumbs: dict[tuple[str, tuple[int, int, int, int] | None], QPixmap] = {}
 
     def sizeHint(self, option, index) -> QSize:  # noqa: N802 (Qt naming)
         return QSize(240, ROW_HEIGHT)
 
-    def _thumbnail(self, path: str) -> QPixmap | None:
+    def _thumbnail(
+        self, path: str, crop: tuple[int, int, int, int] | None = None
+    ) -> QPixmap | None:
         """A staff strip is far wider than the row, so fill the box and crop.
 
         Fitting the whole strip would shrink it to an illegible hairline;
         cropping to the middle keeps the notation at a readable size.
         """
-        if path not in self._thumbs:
+        key = (path, crop)
+        if key not in self._thumbs:
             pixmap = QPixmap(path)
-            self._thumbs[path] = (
+            if crop is not None and not pixmap.isNull():
+                # A scanned system sits in a band of the page; show the system.
+                left, top, right, bottom = crop
+                pixmap = pixmap.copy(QRect(left, top, right - left, bottom - top))
+            self._thumbs[key] = (
                 QPixmap()
                 if pixmap.isNull()
                 else pixmap.scaled(
@@ -81,7 +90,7 @@ class ShotDelegate(QStyledItemDelegate):
                     Qt.SmoothTransformation,
                 )
             )
-        thumb = self._thumbs[path]
+        thumb = self._thumbs[key]
         return None if thumb.isNull() else thumb
 
     def paint(self, painter: QPainter, option, index) -> None:
@@ -123,7 +132,7 @@ class ShotDelegate(QStyledItemDelegate):
         painter.setPen(QPen(QColor(self.palette.border), 1))
         painter.setBrush(QColor(self.palette.paper))
         painter.drawRect(rect)
-        thumb = self._thumbnail(data.path) if data.path else None
+        thumb = self._thumbnail(data.path, data.crop) if data.path else None
         if thumb is None:
             return
         inner = rect.adjusted(1, 1, -1, -1)

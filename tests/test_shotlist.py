@@ -64,3 +64,19 @@ def test_rows_paint_without_a_thumbnail_file(qapp):
     option.rect = QRect(0, 0, 240, 64)
     widget.itemDelegate().paint(painter, option, widget.model().index(0, 0))
     painter.end()
+
+
+def test_the_thumbnail_shows_only_the_cropped_part(qapp, tmp_path):
+    from scorecap.shotlist import ShotDelegate
+
+    # White page with a black system in its lower half only.
+    image = Image.new("RGB", (1400, 1200), "white")
+    image.paste((0, 0, 0), (100, 800, 1300, 1000))
+    path = tmp_path / "band.png"
+    image.save(path)
+    shot = Shot(path=path, width=1400, height=1200, crop=(100, 800, 1300, 1000))
+    data = row_data(0, shot, Settings(), missing=False)
+    assert data.crop == (100, 800, 1300, 1000)
+    thumb = ShotDelegate(LIGHT)._thumbnail(data.path, data.crop).toImage()
+    centre = thumb.pixelColor(thumb.width() // 2, thumb.height() // 2)
+    assert centre.lightness() < 50

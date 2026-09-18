@@ -142,6 +142,10 @@ def test_restarting_for_an_update_offers_to_save_unsaved_work(window, tmp_path, 
     class Service:
         restarted = []
 
+        def is_available(self):
+            # The window's deferred update check may still fire later.
+            return False
+
         def restart_into(self, update):
             self.restarted.append(update)
             return True

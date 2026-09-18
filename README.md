@@ -67,6 +67,33 @@ Gespeichert wird zuerst in eine Hilfsdatei, die erst am Ende die alte ersetzt �
 bricht das Speichern ab, bleibt die vorige Fassung heil. Die Einstellungen
 (Ränder, Fußzeile, …) gehören nicht zum Projekt, sie gelten für alle.
 
+## Scans importieren
+
+Statt Bildschirmbereiche aufzunehmen, lassen sich auch gescannte Noten
+verarbeiten: mit der üblichen Scanner-Software als PDF oder Bild (PNG, JPG,
+TIFF, BMP) speichern, dann *Scans importieren …* oder die Dateien einfach ins
+Fenster ziehen. Auch mehrseitige PDFs und TIFFs sowie Handy-Scans gehen.
+
+ScoreCap bereinigt jede Seite und zerlegt sie in Systeme:
+
+- **Papier wird weiß.** Vergilbung, ungleichmäßige Belichtung und der Schatten
+  am Buchrücken werden herausgerechnet, dunkle Scanränder entfernt.
+- **Schräglage wird gerade gestellt** — erst die ganze Seite, dann jedes System
+  noch einmal für sich. Maßstab sind die Notenlinien.
+- **Jedes System wird eine Aufnahme.** Notensysteme, die links ein gemeinsamer
+  Taktstrich verbindet, bleiben zusammen (Klavier, Chor). Liedtext und Dynamik
+  kommen zum richtigen System, Titel, Kopfzeilen und Seitenzahlen bleiben
+  außen vor. Den Titel holt *Zuschneiden* zurück: jede Aufnahme enthält den
+  ganzen Streifen der Seite bis zum Nachbarsystem.
+- Eine Seite ohne Notenlinien — Titelblatt, Text — wird ganz übernommen, eine
+  leere übersprungen. Die Statuszeile sagt, welche.
+
+Ein Import lässt sich mit einem `Strg+Z` zurücknehmen. In den Einstellungen
+steht, wie bereinigt wird: *Schwarz/Weiß* (Standard) druckt am saubersten und
+ergibt die kleinsten PDFs, *Graustufen* bleibt näher am Original. Gebogene
+Linien einer stark gewölbten Buchseite werden nicht entzerrt; flach auflegen
+hilft.
+
 ## Oberfläche
 
 Die Palette kommt aus dem Notendruck: ein einziger Akzent im tiefen Ultramarin
@@ -139,6 +166,7 @@ nicht angefasst, und größer als vorher wird eine Datei nie.
 | `cropdialog.py`, `settingsdialog.py` | Dialoge |
 | `shotlist.py` | Aufnahmeliste mit Vorschaubildern |
 | `staff.py` | erkennt, wo die Notenlinien eines Systems enden |
+| `scan.py` | Scans bereinigen, gerade stellen, in Systeme zerlegen |
 | `theme.py`, `icons.py` | Farb- und Schrift-Tokens, Symbole |
 | `optimize.py` | vorhandene PDFs verkleinern |
 | `project.py` | Projekte als `.scorecap` speichern und öffnen |

@@ -112,3 +112,12 @@ def test_replacing_everything_resets_the_history():
     doc.replace_all([make_shot("x.png"), make_shot("y.png")])
     assert [s.path.name for s in doc.shots] == ["x.png", "y.png"]
     assert doc.can_undo is False  # an opened project starts a fresh history
+
+
+def test_extend_adds_several_shots_as_one_undo_step():
+    doc = Document()
+    doc.add(make_shot("a.png"))
+    doc.extend([make_shot("b.png"), make_shot("c.png")])
+    assert [s.path.name for s in doc.shots] == ["a.png", "b.png", "c.png"]
+    assert doc.undo() is True
+    assert [s.path.name for s in doc.shots] == ["a.png"]

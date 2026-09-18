@@ -16,6 +16,7 @@ LEGACY_FAMILY = "Segoe MDL2 Assets"
 # Glyph names say what the button does, not what the glyph is called.
 CAPTURE = "\ue7b3"      # crop marks
 RECAPTURE = "\ue72c"    # refresh
+SCAN = "\ue8fe"         # flatbed scanner
 CROP = "\ue7a8"
 DELETE = "\ue74d"
 SETTINGS = "\ue713"

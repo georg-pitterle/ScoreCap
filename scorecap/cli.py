@@ -88,6 +88,23 @@ def _selftest(report: Path) -> int:
         if not pdf_bytes.startswith(b"%PDF"):
             raise RuntimeError("output is not a PDF")
 
+        # A scanned page with two staves: rendering, filters and ImageMath.
+        from PIL import ImageDraw
+
+        from .scan import import_scans
+
+        page = Image.new("L", (1240, 1754), 235)
+        draw = ImageDraw.Draw(page)
+        for top in (300, 600):
+            for line in range(5):
+                draw.line([120, top + line * 12, 1120, top + line * 12], fill=20, width=2)
+        scan_path = workdir / "scan.pdf"
+        page.rotate(1.0, fillcolor=235).save(scan_path, resolution=150)
+        imported = import_scans([scan_path], "bw", workdir)
+        lines.append(f"scan: {len(imported.shots)} system(s) from {imported.pages} page(s)")
+        if imported.errors or len(imported.shots) != 2:
+            raise RuntimeError(f"scan import failed: {imported.errors}")
+
         os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
         app = QApplication.instance() or QApplication(sys.argv[:1])
         from .app import MainWindow

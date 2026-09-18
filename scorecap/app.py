@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import sys
 import tempfile
+import threading
 from pathlib import Path
 from typing import Sequence
 
@@ -33,6 +34,8 @@ from .optimize import OptimizeResult, optimize_pdf
 from .model import Document, Shot, normalize_move
 from .preview import PreviewWidget
 from .project import SUFFIX, load_project, save_project
+from .scan import SUFFIXES as SCAN_SUFFIXES
+from .scan import ImportResult, import_scans
 from .settingsdialog import SettingsDialog, load_settings, save_settings
 from .shotlist import ShotList, row_data
 from .staff import staff_end_of
@@ -41,6 +44,7 @@ from .trim import auto_crop
 from .updater import PendingUpdate, UpdateService
 
 REBUILD_DELAY_MS = 150
+SCAN_CLOSE_WAIT_S = 10.0
 TOAST_MS = 900
 TOAST_MARGIN_PX = 8
 TOAST_OFFSET_PX = 12
@@ -61,6 +65,14 @@ class _UpdateSignals(QObject):
 
     found = Signal(object)
     done = Signal(object, bool)
+    finished = Signal()
+
+
+class _ScanSignals(QObject):
+    """Owned by the window for the same reason as _UpdateSignals."""
+
+    progress = Signal(str)
+    done = Signal(object)
     finished = Signal()
 
 
@@ -116,6 +128,62 @@ class _UpdateCheck(QRunnable):
         if update is not None:
             _emit(self.signals.found, update)
         _emit(self.signals.finished)
+
+
+class _ScanImport(QRunnable):
+    """Cleans scanned pages and cuts them into systems, off the UI thread."""
+
+    def __init__(
+        self, paths: list[Path], mode: str, target_dir: Path, signals: _ScanSignals
+    ) -> None:
+        super().__init__()
+        self.signals = signals
+        self._paths = paths
+        self._mode = mode
+        self._target_dir = target_dir
+        self._cancelled = threading.Event()
+        self.stopped = threading.Event()
+
+    def cancel(self) -> None:
+        self._cancelled.set()
+
+    def run(self) -> None:
+        _attach_debugger_to_this_thread()
+        log.info("scan import of %d file(s) started", len(self._paths))
+        try:
+            result = import_scans(
+                self._paths,
+                self._mode,
+                self._target_dir,
+                progress=lambda text: _emit(self.signals.progress, text),
+                cancelled=self._cancelled.is_set,
+            )
+        except BaseException:  # noqa: BLE001 - logged, never raised into Qt
+            log.exception("scan import crashed")
+            result = ImportResult([], 0, [], [], ["Der Import ist abgebrochen."])
+        finally:
+            self.stopped.set()
+        log.info("scan import finished: %d shot(s)", len(result.shots))
+        _emit(self.signals.done, result)
+        _emit(self.signals.finished)
+
+
+def scan_files(paths: Sequence[Path]) -> list[Path]:
+    """The paths a scan import can read, by their suffix."""
+    return [path for path in paths if path.suffix.lower() in SCAN_SUFFIXES]
+
+
+def import_summary(result: ImportResult) -> str:
+    systems = len(result.shots)
+    text = (
+        f"{systems} {'System' if systems == 1 else 'Systeme'} aus "
+        f"{result.pages} {'Seite' if result.pages == 1 else 'Seiten'} importiert"
+    )
+    if result.whole:
+        text += f" — ohne Notenlinien, ganz übernommen: {', '.join(result.whole)}"
+    if result.blank:
+        text += f" — leer, übersprungen: {', '.join(result.blank)}"
+    return text
 
 
 class _UpdateDownload(QRunnable):
@@ -177,6 +245,7 @@ class MainWindow(QMainWindow):
         self._pdf_bytes = b""
         self._temp_dir = Path(tempfile.mkdtemp(prefix="scorecap-"))
         self._pending_replace: int | None = None
+        self._scan_task: _ScanImport | None = None
         self._capturing = False
         self._project_path: Path | None = None
         self._saved_revision = self.document.revision
@@ -185,6 +254,7 @@ class MainWindow(QMainWindow):
         self._build_ui()
         self._build_capture_parts()
         self.setStyleSheet(stylesheet(self.palette_tokens))
+        self.setAcceptDrops(True)
 
     # --- construction ----------------------------------------------------
 
@@ -221,6 +291,12 @@ class MainWindow(QMainWindow):
         self.capture_button.setToolTip(
             "Fenster tritt zur Seite; die Aufnahme startet erst mit dem Hotkey"
         )
+        self.scan_button = self._button("Scans importieren …", icons.SCAN)
+        self.scan_button.setToolTip(
+            "Gescannte Seiten (PDF oder Bilder) bereinigen und in Systeme "
+            "zerlegen; Dateien lassen sich auch ins Fenster ziehen"
+        )
+        self.scan_button.clicked.connect(self.choose_scans)
         self.recapture_button = self._button("Neu aufnehmen", icons.RECAPTURE)
         self.recapture_button.clicked.connect(self.recapture_selected)
         self.crop_button = self._button("Zuschneiden", icons.CROP)
@@ -249,6 +325,7 @@ class MainWindow(QMainWindow):
         bar.setContentsMargins(12, 8, 12, 8)
         bar.setSpacing(8)
         bar.addWidget(self.capture_button)
+        bar.addWidget(self.scan_button)
         bar.addSpacing(8)
         for button in (self.recapture_button, self.crop_button, self.delete_button):
             bar.addWidget(button)
@@ -566,6 +643,52 @@ class MainWindow(QMainWindow):
         self.document.add(shot)
         self.rebuild()
 
+    def choose_scans(self) -> None:
+        patterns = " ".join(f"*{suffix}" for suffix in sorted(SCAN_SUFFIXES))
+        names, _ = QFileDialog.getOpenFileNames(
+            self, "Scans importieren", "", f"Scans ({patterns})"
+        )
+        if names:
+            self.import_files([Path(name) for name in names])
+
+    @property
+    def is_importing(self) -> bool:
+        return self._scan_task is not None
+
+    def import_files(self, paths: Sequence[Path]) -> None:
+        paths = scan_files(paths)
+        if not paths or self.is_importing:
+            return
+        signals = _ScanSignals(self)
+        signals.progress.connect(self.status.setText)
+        signals.done.connect(self._on_scans_imported)
+        self._scan_task = self._track(
+            _ScanImport(list(paths), self.settings.scan_mode, self._temp_dir, signals)
+        )
+        self.scan_button.setEnabled(False)
+        self.status.setText("Scans werden gelesen …")
+        QThreadPool.globalInstance().start(self._scan_task)
+
+    def _on_scans_imported(self, result: ImportResult) -> None:
+        self._scan_task = None
+        self.scan_button.setEnabled(True)
+        if result.shots:
+            self.document.extend(result.shots)
+            self.rebuild()
+        self.status.setText(import_summary(result))
+        if result.errors:
+            QMessageBox.warning(self, "Nicht alles importiert", "\n".join(result.errors))
+
+    def dragEnterEvent(self, event) -> None:  # noqa: N802
+        urls = event.mimeData().urls() if event.mimeData().hasUrls() else []
+        if scan_files([Path(url.toLocalFile()) for url in urls if url.isLocalFile()]):
+            event.acceptProposedAction()
+
+    def dropEvent(self, event) -> None:  # noqa: N802
+        urls = event.mimeData().urls()
+        event.acceptProposedAction()
+        self.import_files([Path(url.toLocalFile()) for url in urls if url.isLocalFile()])
+
     def arm_capture(self) -> None:
         """Step aside and wait for the hotkey.
 
@@ -854,6 +977,10 @@ class MainWindow(QMainWindow):
         self._overlay.deleteLater()
         self._toast.hide()
         self._hotkey.unregister()
+        if self._scan_task is not None:
+            # It writes into the session folder that is about to go.
+            self._scan_task.cancel()
+            self._scan_task.stopped.wait(SCAN_CLOSE_WAIT_S)
         for file in self._temp_dir.glob("*.png"):
             file.unlink(missing_ok=True)
         self._temp_dir.rmdir()

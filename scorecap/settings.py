@@ -24,6 +24,7 @@ class Settings:
     trim_threshold: int = 245
     trim_padding_px: int = 2
     hotkey: str = "Ctrl+Shift+S"
+    scan_mode: str = "bw"  # "bw" or "grey"
 
     @property
     def content_x_pt(self) -> float:
