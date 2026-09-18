@@ -42,6 +42,7 @@ MODES = ("bw", "grey")
 DARK = 128              # below this a pixel counts as ink
 EDGE_COVER = 0.6        # a border row or column is mostly dark
 EDGE_LIMIT = 0.08       # borders are never deeper than this share of the page
+EDGE_MARGIN = 0.03      # ink this close to the page edge is a scanner mark
 BACKGROUND_SCALE = 16   # the paper is estimated on a much smaller copy
 LINE_SPAN = 0.4         # a staff line runs across at least this share of the page
 JOIN_COVER = 0.9        # a barline joining two staves is this unbroken
@@ -296,8 +297,9 @@ def _staff_lines(ink: Image.Image) -> list[_Line]:
                 _Line(
                     top=group[0][0],
                     bottom=group[-1][0],
-                    left=round(statistics.median(r[1] for r in group)),
-                    right=round(statistics.median(r[2] for r in group)),
+                    # Each row of a sagging line reaches a different part.
+                    left=min(r[1] for r in group),
+                    right=max(r[2] for r in group),
                 )
             )
             group = []
@@ -390,12 +392,17 @@ def find_systems(grey: Image.Image) -> list[System]:
     """The systems on a level page, top to bottom."""
     ink = _ink(grey)
     width, height = grey.size
-    staves = _staves(_staff_lines(ink))
+    # On paper, staff lines are thin and never quite straight: a line that
+    # sags by two pixels across the page leaves each pixel row only a piece
+    # of it, and the piece that looks longest may start mid-system. Grown by
+    # a pixel up and down, the pieces merge into one line again.
+    lines_ink = ink.filter(ImageFilter.MaxFilter(3))
+    staves = _staves(_staff_lines(lines_ink))
     if not staves:
         return []
     groups: list[list[_Staff]] = [[staves[0]]]
     for upper, lower in zip(staves, staves[1:]):
-        if _joined(ink, upper, lower):
+        if _joined(lines_ink, upper, lower):
             groups[-1].append(lower)
         else:
             groups.append([lower])
@@ -406,6 +413,8 @@ def find_systems(grey: Image.Image) -> list[System]:
     right = min(width, max(staff.right for staff in staves) + 2 * staff_height)
     rows = _rows(ink.crop((left, 0, right, height)))
     padding = max(2, round(space / 2))
+    gap = round(3 * space)
+    side_gap = round(2.5 * staff_height)
 
     splits = [
         _split(rows, upper[-1].bottom + 1, lower[0].top)
@@ -415,15 +424,37 @@ def find_systems(grey: Image.Image) -> list[System]:
     systems = []
     for number, group in enumerate(groups):
         band_top, band_bottom = bounds[number], bounds[number + 1]
-        if number == 0:
-            top = _reach(rows, group[0].top, -1, 4 * staff_height, round(3 * space))
-        else:
-            top = band_top
-        if number == len(groups) - 1:
-            bottom = _reach(rows, group[-1].bottom, 1, 4 * staff_height, round(3 * space)) + 1
-        else:
-            bottom = band_bottom
-        region = (left, max(top, band_top), right, min(bottom, band_bottom))
+        # Outwards from the staves, up to a wide white gap: lyrics and
+        # dynamics sit close, a speck of dust or a page number does not.
+        # Outside the first and last system the band ends the search.
+        above = 4 * staff_height if number == 0 else group[0].top - band_top - 1
+        below = (
+            4 * staff_height
+            if number == len(groups) - 1
+            else band_bottom - group[-1].bottom - 2
+        )
+        top = _reach(rows, group[0].top, -1, above, gap)
+        bottom = _reach(rows, group[-1].bottom, 1, below, gap) + 1
+        # Sideways the same way, with more room: voice names may stand well
+        # apart from the bracket. Marks the scanner leaves right at the edge
+        # of the page are never part of the music.
+        columns = _columns(ink.crop((0, top, width, bottom)))
+        edge = round(width * EDGE_MARGIN)
+        staff_left = min(s.left for s in group)
+        staff_right = max(s.right for s in group) - 1
+        first = _reach(
+            columns, staff_left, -1, min(3 * staff_height, staff_left - edge), side_gap
+        )
+        last = _reach(
+            columns, staff_right, 1, min(2 * staff_height, width - edge - staff_right), side_gap
+        ) + 1
+        # Room for the padding, so the ink never touches the crop.
+        region = (
+            max(first - padding, 0),
+            max(top - padding, band_top),
+            min(last + padding, width),
+            min(bottom + padding, band_bottom),
+        )
         box = trim_box(grey.crop(region), DARK, padding)
         if box is None:
             content = region

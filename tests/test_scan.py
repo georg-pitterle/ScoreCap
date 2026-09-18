@@ -145,6 +145,34 @@ def test_staves_joined_by_a_barline_form_one_system():
     assert len(find_systems(image)) == 2
 
 
+def bowed_staff(draw: ImageDraw.ImageDraw, top: int) -> int:
+    """Thin staff lines that sag by a few pixels, as on a real scan.
+
+    No single pixel row holds a whole line - each row catches a piece.
+    """
+    for line in range(5):
+        y = top + line * SPACE
+        for step, x in enumerate(range(LEFT, RIGHT, 250)):
+            sag = (0, 1, 2, 2, 1)[step % 5]
+            draw.line([x, y + sag, min(x + 250, RIGHT), y + sag], fill=0, width=1)
+    draw.line([RIGHT, top, RIGHT, top + 4 * SPACE], fill=0, width=2)
+    return top + 4 * SPACE
+
+
+def test_staves_with_sagging_thin_lines_still_join_into_a_system():
+    image = Image.new("L", (WIDTH, HEIGHT), 255)
+    draw = ImageDraw.Draw(image)
+    tops = [220, 320, 420, 520]
+    for top in tops:
+        bowed_staff(draw, top)
+    # A bracket just left of where the lines start, as engravers set it.
+    draw.rectangle([LEFT - 14, tops[0], LEFT - 8, tops[-1] + 4 * SPACE], fill=0)
+    draw.line([LEFT, tops[0], LEFT, tops[-1] + 4 * SPACE], fill=0, width=1)
+    systems = find_systems(image)
+    assert len(systems) == 1
+    assert systems[0].content[0] <= LEFT - 14
+
+
 def test_lyrics_belong_to_the_system_above():
     image, extents = page([4, 4], lyrics=True, gap=160)
     systems = find_systems(image)
@@ -302,3 +330,39 @@ def test_very_large_scans_are_scaled_down(tmp_path):
     Image.new("L", (6000, 8000), 255).save(path)
     (image,) = load_pages(path)
     assert image.width <= 3600
+
+
+def test_a_speck_in_the_gap_below_a_system_stays_out():
+    image, extents = page([1, 1], gap=400)
+    bottom = extents[0][1]
+    ImageDraw.Draw(image).rectangle([900, bottom + 150, 903, bottom + 153], fill=0)
+    systems = find_systems(image)
+    assert systems[0].content[3] < bottom + 100
+
+
+def test_content_keeps_a_margin_above_a_tempo_marking():
+    image, extents = page([1, 1])
+    top = extents[0][0]
+    ImageDraw.Draw(image).rectangle([200, top - 40, 500, top - 28], fill=0)  # "Lively"
+    ImageDraw.Draw(image).rectangle([200, top - 120, 400, top - 110], fill=0)  # far above
+    systems = find_systems(image)
+    assert top - 40 - 8 <= systems[0].content[1] <= top - 40 - 3
+
+
+def test_marks_at_the_page_edge_stay_out_but_names_stay_in():
+    image, extents = page([1])
+    draw = ImageDraw.Draw(image)
+    top, bottom = extents[0]
+    draw.rectangle([4, top, 6, top + 20], fill=0)          # scanner mark
+    draw.rectangle([LEFT - 50, top + 18, LEFT - 20, top + 30], fill=0)  # "Sop."
+    (system,) = find_systems(image)
+    assert LEFT - 60 <= system.content[0] <= LEFT - 50
+
+
+def test_voice_names_set_well_left_of_the_staff_stay_in():
+    image, extents = page([1])
+    top, _ = extents[0]
+    # "S", five staff spaces left of where the lines begin.
+    ImageDraw.Draw(image).rectangle([LEFT - 72, top + 18, LEFT - 60, top + 30], fill=0)
+    (system,) = find_systems(image)
+    assert system.content[0] <= LEFT - 72
