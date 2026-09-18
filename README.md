@@ -97,9 +97,12 @@ ScoreCap bereinigt jede Seite und zerlegt sie in Systeme:
 - Eine Seite ohne Notenlinien — Titelblatt, Text — wird ganz übernommen, eine
   leere übersprungen. Die Statuszeile sagt, welche.
 
-Ein Import lässt sich mit einem `Strg+Z` zurücknehmen. In den Einstellungen
-steht, wie bereinigt wird: *Schwarz/Weiß* (Standard) druckt am saubersten und
-ergibt die kleinsten PDFs, *Graustufen* bleibt näher am Original. Gebogene
+Ein Import lässt sich mit einem `Strg+Z` zurücknehmen. Scans werden in
+Graustufen abgelegt; erst Vorschau und Export entscheiden nach der Einstellung
+*Scans drucken in*: *Schwarz/Weiß* (Standard) ergibt die kleinsten PDFs — bei
+sechs Seiten rund 0,5 statt 5 MB —, *Graustufen* glattere Kanten. Umstellen
+wirkt sofort, auch auf schon importierte und gespeicherte Scans;
+Bildschirmaufnahmen bleiben immer in Graustufen. Gebogene
 Linien einer stark gewölbten Buchseite werden nicht entzerrt; flach auflegen
 hilft.
 

@@ -40,6 +40,7 @@ def save_project(path: Path, shots: Sequence[Shot]) -> None:
                         "width": shot.width,
                         "height": shot.height,
                         "crop": list(shot.crop) if shot.crop else None,
+                        "scan": shot.scan,
                     }
                 )
             manifest = {"format": FORMAT_VERSION, "app": __version__, "shots": entries}
@@ -89,6 +90,7 @@ def load_project(path: Path, target_dir: Path) -> list[Shot]:
                         width=int(entry["width"]),
                         height=int(entry["height"]),
                         crop=tuple(crop) if crop else None,
+                        scan=bool(entry.get("scan", False)),
                     )
                 )
             except (KeyError, TypeError) as error:

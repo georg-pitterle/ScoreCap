@@ -116,3 +116,27 @@ def test_paths_inside_the_archive_cannot_escape_the_session_folder(tmp_path):
     assert not (tmp_path / "escaped.png").exists()
     for shot in opened:
         assert shot.path.resolve().is_relative_to(session.resolve())
+
+
+def test_scans_stay_scans_after_saving_and_opening(tmp_path):
+    from dataclasses import replace
+
+    shots = [capture(tmp_path, "a.png", 0), replace(capture(tmp_path, "b.png", 1), scan=True)]
+    project = tmp_path / "p.scorecap"
+    save_project(project, shots)
+    assert [s.scan for s in load_project(project, tmp_path / "session")] == [False, True]
+
+
+def test_projects_without_the_scan_flag_open_as_captures(tmp_path):
+    project = tmp_path / "old.scorecap"
+    save_project(project, [capture(tmp_path, "a.png", 0)])
+    with zipfile.ZipFile(project) as archive:
+        manifest = json.loads(archive.read("project.json"))
+        image = archive.read("shots/001.png")
+    for entry in manifest["shots"]:
+        entry.pop("scan", None)
+    with zipfile.ZipFile(project, "w") as archive:
+        archive.writestr("project.json", json.dumps(manifest))
+        archive.writestr("shots/001.png", image)
+    (shot,) = load_project(project, tmp_path / "session")
+    assert shot.scan is False

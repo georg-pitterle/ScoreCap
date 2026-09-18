@@ -486,7 +486,7 @@ def _save(image: Image.Image, crop: tuple[int, int, int, int], target_dir: Path)
     width, height = image.size
     if crop == (0, 0, width, height):
         crop = None
-    return Shot(path=path, width=width, height=height, crop=crop)
+    return Shot(path=path, width=width, height=height, crop=crop, scan=True)
 
 
 def _crop_within(
@@ -498,7 +498,7 @@ def _crop_within(
     return (region[0] + box[0], region[1] + box[1], region[0] + box[2], region[1] + box[3])
 
 
-def process_page(image: Image.Image, mode: str, target_dir: Path) -> PageResult:
+def process_page(image: Image.Image, target_dir: Path) -> PageResult:
     """Clean one scanned page and save a capture per system.
 
     A page without staves - a title page, a page of text - is kept whole,
@@ -513,7 +513,7 @@ def process_page(image: Image.Image, mode: str, target_dir: Path) -> PageResult:
         whole = (0, 0, grey.width, grey.height)
         if trim_box(grey, TRIM_THRESHOLD, 0) is None:
             return PageResult(shots=[], found_staves=False)
-        finished = finish(grey, mode)
+        finished = finish(grey, "grey")
         return PageResult(
             shots=[_save(finished, _crop_within(finished, whole, 4), target_dir)],
             found_staves=False,
@@ -541,14 +541,13 @@ def process_page(image: Image.Image, mode: str, target_dir: Path) -> PageResult:
                 content[2],
                 min(band.height, content[3] + shift),
             )
-        finished = finish(band, mode)
+        finished = finish(band, "grey")
         shots.append(_save(finished, _crop_within(finished, content, padding), target_dir))
     return PageResult(shots=shots, found_staves=True)
 
 
 def import_scans(
     paths: Sequence[Path],
-    mode: str,
     target_dir: Path,
     progress: Callable[[str], None] = lambda text: None,
     cancelled: Callable[[], bool] = lambda: False,
@@ -567,7 +566,7 @@ def import_scans(
                     return ImportResult(shots, pages, whole, blank, errors)
                 label = f"{path.name}, Seite {number}"
                 progress(f"{label} wird bereinigt …")
-                result = process_page(image, mode, target_dir)
+                result = process_page(image, target_dir)
                 pages += 1
                 shots.extend(result.shots)
                 if not result.shots:

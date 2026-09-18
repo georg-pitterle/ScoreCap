@@ -10,6 +10,7 @@ from PIL import Image
 
 from .layout import Page
 from .model import Shot
+from .scan import finish
 from .settings import A4_HEIGHT_PT, A4_WIDTH_PT, MM_TO_PT, Settings
 
 FOOTER_FONT = "helv"
@@ -18,18 +19,23 @@ FOOTER_COLOR = (0.4, 0.4, 0.4)
 FOOTER_BASELINE_MM = 8.0
 
 
-def _png_bytes(shot: Shot) -> bytes:
+def _png_bytes(shot: Shot, settings: Settings) -> bytes:
     """Load the shot, apply its crop, and re-encode losslessly in grey.
 
     Notation is black on white, so colour carries nothing but a third of the
     bytes. Grey keeps the anti-aliased edges that make staves look clean -
     pure black and white would not: at screenshot resolution it makes staff
     lines of uneven weight.
+
+    Scans are the exception: at scanner resolution black and white prints
+    cleanly and makes the file far smaller, so the setting decides for them.
     """
     with Image.open(shot.path) as image:
         image = image.convert("L")
         if shot.crop is not None:
             image = image.crop(shot.crop)
+        if shot.scan and settings.scan_mode != "grey":
+            image = finish(image, "bw")
         buffer = io.BytesIO()
         image.save(buffer, format="PNG")
     return buffer.getvalue()
@@ -50,7 +56,7 @@ def build(shots: Sequence[Shot], pages: Sequence[Page], settings: Settings) -> b
                     placement.x + placement.w,
                     placement.y + placement.h,
                 )
-                pdf_page.insert_image(rect, stream=_png_bytes(shots[placement.index]))
+                pdf_page.insert_image(rect, stream=_png_bytes(shots[placement.index], settings))
             if settings.footer_enabled:
                 text = f"{number} von {total}"
                 width = pymupdf.get_text_length(

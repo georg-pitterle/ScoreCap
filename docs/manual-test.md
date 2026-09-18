@@ -110,10 +110,10 @@ Partitur ist geöffnet.
 5. **Titel zurückholen.** Erstes System einer Seite mit Titel wählen,
    *Zuschneiden*, oberen Rand des Rahmens hochziehen.
    Erwartet: der Titel ist wieder da.
-6. **Bereinigung umstellen.** In den Einstellungen *Graustufen* wählen, erneut
-   importieren.
-   Erwartet: weiche Graustufen statt reinem Schwarz/Weiß; das exportierte PDF
-   ist größer.
+6. **Bereinigung umstellen.** Nach dem Import in den Einstellungen *Scans
+   drucken in* auf *Graustufen* stellen, ohne neu zu importieren.
+   Erwartet: Vorschau zeigt sofort weiche Kanten; das exportierte PDF ist
+   deutlich größer. Bildschirmaufnahmen im selben Projekt ändern sich nicht.
 7. **Undo und Projekt.** Nach einem Import `Strg+Z`, dann erneut importieren,
    speichern, schließen, öffnen.
    Erwartet: Undo nimmt den ganzen Import zurück; das Projekt kommt mit allen

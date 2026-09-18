@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pymupdf
 import pytest
-from PIL import Image
+from PIL import Image, ImageDraw
 
 from scorecap.layout import paginate
 from scorecap.model import Shot
@@ -169,3 +169,35 @@ def test_black_and_white_images_stay_one_bit(tmp_path):
         finally:
             doc.close()
     assert sizes["bw"] < sizes["grey"]
+
+
+def grey_art(tmp_path: Path, name: str, scan: bool) -> Shot:
+    """Soft grey strokes: what a scan in grey looks like around its ink."""
+    image = Image.new("L", (1200, 300), 255)
+    draw = ImageDraw.Draw(image)
+    for line in range(5):
+        draw.line([20, 100 + line * 14, 1180, 100 + line * 14], fill=90, width=3)
+        draw.line([20, 101 + line * 14, 1180, 101 + line * 14], fill=30, width=1)
+    path = tmp_path / name
+    image.save(path)
+    return Shot(path=path, width=1200, height=300, scan=scan)
+
+
+def embedded_bits(shot: Shot, settings: Settings) -> int:
+    pages = paginate([shot.effective_size], settings)
+    doc = pymupdf.open(stream=build([shot], pages, settings), filetype="pdf")
+    try:
+        return doc.load_page(0).get_images(full=True)[0][4]
+    finally:
+        doc.close()
+
+
+def test_scans_follow_the_scan_setting_at_export(tmp_path):
+    shot = grey_art(tmp_path, "scan.png", scan=True)
+    assert embedded_bits(shot, Settings(scan_mode="bw")) == 1
+    assert embedded_bits(shot, Settings(scan_mode="grey")) == 8
+
+
+def test_screen_captures_are_never_turned_black_and_white(tmp_path):
+    shot = grey_art(tmp_path, "capture.png", scan=False)
+    assert embedded_bits(shot, Settings(scan_mode="bw")) == 8

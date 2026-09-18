@@ -100,7 +100,7 @@ def _selftest(report: Path) -> int:
                 draw.line([120, top + line * 12, 1120, top + line * 12], fill=20, width=2)
         scan_path = workdir / "scan.pdf"
         page.rotate(1.0, fillcolor=235).save(scan_path, resolution=150)
-        imported = import_scans([scan_path], "bw", workdir)
+        imported = import_scans([scan_path], workdir)
         lines.append(f"scan: {len(imported.shots)} system(s) from {imported.pages} page(s)")
         if imported.errors or len(imported.shots) != 2:
             raise RuntimeError(f"scan import failed: {imported.errors}")

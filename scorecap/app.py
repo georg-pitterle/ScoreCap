@@ -138,13 +138,10 @@ class _UpdateCheck(QRunnable):
 class _ScanImport(QRunnable):
     """Cleans scanned pages and cuts them into systems, off the UI thread."""
 
-    def __init__(
-        self, paths: list[Path], mode: str, target_dir: Path, signals: _ScanSignals
-    ) -> None:
+    def __init__(self, paths: list[Path], target_dir: Path, signals: _ScanSignals) -> None:
         super().__init__()
         self.signals = signals
         self._paths = paths
-        self._mode = mode
         self._target_dir = target_dir
         self._cancelled = threading.Event()
         self.stopped = threading.Event()
@@ -158,7 +155,6 @@ class _ScanImport(QRunnable):
         try:
             result = import_scans(
                 self._paths,
-                self._mode,
                 self._target_dir,
                 progress=lambda text: _emit(self.signals.progress, text),
                 cancelled=self._cancelled.is_set,
@@ -682,7 +678,7 @@ class MainWindow(QMainWindow):
         signals.progress.connect(self.status.setText)
         signals.done.connect(self._on_scans_imported)
         self._scan_task = self._track(
-            _ScanImport(list(paths), self.settings.scan_mode, self._temp_dir, signals)
+            _ScanImport(list(paths), self._temp_dir, signals)
         )
         self.scan_button.setEnabled(False)
         self.status.setText("Scans werden gelesen …")

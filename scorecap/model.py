@@ -12,6 +12,8 @@ class Shot:
     width: int
     height: int
     crop: tuple[int, int, int, int] | None = None
+    # A scanned system, kept in grey; the export decides on black and white.
+    scan: bool = False
 
     def __post_init__(self) -> None:
         if self.width <= 0 or self.height <= 0:

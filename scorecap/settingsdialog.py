@@ -89,8 +89,9 @@ class SettingsDialog(QDialog):
         self._scan_mode.addItem("Schwarz/Weiß", "bw")
         self._scan_mode.addItem("Graustufen", "grey")
         self._scan_mode.setToolTip(
-            "Schwarz/Weiß druckt am saubersten und ergibt die kleinsten PDFs; "
-            "Graustufen bleiben näher am Original"
+            "Wie importierte Scans in Vorschau und PDF erscheinen. Schwarz/Weiß "
+            "ergibt die kleinsten PDFs, Graustufen glattere Kanten. Gilt sofort, "
+            "auch für schon importierte Scans; Bildschirmaufnahmen bleiben grau"
         )
         self._scan_mode.setCurrentIndex(max(0, self._scan_mode.findData(settings.scan_mode)))
 
@@ -102,7 +103,7 @@ class SettingsDialog(QDialog):
         form.addRow("Kleinster Schrumpffaktor", self._shrink_min)
         form.addRow("Warnschwelle dpi", self._min_dpi)
         form.addRow("Hotkey", self._hotkey)
-        form.addRow("Scans bereinigen", self._scan_mode)
+        form.addRow("Scans drucken in", self._scan_mode)
         form.addRow(self._footer)
         form.addRow(self._auto_trim)
         form.addRow(self._align_staff_ends)

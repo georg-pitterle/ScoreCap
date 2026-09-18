@@ -232,14 +232,15 @@ def test_unknown_mode_falls_back_to_black_and_white():
 def test_process_page_makes_one_straight_shot_per_system(tmp_path):
     image, _ = page([1, 2, 1], lyrics=True)
     scan = shadowed(image).rotate(1.2, Image.BICUBIC, fillcolor=200)
-    result = process_page(scan, "bw", tmp_path)
+    result = process_page(scan, tmp_path)
     assert len(result.shots) == 3
     assert result.found_staves
+    assert all(shot.scan for shot in result.shots)
     for shot in result.shots:
         assert shot.crop is not None
         with Image.open(shot.path) as saved:
             assert saved.size == (shot.width, shot.height)
-            assert saved.mode == "1"
+            assert saved.mode == "L"  # black and white is decided at export
             system = saved.crop(shot.crop)
         staves = 2 if shot is result.shots[1] else 1
         assert horizontal_line_sharpness(system) >= 5 * staves
@@ -248,13 +249,13 @@ def test_process_page_makes_one_straight_shot_per_system(tmp_path):
 def test_process_page_keeps_a_page_without_staves_whole(tmp_path):
     image = Image.new("L", (WIDTH, HEIGHT), 255)
     ImageDraw.Draw(image).rectangle([100, 100, 800, 200], fill=0)
-    result = process_page(image, "grey", tmp_path)
+    result = process_page(image, tmp_path)
     assert not result.found_staves
     assert len(result.shots) == 1
 
 
 def test_process_page_skips_a_blank_page(tmp_path):
-    result = process_page(Image.new("L", (WIDTH, HEIGHT), 250), "bw", tmp_path)
+    result = process_page(Image.new("L", (WIDTH, HEIGHT), 250), tmp_path)
     assert result.shots == []
 
 
@@ -308,7 +309,7 @@ def test_import_scans_collects_shots_and_reports_odd_pages(tmp_path):
     broken = tmp_path / "broken.png"
     broken.write_bytes(b"not a png")
     messages = []
-    result = import_scans([path, broken], "bw", tmp_path / "out", messages.append)
+    result = import_scans([path, broken], tmp_path / "out", messages.append)
     assert result.pages == 3
     assert len(result.shots) == 3  # two systems, one whole text page
     assert result.whole == ["scan.tif, Seite 2"]
@@ -321,7 +322,7 @@ def test_import_scans_stops_when_cancelled(tmp_path):
     music, _ = page([1])
     path = tmp_path / "scan.tif"
     music.save(path, save_all=True, append_images=[music, music])
-    result = import_scans([path], "bw", tmp_path / "out", cancelled=lambda: True)
+    result = import_scans([path], tmp_path / "out", cancelled=lambda: True)
     assert result.shots == [] and result.pages == 0
 
 
