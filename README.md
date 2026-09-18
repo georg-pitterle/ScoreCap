@@ -46,7 +46,8 @@ installierten Fassung.
   Hotkey drücken und `Esc`, oder das Fenster aus der Taskleiste holen — dann
   wird die Vorschau nachgezogen.
 - Links die Aufnahmen: per Drag&Drop sortieren, *Neu aufnehmen*, *Zuschneiden*,
-  *Löschen*. `Strg+Z` macht rückgängig.
+  *Löschen*. Doppelklick auf einen Eintrag öffnet das Zuschneiden. `Strg+Z`
+  macht rückgängig.
 - Beim *Zuschneiden* lässt sich ein vorhandener Rahmen nachbessern, statt ihn
   neu aufzuziehen: an den Ecken oder Kanten ziehen ändert die Größe, im Rahmen
   ziehen verschiebt ihn, außerhalb ziehen zeichnet einen neuen. Ohne Rahmen

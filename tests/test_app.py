@@ -140,3 +140,40 @@ def test_flush_ends_can_be_switched_off(tmp_path, qapp):
     window.add_shot(arrow_system(tmp_path))
     margin = window.settings.content_x_pt + window.settings.content_width_pt
     assert image_right_edge(window.pdf_bytes) == pytest.approx(margin, abs=0.5)
+
+
+def test_double_clicking_a_shot_opens_the_crop_dialog_for_it(tmp_path, qapp, monkeypatch):
+    import scorecap.app as app_module
+    from scorecap.app import MainWindow
+
+    opened = []
+
+    class FakeDialog:
+        def __init__(self, shot, parent, palette):
+            opened.append(shot)
+            self.crop = (0, 0, 500, 250)
+
+        def exec(self):
+            return True
+
+    monkeypatch.setattr(app_module, "CropDialog", FakeDialog)
+    window = MainWindow()
+    window.add_shot(make_shot(tmp_path, "a.png"))
+    window.add_shot(make_shot(tmp_path, "b.png"))
+    window.shot_list.itemDoubleClicked.emit(window.shot_list.item(1))
+    assert [s.path.name for s in opened] == ["b.png"]
+    assert window.document.shots[1].crop == (0, 0, 500, 250)
+    assert window.shot_list.currentRow() == 1
+
+
+def test_a_missing_file_does_not_open_the_crop_dialog(tmp_path, qapp, monkeypatch):
+    import scorecap.app as app_module
+    from scorecap.app import MainWindow
+
+    monkeypatch.setattr(app_module, "CropDialog", lambda *a: pytest.fail("opened"))
+    window = MainWindow()
+    shot = make_shot(tmp_path, "a.png")
+    window.add_shot(shot)
+    shot.path.unlink()
+    window.rebuild()
+    window.shot_list.itemDoubleClicked.emit(window.shot_list.item(0))

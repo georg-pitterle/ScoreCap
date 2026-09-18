@@ -191,5 +191,6 @@ class ShotList(QListWidget):
         item.setToolTip(
             f"Aufnahme {data.number}, {data.size_label} px"
             + (f" — {data.chip}" if data.chip else "")
+            + ("" if data.path is None else "\nDoppelklick: zuschneiden")
         )
         self.addItem(item)

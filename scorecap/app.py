@@ -339,6 +339,7 @@ class MainWindow(QMainWindow):
         self.shot_list = ShotList(self.palette_tokens)
         self.shot_list.model().rowsMoved.connect(self._on_rows_moved)
         self.shot_list.currentRowChanged.connect(self._update_actions)
+        self.shot_list.itemDoubleClicked.connect(self._crop_item)
 
         self.empty_state = QLabel(
             f"Noch nichts aufgenommen.\n\n{self.settings.hotkey} drücken, "
@@ -774,11 +775,18 @@ class MainWindow(QMainWindow):
         self._toast.move(x, y)
         self._toast.show()
 
+    def _crop_item(self, item) -> None:
+        self.shot_list.setCurrentItem(item)
+        self.crop_selected()
+
     def crop_selected(self) -> None:
         index = self.shot_list.currentRow()
         if index < 0:
             return
-        dialog = CropDialog(self.document.shots[index], self, self.palette_tokens)
+        shot = self.document.shots[index]
+        if not shot.path.exists():
+            return  # nothing to show; the list already says the file is gone
+        dialog = CropDialog(shot, self, self.palette_tokens)
         if dialog.exec():
             self.document.set_crop(index, dialog.crop)
             self.rebuild()
