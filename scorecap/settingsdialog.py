@@ -78,10 +78,10 @@ class SettingsDialog(QDialog):
         self._footer.setChecked(settings.footer_enabled)
         self._auto_trim = QCheckBox("Weiße Ränder automatisch abschneiden")
         self._auto_trim.setChecked(settings.auto_trim)
-        self._align_staff_ends = QCheckBox("Systemenden bündig ausrichten")
+        self._align_staff_ends = QCheckBox("Notenlinien bündig ausrichten")
         self._align_staff_ends.setToolTip(
-            "Notenlinien enden am rechten Rand; Zeichen dahinter, etwa "
-            "Teilungspfeile, ragen in den Seitenrand"
+            "Notenlinien beginnen am linken und enden am rechten Rand; Klammern "
+            "davor und Zeichen dahinter, etwa Teilungspfeile, ragen in den Seitenrand"
         )
         self._align_staff_ends.setChecked(settings.align_staff_ends)
         self._hotkey = QLineEdit(settings.hotkey)

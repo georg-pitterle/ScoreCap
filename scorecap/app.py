@@ -38,7 +38,7 @@ from .scan import SUFFIXES as SCAN_SUFFIXES
 from .scan import ImportResult, import_scans
 from .settingsdialog import SettingsDialog, load_settings, save_settings
 from .shotlist import ShotList, row_data
-from .staff import staff_end_of
+from .staff import staff_extent_of
 from .theme import Palette, palette_for, stylesheet, system_prefers_dark
 from .trim import auto_crop
 from .updater import PendingUpdate, UpdateService
@@ -528,7 +528,7 @@ class MainWindow(QMainWindow):
         shots = self.document.shots
         usable, missing = usable_shots(shots)
         spans = (
-            [staff_end_of(s) for s in usable] if self.settings.align_staff_ends else None
+            [staff_extent_of(s) for s in usable] if self.settings.align_staff_ends else None
         )
         pages = paginate([s.effective_size for s in usable], self.settings, spans)
         self._pdf_bytes = pdf.build(usable, pages, self.settings)

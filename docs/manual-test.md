@@ -40,8 +40,12 @@ Partitur ist geöffnet.
     Ende Teilungspfeile stehen, dazu ein System ohne.
     Erwartet: die Notenlinien beider Systeme enden auf derselben Höhe am
     rechten Satzrand, die Pfeile stehen außerhalb im Seitenrand. Mit
-    abgeschaltetem „Systemenden bündig ausrichten" enden die Linien des
+    abgeschaltetem „Notenlinien bündig ausrichten" enden die Linien des
     Pfeil-Systems wieder früher.
+10b. **Systemanfang mit Klammer.** Ein System mit geschweifter Klammer vor den
+    Notenlinien aufnehmen oder importieren, dazu Systeme ohne.
+    Erwartet: alle Notenlinien beginnen am linken Satzrand, die Klammer steht
+    im Seitenrand.
 11. **Umsortieren.** Einen Eintrag in der Liste an eine andere Position ziehen.
    Erwartet: Vorschau folgt der neuen Reihenfolge.
 12. **Neu aufnehmen.** Eintrag wählen, *Neu aufnehmen*, neues Rechteck ziehen.

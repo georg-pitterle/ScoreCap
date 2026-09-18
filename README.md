@@ -131,19 +131,22 @@ Das spart Seiten, ohne die Noten unlesbar zu machen. Aufnahmen unter 120 dpi
 markiert die Liste als niedrige Druckqualität; dann im Browser hineinzoomen und
 neu aufnehmen.
 
-## Systemenden
+## Bündige Notenlinien
 
 Zeichen hinter dem Ende eines Systems — etwa die Pfeile, die eine Teilung im
-nächsten System ankündigen — gehören mit auf den Screenshot. Würde die ganze
-Aufnahme auf Satzbreite gebracht, endeten die Notenlinien dieses Systems vor
-denen aller anderen, und das System wäre kleiner. ScoreCap erkennt deshalb, wo
-die Notenlinien enden, legt dieses Ende auf den rechten Satzrand und lässt
-alles dahinter in den Seitenrand ragen, wie im Notensatz üblich.
+nächsten System ankündigen — und vor seinem Anfang — eine geschweifte Klammer,
+die Stimmen zusammenfasst — gehören mit auf die Aufnahme. Würde die ganze
+Aufnahme auf Satzbreite gebracht, begännen oder endeten die Notenlinien dieses
+Systems anders als die aller anderen, und das System wäre kleiner. ScoreCap
+erkennt deshalb, wo die Notenlinien beginnen und enden, legt beides auf die
+Satzränder und lässt alles davor und dahinter in den Seitenrand ragen, wie im
+Notensatz üblich.
 
 Erkannt wird ein System an mindestens fünf Linien, die über mehr als die Hälfte
-der Aufnahme laufen. Ohne erkanntes System, oder wenn der Überstand näher als
-3 mm an die Blattkante käme, bleibt es beim Einpassen der ganzen Aufnahme.
-Abschaltbar in den Einstellungen.
+der Aufnahme laufen. Ohne erkanntes System bleibt es beim Einpassen der ganzen
+Aufnahme; käme ein Überstand näher als 3 mm an die Blattkante, gilt das für
+diese Seite. Stimmnamen vor dem ersten System sind dafür meist zu breit — es
+bleibt dann eingerückt, wie im Notensatz. Abschaltbar in den Einstellungen.
 
 ## Dateigröße
 

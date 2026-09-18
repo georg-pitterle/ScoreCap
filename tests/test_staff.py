@@ -5,7 +5,7 @@ from pathlib import Path
 from PIL import Image, ImageDraw
 
 from scorecap.model import Shot
-from scorecap.staff import MIN_STAFF_ROWS, staff_end
+from scorecap.staff import MIN_STAFF_ROWS, staff_end, staff_extent
 
 
 def system(width=1000, height=260, line_end=900, arrow=True, staves=1) -> Image.Image:
@@ -59,11 +59,36 @@ def test_colour_screenshots_are_handled():
 
 
 def test_a_shot_is_measured_inside_its_crop(tmp_path: Path):
-    from scorecap.staff import staff_end_of
+    from scorecap.staff import staff_extent_of
 
     path = tmp_path / "s.png"
     system(width=1000, line_end=900).save(path)
     full = Shot(path=path, width=1000, height=260)
     cropped = Shot(path=path, width=1000, height=260, crop=(100, 0, 1000, 260))
-    assert abs(staff_end_of(full) - 902) <= 3
-    assert abs(staff_end_of(cropped) - 802) <= 3  # relative to the crop
+    assert abs(staff_extent_of(full)[1] - 902) <= 3
+    assert abs(staff_extent_of(cropped)[1] - 802) <= 3  # relative to the crop
+    assert abs(staff_extent_of(cropped)[0] - 0) <= 1
+
+
+def test_the_start_of_the_staff_lines_is_found_after_a_brace():
+    image = system(width=1000, line_end=900)
+    draw = ImageDraw.Draw(image)
+    draw.rectangle([0, 0, 60, 260], fill=255)  # lines now start at 61
+    draw.arc([30, 30, 60, 100], 90, 270, fill=0, width=4)  # a brace-like curve
+    draw.line([61, 40, 61, 88], fill=0, width=2)  # the system barline
+    start, end = staff_extent(image)
+    assert abs(start - 60) <= 3
+    assert abs(end - 902) <= 3
+
+
+def test_thin_sagging_lines_are_measured_end_to_end():
+    image = Image.new("L", (1000, 200), 255)
+    draw = ImageDraw.Draw(image)
+    for line in range(5):
+        y = 60 + line * 10
+        for step, x in enumerate(range(50, 950, 180)):
+            sag = (0, 1, 2, 1, 0)[step % 5]
+            draw.line([x, y + sag, min(x + 180, 950), y + sag], fill=0, width=1)
+    start, end = staff_extent(image)
+    assert abs(start - 50) <= 3
+    assert abs(end - 951) <= 3

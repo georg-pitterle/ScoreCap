@@ -135,7 +135,7 @@ def staff_right(placement, width_px: int, span_px: int) -> float:
 
 def test_the_staff_end_sits_on_the_right_margin_and_the_mark_hangs_outside():
     # 1241 px wide, staff lines end at 1210: the Perseus page-3 case.
-    pages = paginate([(1241, 582), (1220, 711)], SETTINGS, spans=[1210, None])
+    pages = paginate([(1241, 582), (1220, 711)], SETTINGS, spans=[(0, 1210), None])
     arrow, plain = pages[0].placements
     margin = SETTINGS.content_x_pt + SETTINGS.content_width_pt
     assert staff_right(arrow, 1241, 1210) == pytest.approx(margin)
@@ -145,7 +145,7 @@ def test_the_staff_end_sits_on_the_right_margin_and_the_mark_hangs_outside():
 
 
 def test_height_follows_the_staff_span_not_the_capture_width():
-    pages = paginate([(1241, 582)], SETTINGS, spans=[1210])
+    pages = paginate([(1241, 582)], SETTINGS, spans=[(0, 1210)])
     (placement,) = pages[0].placements
     assert placement.h == pytest.approx(SETTINGS.content_width_pt * 582 / 1210)
 
@@ -153,7 +153,7 @@ def test_height_follows_the_staff_span_not_the_capture_width():
 def test_shrunk_pages_keep_staff_ends_flush():
     height = (SETTINGS.content_height_pt * 1.04 - 3 * SETTINGS.gap_min_pt) / 4
     size = (1000, round(1000 * height / SETTINGS.content_width_pt))
-    pages = paginate([size] * 4, SETTINGS, spans=[960, None, 980, None])
+    pages = paginate([size] * 4, SETTINGS, spans=[(0, 960), None, (0, 980), None])
     page = pages[0]
     assert page.scale < 1.0
     ends = [
@@ -165,7 +165,7 @@ def test_shrunk_pages_keep_staff_ends_flush():
 
 def test_an_overhang_reaching_the_paper_edge_is_ignored():
     # Staff ends at 60 % of the capture: the rest would run off the page.
-    pages = paginate([(1000, 300)], SETTINGS, spans=[600])
+    pages = paginate([(1000, 300)], SETTINGS, spans=[(0, 600)])
     (placement,) = pages[0].placements
     assert right_edge(placement) == pytest.approx(
         SETTINGS.content_x_pt + SETTINGS.content_width_pt
@@ -173,7 +173,7 @@ def test_an_overhang_reaching_the_paper_edge_is_ignored():
 
 
 def test_overhang_stays_inside_the_side_margin():
-    pages = paginate([(1241, 582)], SETTINGS, spans=[1210])
+    pages = paginate([(1241, 582)], SETTINGS, spans=[(0, 1210)])
     (placement,) = pages[0].placements
     overhang = right_edge(placement) - (SETTINGS.content_x_pt + SETTINGS.content_width_pt)
     assert 0 < overhang <= (SETTINGS.margin_side_mm - 3) * MM_TO_PT
@@ -182,3 +182,33 @@ def test_overhang_stays_inside_the_side_margin():
 def test_without_spans_nothing_changes():
     sizes = [(1000, 200), (1200, 340)]
     assert paginate(sizes, SETTINGS) == paginate(sizes, SETTINGS, spans=[None, None])
+
+
+def staff_left(placement, width_px: int, start_px: int) -> float:
+    return placement.x + placement.w * start_px / width_px
+
+
+def test_the_staff_start_sits_on_the_left_margin_and_the_brace_hangs_outside():
+    # Staff lines start at 31 px: a brace stands before them.
+    pages = paginate([(1241, 582), (1220, 711)], SETTINGS, spans=[(31, 1241), None])
+    brace, plain = pages[0].placements
+    assert staff_left(brace, 1241, 31) == pytest.approx(SETTINGS.content_x_pt)
+    assert brace.x < SETTINGS.content_x_pt  # the brace overhangs
+    assert right_edge(brace) == pytest.approx(right_edge(plain))
+    assert brace.h == pytest.approx(SETTINGS.content_width_pt * 582 / 1210)
+
+
+def test_both_ends_can_overhang_at_once():
+    pages = paginate([(1241, 582)], SETTINGS, spans=[(20, 1220)])
+    (placement,) = pages[0].placements
+    assert staff_left(placement, 1241, 20) == pytest.approx(SETTINGS.content_x_pt)
+    assert staff_right(placement, 1241, 1220) == pytest.approx(
+        SETTINGS.content_x_pt + SETTINGS.content_width_pt
+    )
+
+
+def test_a_left_overhang_reaching_the_paper_edge_is_ignored():
+    # Voice names take 30 % of the capture: too much to hang into the margin.
+    pages = paginate([(1000, 300)], SETTINGS, spans=[(300, 1000)])
+    (placement,) = pages[0].placements
+    assert placement.x == pytest.approx(SETTINGS.content_x_pt)
