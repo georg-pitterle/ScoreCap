@@ -80,3 +80,35 @@ def test_normalize_move_downward_shifts_by_one():
     assert normalize_move(0, 3) == 2
     assert normalize_move(2, 0) == 0
     assert normalize_move(1, 1) == 1
+
+
+def test_every_change_moves_the_revision():
+    doc = Document()
+    seen = [doc.revision]
+    doc.add(make_shot("a.png"))
+    seen.append(doc.revision)
+    doc.add(make_shot("b.png"))
+    seen.append(doc.revision)
+    doc.move(0, 1)
+    seen.append(doc.revision)
+    doc.set_crop(0, (0, 0, 10, 10))
+    seen.append(doc.revision)
+    doc.remove(0)
+    seen.append(doc.revision)
+    assert len(set(seen)) == len(seen)
+
+
+def test_undo_is_a_change_too():
+    doc = Document()
+    doc.add(make_shot())
+    before = doc.revision
+    doc.undo()
+    assert doc.revision != before
+
+
+def test_replacing_everything_resets_the_history():
+    doc = Document()
+    doc.add(make_shot("a.png"))
+    doc.replace_all([make_shot("x.png"), make_shot("y.png")])
+    assert [s.path.name for s in doc.shots] == ["x.png", "y.png"]
+    assert doc.can_undo is False  # an opened project starts a fresh history

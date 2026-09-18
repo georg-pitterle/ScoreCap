@@ -10,6 +10,8 @@ def test_glyphs_are_single_characters():
         icons.SETTINGS,
         icons.EXPORT,
         icons.SHRINK,
+        icons.OPEN,
+        icons.SAVE,
         icons.UNDO,
         icons.ZOOM_FIT,
         icons.ZOOM_IN,

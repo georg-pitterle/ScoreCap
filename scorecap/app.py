@@ -32,6 +32,7 @@ from .layout import paginate
 from .optimize import OptimizeResult, optimize_pdf
 from .model import Document, Shot, normalize_move
 from .preview import PreviewWidget
+from .project import SUFFIX, load_project, save_project
 from .settingsdialog import SettingsDialog, load_settings, save_settings
 from .shotlist import ShotList, row_data
 from .staff import staff_end_of
@@ -177,6 +178,8 @@ class MainWindow(QMainWindow):
         self._temp_dir = Path(tempfile.mkdtemp(prefix="scorecap-"))
         self._pending_replace: int | None = None
         self._capturing = False
+        self._project_path: Path | None = None
+        self._saved_revision = self.document.revision
         self._dirty = False
 
         self._build_ui()
@@ -226,6 +229,14 @@ class MainWindow(QMainWindow):
         self.delete_button.clicked.connect(self.delete_selected)
         self.settings_button = self._button("Einstellungen", icons.SETTINGS)
         self.settings_button.clicked.connect(self.edit_settings)
+        self.open_button = self._button("Öffnen …", icons.OPEN)
+        self.open_button.setToolTip("Gespeichertes Projekt öffnen (Strg+O)")
+        self.open_button.clicked.connect(self.open_project)
+        self.save_button = self._button("Speichern", icons.SAVE)
+        self.save_button.setToolTip(
+            "Aufnahmen als Projekt speichern (Strg+S, Speichern unter: F12)"
+        )
+        self.save_button.clicked.connect(self.save)
         self.shrink_button = self._button("PDF verkleinern …", icons.SHRINK)
         self.shrink_button.setToolTip(
             "Ein vorhandenes PDF verkleinern; das Original bleibt unverändert"
@@ -242,6 +253,9 @@ class MainWindow(QMainWindow):
         for button in (self.recapture_button, self.crop_button, self.delete_button):
             bar.addWidget(button)
         bar.addStretch(1)
+        bar.addWidget(self.open_button)
+        bar.addWidget(self.save_button)
+        bar.addSpacing(8)
         bar.addWidget(self.shrink_button)
         bar.addWidget(self.settings_button)
 
@@ -321,6 +335,17 @@ class MainWindow(QMainWindow):
         undo_action.setShortcut(QKeySequence.Undo)
         undo_action.triggered.connect(self.undo)
         self.addAction(undo_action)
+        # Not Ctrl+Shift+S for "save as": that is the global capture hotkey.
+        for label, keys, slot in (
+            ("Öffnen", QKeySequence.Open, self.open_project),
+            ("Speichern", QKeySequence.Save, self.save),
+            ("Speichern unter", QKeySequence("F12"), self.save_as),
+        ):
+            action = QAction(label, self)
+            action.setShortcut(keys)
+            action.triggered.connect(slot)
+            self.addAction(action)
+        self._update_title()
         self._update_actions()
 
     def _build_zoom_bar(self) -> QWidget:
@@ -436,6 +461,7 @@ class MainWindow(QMainWindow):
         if missing:
             text += f", {len(missing)} Datei(en) fehlen"
         self.status.setText(text)
+        self._update_title()
         self._update_zoom_label()
         self._dirty = False
 
@@ -516,21 +542,9 @@ class MainWindow(QMainWindow):
         update = self._ready_update
         if update is None:
             return
-        shots = len(self.document.shots)
-        if shots:
-            # Captures live in a temporary folder and do not survive a restart.
-            answer = QMessageBox.question(
-                self,
-                "Jetzt neu starten?",
-                f"ScoreCap startet in Version {update.version} neu. "
-                f"{'Die Aufnahme geht' if shots == 1 else f'Die {shots} Aufnahmen gehen'} "
-                "dabei verloren, wenn sie nicht als PDF exportiert sind.\n\n"
-                "Ohne Neustart wird das Update beim Schließen installiert.",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.No,
-            )
-            if answer != QMessageBox.StandardButton.Yes:
-                return
+        # Unsaved captures live in a temporary folder and would not survive.
+        if not self._confirm_discard():
+            return
         self._restarting = True
         if not self.updates.restart_into(update):
             self._restarting = False
@@ -706,6 +720,112 @@ class MainWindow(QMainWindow):
         else:
             QApplication.restoreOverrideCursor()
 
+    # --- projects -------------------------------------------------------
+
+    @property
+    def is_modified(self) -> bool:
+        return self.document.revision != self._saved_revision
+
+    def _update_title(self) -> None:
+        name = self._project_path.stem if self._project_path else "Unbenannt"
+        # [*] is where Qt shows the unsaved marker when windowModified is set.
+        self.setWindowTitle(f"{name}[*] — ScoreCap")
+        self.setWindowModified(self.is_modified)
+
+    def _unsaved_changes_box(self) -> tuple[QMessageBox, QPushButton, QPushButton]:
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Icon.Warning)
+        box.setWindowTitle("Ungespeicherte Aufnahmen")
+        box.setText("Die Aufnahmen sind nicht gespeichert.")
+        box.setInformativeText(
+            "Nicht gespeicherte Aufnahmen gehen verloren, wenn ScoreCap schließt."
+        )
+        save = box.addButton("Speichern", QMessageBox.ButtonRole.AcceptRole)
+        discard = box.addButton("Nicht speichern", QMessageBox.ButtonRole.DestructiveRole)
+        box.addButton("Abbrechen", QMessageBox.ButtonRole.RejectRole)
+        box.setDefaultButton(save)
+        # The message box sizes its buttons before the window's stylesheet
+        # has styled them, and the stylesheet's larger font then cut
+        # "Nicht speichern" off. Styling them first fixes the widths.
+        for button in box.buttons():
+            button.ensurePolished()
+            button.setMinimumWidth(button.sizeHint().width())
+        return box, save, discard
+
+    def _ask_save_changes(self) -> str:
+        """'save', 'discard' or 'cancel' for unsaved work."""
+        box, save, discard = self._unsaved_changes_box()
+        box.exec()
+        clicked = box.clickedButton()
+        if clicked is save:
+            return "save"
+        if clicked is discard:
+            return "discard"
+        return "cancel"
+
+    def _confirm_discard(self) -> bool:
+        """True when it is fine to drop the current document."""
+        if not self.is_modified or not self.document.shots:
+            return True
+        answer = self._ask_save_changes()
+        if answer == "save":
+            return self.save()
+        return answer == "discard"
+
+    def save_to(self, path: Path) -> None:
+        usable, _missing = usable_shots(self.document.shots)
+        save_project(path, usable)
+        self._project_path = path
+        self._saved_revision = self.document.revision
+        self._update_title()
+        self.status.setText(f"Gespeichert: {path.name}")
+
+    def save(self) -> bool:
+        if self._project_path is None:
+            return self.save_as()
+        return self._save_reporting(self._project_path)
+
+    def save_as(self) -> bool:
+        suggestion = self._project_path or Path.home() / f"Partitur{SUFFIX}"
+        name, _ = QFileDialog.getSaveFileName(
+            self, "Projekt speichern", str(suggestion), f"ScoreCap-Projekt (*{SUFFIX})"
+        )
+        if not name:
+            return False
+        path = Path(name)
+        if path.suffix.lower() != SUFFIX:
+            path = path.with_name(path.name + SUFFIX)
+        return self._save_reporting(path)
+
+    def _save_reporting(self, path: Path) -> bool:
+        try:
+            self.save_to(path)
+        except OSError as error:
+            QMessageBox.critical(self, "Speichern fehlgeschlagen", str(error))
+            return False
+        return True
+
+    def open_project(self) -> None:
+        if not self._confirm_discard():
+            return
+        name, _ = QFileDialog.getOpenFileName(
+            self, "Projekt öffnen", "", f"ScoreCap-Projekt (*{SUFFIX})"
+        )
+        if name:
+            self.load_from(Path(name))
+
+    def load_from(self, path: Path) -> None:
+        try:
+            shots = load_project(path, self._temp_dir)
+        except (OSError, ValueError) as error:
+            QMessageBox.critical(self, "Öffnen fehlgeschlagen", str(error))
+            return
+        self.document.replace_all(shots)
+        self._project_path = path
+        self._saved_revision = self.document.revision
+        self.rebuild()
+        self.status.setText(f"Geöffnet: {path.name}")
+
     def export_to(self, path: Path) -> None:
         path.write_bytes(self._pdf_bytes)
 
@@ -723,6 +843,9 @@ class MainWindow(QMainWindow):
             self.status.setText(f"Exportiert: {name}")
 
     def closeEvent(self, event) -> None:  # noqa: N802
+        if not self._restarting and not self._confirm_discard():
+            event.ignore()
+            return
         if self._ready_update is not None and not self._restarting:
             self.updates.install_on_exit(self._ready_update)
         # The overlay is deliberately parentless (a child window would be

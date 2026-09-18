@@ -63,6 +63,16 @@ Partitur ist geöffnet.
     Erwartet: neue Datei neben dem Original, deutlich kleiner, Seiten sehen
     gleich aus; das Original ist unverändert. Ein zweites Mal auf die kleine
     Datei angewandt meldet „bereits kompakt".
+16c. **Projekt speichern und öffnen.** Einige Aufnahmen machen, eine
+    zuschneiden, `Strg+S`, Namen vergeben, ScoreCap schließen, neu starten,
+    `Strg+O`, Projekt öffnen.
+    Erwartet: dieselben Aufnahmen in derselben Reihenfolge, der Zuschnitt ist
+    erhalten, die Vorschau gleich. Titelleiste zeigt den Projektnamen.
+16d. **Ungespeichertes nicht verlieren.** Aufnahme hinzufügen, Fenster
+    schließen.
+    Erwartet: Frage „Speichern / Nicht speichern / Abbrechen", alle drei
+    Knöpfe vollständig lesbar; *Abbrechen* lässt das Fenster offen. Nach dem
+    Speichern schließt das Fenster ohne Frage.
 17. **Export-Fehler.** Die exportierte Datei im Reader geöffnet lassen und
     erneut auf denselben Namen exportieren.
     Erwartet: Fehlerdialog, Anwendung läuft weiter, Aufnahmen bleiben erhalten.

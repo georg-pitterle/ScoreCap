@@ -85,7 +85,9 @@ def test_restarting_without_captures_does_not_ask(window, monkeypatch):
     assert window.updates.restarted == [UPDATE]
 
 
-def test_restarting_with_captures_asks_first_and_respects_no(window, monkeypatch, tmp_path):
+def test_restarting_with_unsaved_captures_asks_first_and_respects_cancel(
+    window, monkeypatch, tmp_path
+):
     from PIL import Image
 
     from scorecap.model import Shot
@@ -96,16 +98,16 @@ def test_restarting_with_captures_asks_first_and_respects_no(window, monkeypatch
 
     asked = []
     monkeypatch.setattr(
-        QMessageBox, "question",
-        lambda *a, **k: asked.append(a) or QMessageBox.StandardButton.No,
+        type(window), "_ask_save_changes", lambda self: asked.append(1) or "cancel"
     )
     window._on_update_downloaded(UPDATE, True)
     window.update_button.click()
     assert asked, "restarting would discard the captures without warning"
     assert window.updates.restarted == []
+    monkeypatch.setattr(type(window), "_ask_save_changes", lambda self: "discard")
 
 
-def test_restarting_with_captures_goes_ahead_on_yes(window, monkeypatch, tmp_path):
+def test_restarting_with_captures_goes_ahead_when_discarded(window, monkeypatch, tmp_path):
     from PIL import Image
 
     from scorecap.model import Shot
@@ -113,9 +115,7 @@ def test_restarting_with_captures_goes_ahead_on_yes(window, monkeypatch, tmp_pat
     path = tmp_path / "a.png"
     Image.new("RGB", (400, 100), (0, 0, 0)).save(path)
     window.add_shot(Shot(path=path, width=400, height=100))
-    monkeypatch.setattr(
-        QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
-    )
+    monkeypatch.setattr(type(window), "_ask_save_changes", lambda self: "discard")
     window._on_update_downloaded(UPDATE, True)
     window.update_button.click()
     assert window.updates.restarted == [UPDATE]

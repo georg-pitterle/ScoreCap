@@ -41,6 +41,8 @@ class Document:
     def __init__(self) -> None:
         self._shots: list[Shot] = []
         self._history: list[list[Shot]] = []
+        # Moves on every change, undo included, so "unsaved" is a comparison.
+        self._revision = 0
 
     @property
     def shots(self) -> list[Shot]:
@@ -50,8 +52,19 @@ class Document:
     def can_undo(self) -> bool:
         return bool(self._history)
 
+    @property
+    def revision(self) -> int:
+        return self._revision
+
     def _snapshot(self) -> None:
         self._history.append(list(self._shots))
+        self._revision += 1
+
+    def replace_all(self, shots: list[Shot]) -> None:
+        """Load a whole document; its history starts fresh."""
+        self._shots = list(shots)
+        self._history = []
+        self._revision += 1
 
     def add(self, shot: Shot) -> None:
         self._snapshot()
@@ -78,4 +91,5 @@ class Document:
         if not self._history:
             return False
         self._shots = self._history.pop()
+        self._revision += 1
         return True

@@ -15,9 +15,8 @@ wird beim Schließen installiert", daneben *Jetzt neu starten*.
 
 - **Nichts tun:** beim nächsten Schließen installiert sich das Update, der
   folgende Start ist die neue Version.
-- ***Jetzt neu starten*:** sofort umsteigen. Liegen Aufnahmen vor, fragt ScoreCap
-  vorher nach — sie liegen nur in einem temporären Ordner und gehen bei einem
-  Neustart verloren, wenn sie nicht als PDF exportiert sind.
+- ***Jetzt neu starten*:** sofort umsteigen. Sind Aufnahmen noch nicht
+  gespeichert, fragt ScoreCap vorher, ob sie gespeichert werden sollen.
 
 Ohne Internet oder bei einem Fehler passiert nichts Sichtbares. Was geschehen
 ist, steht in `%LocalAppData%\ScoreCap\logs\scorecap.log`.
@@ -50,6 +49,23 @@ installierten Fassung.
   *Löschen*. `Strg+Z` macht rückgängig.
 - Rechts die A4-Seiten, exakt so, wie sie exportiert werden.
 - *Als PDF exportieren* schreibt die Datei.
+
+## Projekte speichern
+
+*Speichern* (`Strg+S`) legt alle Aufnahmen als Projekt ab: eine einzelne Datei
+`Name.scorecap` mit den Original-Screenshots in voller Auflösung, ihrer
+Reihenfolge und den Zuschnitten. *Öffnen …* (`Strg+O`) holt sie zurück, um
+weiterzuarbeiten oder neu zu exportieren; *Speichern unter* liegt auf `F12`
+(`Strg+Umschalt+S` ist der Aufnahme-Hotkey).
+
+Ungespeicherte Aufnahmen gehen nicht still verloren: Beim Schließen, beim
+Öffnen eines anderen Projekts und beim Update-Neustart fragt ScoreCap
+„Speichern / Nicht speichern / Abbrechen". Die Titelleiste zeigt Projektname
+und ein `*` für ungespeicherte Änderungen.
+
+Gespeichert wird zuerst in eine Hilfsdatei, die erst am Ende die alte ersetzt —
+bricht das Speichern ab, bleibt die vorige Fassung heil. Die Einstellungen
+(Ränder, Fußzeile, …) gehören nicht zum Projekt, sie gelten für alle.
 
 ## Oberfläche
 
@@ -125,6 +141,7 @@ nicht angefasst, und größer als vorher wird eine Datei nie.
 | `staff.py` | erkennt, wo die Notenlinien eines Systems enden |
 | `theme.py`, `icons.py` | Farb- und Schrift-Tokens, Symbole |
 | `optimize.py` | vorhandene PDFs verkleinern |
+| `project.py` | Projekte als `.scorecap` speichern und öffnen |
 | `updater.py` | Selbst-Update über die GitHub-Releases |
 | `app.py` | Hauptfenster, verdrahtet alles |
 | `cli.py` | Start: Velopack-Übergabe, Symbol, Selbsttest |
