@@ -10,6 +10,7 @@ from typing import Sequence
 from PySide6.QtCore import QEvent, QObject, QRunnable, QSettings, Qt, QThreadPool, QTimer, Signal
 from PySide6.QtGui import QAction, QCursor, QKeySequence
 from PySide6.QtWidgets import (
+    QApplication,
     QFileDialog,
     QHBoxLayout,
     QLabel,
@@ -27,6 +28,7 @@ from .capture import SelectionOverlay, grab
 from .cropdialog import CropDialog
 from .hotkey import HotkeyFilter
 from .layout import paginate
+from .optimize import OptimizeResult, optimize_pdf
 from .model import Document, Shot, normalize_move
 from .preview import PreviewWidget
 from .settingsdialog import SettingsDialog, load_settings, save_settings
@@ -116,6 +118,15 @@ class _UpdateDownload(QRunnable):
         _emit(self.signals.finished)
 
 
+def shrunk_name(source: Path) -> Path:
+    """Where a shrunk copy goes by default: beside the original, never over it."""
+    return source.with_name(f"{source.stem}-klein{source.suffix}")
+
+
+def _megabytes(size: int) -> str:
+    return f"{size / 1024 / 1024:.1f}".replace(".", ",") + " MB"
+
+
 def usable_shots(shots: Sequence[Shot]) -> tuple[list[Shot], list[int]]:
     """Split off shots whose file disappeared; they cannot be rendered."""
     usable: list[Shot] = []
@@ -191,6 +202,11 @@ class MainWindow(QMainWindow):
         self.delete_button.clicked.connect(self.delete_selected)
         self.settings_button = self._button("Einstellungen", icons.SETTINGS)
         self.settings_button.clicked.connect(self.edit_settings)
+        self.shrink_button = self._button("PDF verkleinern …", icons.SHRINK)
+        self.shrink_button.setToolTip(
+            "Ein vorhandenes PDF verkleinern; das Original bleibt unverändert"
+        )
+        self.shrink_button.clicked.connect(self.shrink_pdf)
 
         toolbar = QWidget()
         toolbar.setObjectName("Toolbar")
@@ -202,6 +218,7 @@ class MainWindow(QMainWindow):
         for button in (self.recapture_button, self.crop_button, self.delete_button):
             bar.addWidget(button)
         bar.addStretch(1)
+        bar.addWidget(self.shrink_button)
         bar.addWidget(self.settings_button)
 
         self.shot_list = ShotList(self.palette_tokens)
@@ -627,6 +644,40 @@ class MainWindow(QMainWindow):
         if self.settings.hotkey != previous_hotkey:
             self._hotkey.register(self.settings.hotkey)
         self.rebuild()
+
+    def shrink_pdf_file(self, source: Path, target: Path) -> OptimizeResult:
+        """Write a shrunk copy of `source` to `target`, unless it cannot shrink."""
+        result = optimize_pdf(source.read_bytes())  # ValueError if not a PDF
+        if result.after >= result.before:
+            self.status.setText(f"{source.name} ist bereits kompakt — nichts geändert")
+            return result
+        target.write_bytes(result.data)
+        self.status.setText(
+            f"{source.name}: {_megabytes(result.before)} → {_megabytes(result.after)}, "
+            f"gespeichert als {target.name}"
+        )
+        return result
+
+    def shrink_pdf(self) -> None:
+        name, _ = QFileDialog.getOpenFileName(
+            self, "PDF verkleinern", "", "PDF (*.pdf)"
+        )
+        if not name:
+            return
+        source = Path(name)
+        target_name, _ = QFileDialog.getSaveFileName(
+            self, "Verkleinerte Kopie speichern", str(shrunk_name(source)), "PDF (*.pdf)"
+        )
+        if not target_name:
+            return
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        try:
+            self.shrink_pdf_file(source, Path(target_name))
+        except (OSError, ValueError) as error:
+            QApplication.restoreOverrideCursor()
+            QMessageBox.critical(self, "Verkleinern fehlgeschlagen", str(error))
+        else:
+            QApplication.restoreOverrideCursor()
 
     def export_to(self, path: Path) -> None:
         path.write_bytes(self._pdf_bytes)

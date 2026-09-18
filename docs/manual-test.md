@@ -49,6 +49,14 @@ Partitur ist geöffnet.
     Erwartet: `1 von N` verschwindet und erscheint wieder, zentriert unten.
 16. **Export.** *Als PDF exportieren*, speichern, im PDF-Reader öffnen.
     Erwartet: Seiten sehen exakt aus wie die Vorschau, A4, sauber druckbar.
+16a. **Dateigröße.** Eine Partitur mit rund zehn Seiten exportieren.
+    Erwartet: die Datei hat wenige MB, nicht Dutzende; die Noten sehen im
+    Reader genauso scharf aus wie in der Vorschau.
+16b. **Vorhandenes PDF verkleinern.** *PDF verkleinern …*, ein älteres, großes
+    Export-PDF wählen, vorgeschlagenen Namen `…-klein.pdf` übernehmen.
+    Erwartet: neue Datei neben dem Original, deutlich kleiner, Seiten sehen
+    gleich aus; das Original ist unverändert. Ein zweites Mal auf die kleine
+    Datei angewandt meldet „bereits kompakt".
 17. **Export-Fehler.** Die exportierte Datei im Reader geöffnet lassen und
     erneut auf denselben Namen exportieren.
     Erwartet: Fehlerdialog, Anwendung läuft weiter, Aufnahmen bleiben erhalten.
@@ -103,6 +111,8 @@ Quellcode.
   noch mit Klick-Knopf): die installierte Kopie meldet danach
   `velopack: installed=True current=0.3.0`, Release v0.3.0 trägt ein
   62-KB-Delta-Paket.
+- Verkleinern eines echten 58-MB-Exports (9 Seiten, 26 Aufnahmen): 1,7 MB in
+  1,1 s, gerenderte Seiten pixelgleich, Fußzeilentext erhalten.
 - Laden und Anbieten über den Thread-Pool mit realistischer Dauer und
   erzwungener Garbage Collection, einschließlich Schließen des Fensters
   während eines laufenden Checks.

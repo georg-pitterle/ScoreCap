@@ -14,18 +14,19 @@ FONT_FAMILY = "Segoe Fluent Icons"
 LEGACY_FAMILY = "Segoe MDL2 Assets"
 
 # Glyph names say what the button does, not what the glyph is called.
-CAPTURE = ""      # crop marks
-RECAPTURE = ""    # refresh
-CROP = ""
-DELETE = ""
-SETTINGS = ""
-EXPORT = ""       # save
-UNDO = ""
-ZOOM_FIT = ""
-ZOOM_IN = ""
-ZOOM_OUT = ""
-WARNING = ""
-MISSING = ""
+CAPTURE = "\ue7b3"      # crop marks
+RECAPTURE = "\ue72c"    # refresh
+CROP = "\ue7a8"
+DELETE = "\ue74d"
+SETTINGS = "\ue713"
+EXPORT = "\ue749"       # save
+SHRINK = "\ue73f"       # arrows pointing inward
+UNDO = "\ue7a7"
+ZOOM_FIT = "\ue9a6"
+ZOOM_IN = "\ue8a3"
+ZOOM_OUT = "\ue71f"
+WARNING = "\ue7ba"
+MISSING = "\ue783"
 
 
 def _families() -> set[str]:

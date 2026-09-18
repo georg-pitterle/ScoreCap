@@ -82,6 +82,19 @@ Das spart Seiten, ohne die Noten unlesbar zu machen. Aufnahmen unter 120 dpi
 markiert die Liste als niedrige Druckqualität; dann im Browser hineinzoomen und
 neu aufnehmen.
 
+## Dateigröße
+
+Aufnahmen landen in Graustufen und verlustfrei komprimiert im PDF: neun Seiten
+Partitur ergeben rund 2 MB. Reines Schwarz-Weiß wäre noch kleiner, macht bei
+Bildschirmauflösung aber die Notenlinien ungleich dick und die Notenköpfe
+treppig — deshalb Graustufen, die die geglätteten Kanten behalten.
+
+*PDF verkleinern …* wendet dasselbe auf ein vorhandenes PDF an, etwa auf
+Exporte älterer Versionen, die ihre Bilder unkomprimiert enthielten. Das
+Ergebnis landet als neue Datei neben dem Original (`Name-klein.pdf`), das
+Original bleibt unverändert. Farbige Bilder bleiben farbig, JPEG-Fotos werden
+nicht angefasst, und größer als vorher wird eine Datei nie.
+
 ## Aufbau
 
 | Modul | Aufgabe |
@@ -96,6 +109,7 @@ neu aufnehmen.
 | `cropdialog.py`, `settingsdialog.py` | Dialoge |
 | `shotlist.py` | Aufnahmeliste mit Vorschaubildern |
 | `theme.py`, `icons.py` | Farb- und Schrift-Tokens, Symbole |
+| `optimize.py` | vorhandene PDFs verkleinern |
 | `updater.py` | Selbst-Update über die GitHub-Releases |
 | `app.py` | Hauptfenster, verdrahtet alles |
 | `cli.py` | Start: Velopack-Übergabe, Symbol, Selbsttest |
