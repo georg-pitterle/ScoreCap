@@ -127,6 +127,8 @@ def main() -> int:
         target = sys.argv[index + 1] if len(sys.argv) > index + 1 else "selftest.txt"
         return _selftest(Path(target))
     logs.configure(logs.log_path())
+    if logs.console_requested():
+        logs.configure_console()
     log.info("scorecap %s starting, argv=%s", __version__, sys.argv[1:])
     _start_velopack()
     app = QApplication(sys.argv)

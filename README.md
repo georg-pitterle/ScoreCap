@@ -117,6 +117,23 @@ nicht angefasst, und größer als vorher wird eine Datei nie.
 Vorschau und Export teilen sich denselben Renderpfad: gebaut wird immer ein PDF,
 die Vorschau zeigt genau dieses PDF. Was zu sehen ist, wird auch gedruckt.
 
+## Debuggen in VS Code
+
+`.vscode/launch.json` bringt fünf Konfigurationen mit (F5 bzw. *Ausführen und
+Debuggen*):
+
+| Konfiguration | Zweck |
+|---|---|
+| **ScoreCap** | App starten, Breakpoints im eigenen Code, Log bis DEBUG im Terminal |
+| **ScoreCap (auch in Bibliotheken anhalten)** | wie oben, aber auch durch PySide6, PyMuPDF, Pillow, Velopack steppen |
+| **ScoreCap: Selbsttest** | den Selbsttest debuggen; Bericht in `selftest.txt` |
+| **Tests: aktuelle Datei** / **Tests: alle** | pytest unter dem Debugger |
+
+Breakpoints im Update-Check und im Download greifen ebenfalls: diese laufen in
+Threads von Qt, die der Debugger von sich aus nicht kennt, und melden sich
+deshalb selbst bei ihm an. Aus dem Quellcode gestartet bleibt die Update-Prüfung
+stillgelegt; um sie zu debuggen, braucht es eine installierte Fassung.
+
 ## Tests
 
 ```bash

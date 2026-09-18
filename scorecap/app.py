@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import sys
 import tempfile
 from pathlib import Path
 from typing import Sequence
@@ -61,6 +62,26 @@ class _UpdateSignals(QObject):
     finished = Signal()
 
 
+def _attach_debugger_to_this_thread() -> None:
+    """Let breakpoints fire in a Qt pool thread.
+
+    debugpy only traces threads Python's threading module started; Qt's
+    QThreadPool threads are invisible to it, so a breakpoint in a task's run()
+    would never hit. Outside a debug session debugpy is not loaded and this
+    does nothing.
+    """
+    debugpy = sys.modules.get("debugpy")
+    if debugpy is None:
+        return
+    try:
+        # Without a connected client, debug_this_thread() tries to connect
+        # itself: a stall of several seconds and a traceback per task.
+        if debugpy.is_client_connected():
+            debugpy.debug_this_thread()
+    except Exception:  # noqa: BLE001 - a debugging aid must never break the app
+        pass
+
+
 def _emit(signal, *args) -> None:
     """Deliver a result unless the window is already gone."""
     try:
@@ -78,6 +99,7 @@ class _UpdateCheck(QRunnable):
         self._service = service
 
     def run(self) -> None:
+        _attach_debugger_to_this_thread()
         # Runs on a pool thread: an exception here would otherwise vanish.
         log.info("update check started")
         try:
@@ -109,6 +131,7 @@ class _UpdateDownload(QRunnable):
         self._update = update
 
     def run(self) -> None:
+        _attach_debugger_to_this_thread()
         try:
             ok = bool(self._service.download(self._update))
         except BaseException:  # noqa: BLE001 - logged, never raised into Qt

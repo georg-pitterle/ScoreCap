@@ -9,11 +9,14 @@ from __future__ import annotations
 
 import logging
 import logging.handlers
+import os
 import sys
 import threading
 from pathlib import Path
 
 LOG_NAME = "scorecap.log"
+# Set by the VS Code launch configuration: log to the console, down to DEBUG.
+DEBUG_ENV = "SCORECAP_DEBUG"
 MAX_BYTES = 256_000
 BACKUPS = 2
 
@@ -63,3 +66,22 @@ def configure(path: Path | None) -> None:
 
     sys.excepthook = unhandled
     threading.excepthook = unhandled_in_thread
+
+
+def console_requested() -> bool:
+    return os.environ.get(DEBUG_ENV, "") not in ("", "0")
+
+
+def configure_console() -> None:
+    """Show every record in the terminal of a debug run.
+
+    Started from the source tree the app writes no log file, which left a
+    debug session blind to the update check and the Velopack hand-off.
+    """
+    handler = logging.StreamHandler(sys.stderr)
+    handler.setFormatter(
+        logging.Formatter("%(asctime)s %(levelname)-7s %(name)s [%(threadName)s] %(message)s")
+    )
+    root = logging.getLogger()
+    root.addHandler(handler)
+    root.setLevel(logging.DEBUG)

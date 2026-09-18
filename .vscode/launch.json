@@ -1,0 +1,76 @@
+{
+    // Debug-Konfigurationen für ScoreCap. Alle laufen mit dem Interpreter aus
+    // .venv, unabhängig davon, welcher gerade in VS Code ausgewählt ist.
+    // -Xfrozen_modules=off: sonst warnt debugpy, Breakpoints in eingefrorenen
+    // Standardmodulen könnten übersehen werden.
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "ScoreCap",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "scorecap",
+            "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+            "pythonArgs": ["-Xfrozen_modules=off"],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            // Log-Zeilen bis DEBUG im Terminal; aus dem Quellcode gestartet
+            // schreibt die App sonst kein Log.
+            "env": {
+                "SCORECAP_DEBUG": "1"
+            }
+        },
+        {
+            "name": "ScoreCap (auch in Bibliotheken anhalten)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "scorecap",
+            "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+            "pythonArgs": ["-Xfrozen_modules=off"],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            // Schrittweise auch durch PySide6, PyMuPDF, Pillow und Velopack.
+            "justMyCode": false,
+            "env": {
+                "SCORECAP_DEBUG": "1"
+            }
+        },
+        {
+            "name": "ScoreCap: Selbsttest",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "scorecap",
+            "args": ["--selftest", "${workspaceFolder}/selftest.txt"],
+            "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+            "pythonArgs": ["-Xfrozen_modules=off"],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "Tests: aktuelle Datei",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "args": ["${file}", "-q"],
+            "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+            "pythonArgs": ["-Xfrozen_modules=off"],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": false
+        },
+        {
+            "name": "Tests: alle",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "args": ["-q"],
+            "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+            "pythonArgs": ["-Xfrozen_modules=off"],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": false
+        }
+    ]
+}
