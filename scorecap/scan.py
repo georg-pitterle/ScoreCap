@@ -28,6 +28,7 @@ from pathlib import Path
 from typing import Callable, Iterator, Sequence
 
 import pymupdf
+from PySide6.QtCore import QCoreApplication
 from PIL import Image, ImageDraw, ImageFilter, ImageMath, ImageOps, ImageSequence
 
 from .model import Shot
@@ -72,7 +73,7 @@ class PageResult:
 
 @dataclass(frozen=True)
 class ImportResult:
-    """What an import produced; page lists name "file, Seite n"."""
+    """What an import produced; page lists name "file, page n"."""
 
     shots: list[Shot]
     pages: int
@@ -112,18 +113,21 @@ def load_pages(path: Path) -> Iterator[Image.Image]:
         try:
             doc = pymupdf.open(path)
         except (pymupdf.FileDataError, RuntimeError) as error:
-            raise ValueError(f"{path.name}: kein lesbares PDF.") from error
+            message = QCoreApplication.translate("scan", "{name}: not a readable PDF.")
+            raise ValueError(message.format(name=path.name)) from error
         with doc:
             for pdf_page in doc:
                 pixmap = pdf_page.get_pixmap(dpi=SCAN_DPI, colorspace=pymupdf.csGRAY)
                 yield Image.frombytes("L", (pixmap.width, pixmap.height), pixmap.samples)
         return
     if suffix not in IMAGE_SUFFIXES:
-        raise ValueError(f"{path.name}: kein unterstütztes Format.")
+        message = QCoreApplication.translate("scan", "{name}: not a supported format.")
+        raise ValueError(message.format(name=path.name))
     try:
         image = Image.open(path)
     except (OSError, Image.UnidentifiedImageError) as error:
-        raise ValueError(f"{path.name}: kein lesbares Bild.") from error
+        message = QCoreApplication.translate("scan", "{name}: not a readable image.")
+        raise ValueError(message.format(name=path.name)) from error
     with image:
         for frame in ImageSequence.Iterator(image):
             # Phone scans are often stored sideways with a rotation tag.
@@ -564,8 +568,10 @@ def import_scans(
             for number, image in enumerate(load_pages(path), start=1):
                 if cancelled():
                     return ImportResult(shots, pages, whole, blank, errors)
-                label = f"{path.name}, Seite {number}"
-                progress(f"{label} wird bereinigt …")
+                label = QCoreApplication.translate("scan", "{name}, page {number}").format(
+                    name=path.name, number=number
+                )
+                progress(QCoreApplication.translate("scan", "Cleaning up {page} …").format(page=label))
                 result = process_page(image, target_dir)
                 pages += 1
                 shots.extend(result.shots)

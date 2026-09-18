@@ -7,6 +7,7 @@ from typing import Sequence
 
 import pymupdf
 from PIL import Image
+from PySide6.QtCore import QCoreApplication
 
 from .layout import Page
 from .model import Shot
@@ -58,7 +59,9 @@ def build(shots: Sequence[Shot], pages: Sequence[Page], settings: Settings) -> b
                 )
                 pdf_page.insert_image(rect, stream=_png_bytes(shots[placement.index], settings))
             if settings.footer_enabled:
-                text = f"{number} von {total}"
+                text = QCoreApplication.translate("pdf", "{page} of {total}").format(
+                    page=number, total=total
+                )
                 width = pymupdf.get_text_length(
                     text, fontname=FOOTER_FONT, fontsize=FOOTER_SIZE
                 )

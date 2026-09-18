@@ -312,8 +312,8 @@ def test_import_scans_collects_shots_and_reports_odd_pages(tmp_path):
     result = import_scans([path, broken], tmp_path / "out", messages.append)
     assert result.pages == 3
     assert len(result.shots) == 3  # two systems, one whole text page
-    assert result.whole == ["scan.tif, Seite 2"]
-    assert result.blank == ["scan.tif, Seite 3"]
+    assert result.whole == ["scan.tif, page 2"]
+    assert result.blank == ["scan.tif, page 3"]
     assert len(result.errors) == 1 and "broken.png" in result.errors[0]
     assert messages and "scan.tif" in messages[0]
 

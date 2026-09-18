@@ -26,6 +26,7 @@ def test_roundtrip_keeps_every_field(store):
         trim_threshold=200,
         trim_padding_px=7,
         scan_mode="grey",
+        language="en",
     )
     save_settings(original, store)
     assert load_settings(store) == original
@@ -52,8 +53,10 @@ def test_dialog_returns_the_edited_settings(qapp):
     dialog._auto_trim.setChecked(False)
     dialog._align_staff_ends.setChecked(False)
     dialog._scan_mode.setCurrentIndex(dialog._scan_mode.findData("grey"))
+    dialog._language.setCurrentIndex(dialog._language.findData("de"))
     assert dialog.settings.shrink_min == pytest.approx(0.70)
     assert dialog.settings.footer_enabled is False
     assert dialog.settings.auto_trim is False
     assert dialog.settings.align_staff_ends is False
     assert dialog.settings.scan_mode == "grey"
+    assert dialog.settings.language == "de"

@@ -123,6 +123,18 @@ Partitur ist geöffnet.
    Erwartet: schließt nach höchstens einer Seite, keine Fehlermeldung, `%TEMP%`
    aufgeräumt.
 
+## Sprache
+
+1. **Windows auf Deutsch.** App starten.
+   Erwartet: Oberfläche deutsch, Tooltip von *Öffnen …* nennt `Strg+O`,
+   Fragen beim Schließen mit deutschen Knöpfen.
+2. **Windows auf Englisch** (oder in den Einstellungen *English*, neu starten).
+   Erwartet: Oberfläche englisch, `Ctrl+O`, PDF-Fußzeile „1 of 3“, Statuszeile
+   „1 capture, 1 page“ bzw. „3 captures, 2 pages“.
+3. **Sprache umstellen.** In den Einstellungen die Sprache wechseln.
+   Erwartet: Hinweis, dass sie beim nächsten Start wechselt; nach dem Neustart
+   gilt sie.
+
 ## Paket und Selbst-Update
 
 Diese Punkte gelten für die installierte Fassung, nicht für den Start aus dem

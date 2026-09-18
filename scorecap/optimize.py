@@ -14,6 +14,7 @@ from dataclasses import dataclass
 
 import pymupdf
 from PIL import Image, ImageChops
+from PySide6.QtCore import QCoreApplication
 
 log = logging.getLogger(__name__)
 
@@ -64,7 +65,9 @@ def optimize_pdf(data: bytes) -> OptimizeResult:
     try:
         doc = pymupdf.open(stream=data, filetype="pdf")
     except Exception as error:
-        raise ValueError("Die Datei ist kein lesbares PDF.") from error
+        raise ValueError(
+            QCoreApplication.translate("optimize", "The file is not a readable PDF.")
+        ) from error
     try:
         rewritten = 0
         done: set[int] = set()

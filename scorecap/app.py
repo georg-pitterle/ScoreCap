@@ -9,7 +9,18 @@ import threading
 from pathlib import Path
 from typing import Sequence
 
-from PySide6.QtCore import QEvent, QObject, QRunnable, QSettings, Qt, QThreadPool, QTimer, Signal
+from PySide6.QtCore import (
+    QCoreApplication,
+    QEvent,
+    QLocale,
+    QObject,
+    QRunnable,
+    QSettings,
+    Qt,
+    QThreadPool,
+    QTimer,
+    Signal,
+)
 from PySide6.QtGui import QAction, QCursor, QKeySequence
 from PySide6.QtWidgets import (
     QApplication,
@@ -44,6 +55,8 @@ from .trim import auto_crop
 from .updater import PendingUpdate, UpdateService
 
 REBUILD_DELAY_MS = 150
+# Not Ctrl+Shift+S for "save as": that is the global capture hotkey.
+SAVE_AS_KEY = "F12"
 SCAN_CLOSE_WAIT_S = 10.0
 TOAST_MS = 900
 TOAST_MARGIN_PX = 8
@@ -161,7 +174,8 @@ class _ScanImport(QRunnable):
             )
         except BaseException:  # noqa: BLE001 - logged, never raised into Qt
             log.exception("scan import crashed")
-            result = ImportResult([], 0, [], [], ["Der Import ist abgebrochen."])
+            aborted = QCoreApplication.translate("MainWindow", "The import was aborted.")
+            result = ImportResult([], 0, [], [], [aborted])
         finally:
             self.stopped.set()
         log.info("scan import finished: %d shot(s)", len(result.shots))
@@ -172,19 +186,6 @@ class _ScanImport(QRunnable):
 def scan_files(paths: Sequence[Path]) -> list[Path]:
     """The paths a scan import can read, by their suffix."""
     return [path for path in paths if path.suffix.lower() in SCAN_SUFFIXES]
-
-
-def import_summary(result: ImportResult) -> str:
-    systems = len(result.shots)
-    text = (
-        f"{systems} {'System' if systems == 1 else 'Systeme'} aus "
-        f"{result.pages} {'Seite' if result.pages == 1 else 'Seiten'} importiert"
-    )
-    if result.whole:
-        text += f" — ohne Notenlinien, ganz übernommen: {', '.join(result.whole)}"
-    if result.blank:
-        text += f" — leer, übersprungen: {', '.join(result.blank)}"
-    return text
 
 
 class _UpdateDownload(QRunnable):
@@ -212,13 +213,19 @@ class _UpdateDownload(QRunnable):
         _emit(self.signals.finished)
 
 
+def _shortcut_text(key: QKeySequence.StandardKey) -> str:
+    """A standard shortcut as the user's language writes it, e.g. Strg+O."""
+    return QKeySequence(key).toString(QKeySequence.SequenceFormat.NativeText)
+
+
 def shrunk_name(source: Path) -> Path:
     """Where a shrunk copy goes by default: beside the original, never over it."""
-    return source.with_name(f"{source.stem}-klein{source.suffix}")
+    suffix = QCoreApplication.translate("MainWindow", "-small")
+    return source.with_name(f"{source.stem}{suffix}{source.suffix}")
 
 
 def _megabytes(size: int) -> str:
-    return f"{size / 1024 / 1024:.1f}".replace(".", ",") + " MB"
+    return QLocale().toString(size / 1024 / 1024, "f", 1) + " MB"
 
 
 def usable_shots(shots: Sequence[Shot]) -> tuple[list[Shot], list[int]]:
@@ -287,36 +294,44 @@ class MainWindow(QMainWindow):
         )
 
     def _build_ui(self) -> None:
-        self.capture_button = self._button("Aufnahme vorbereiten", icons.CAPTURE, "Primary")
+        self.capture_button = self._button(self.tr("Prepare capture"), icons.CAPTURE, "Primary")
         self.capture_button.clicked.connect(self.arm_capture)
         self.capture_button.setToolTip(
-            "Fenster tritt zur Seite; die Aufnahme startet erst mit dem Hotkey"
+            self.tr("The window steps aside; capturing starts only with the hotkey")
         )
-        self.scan_button = self._button("Scans importieren …", icons.SCAN)
+        self.scan_button = self._button(self.tr("Import scans …"), icons.SCAN)
         self.scan_button.setToolTip(
-            "Gescannte Seiten (PDF oder Bilder) bereinigen und in Systeme "
-            "zerlegen; Dateien lassen sich auch ins Fenster ziehen"
+            self.tr(
+                "Clean up scanned pages (PDF or images) and split them into systems; "
+                "files can also be dropped onto the window"
+            )
         )
         self.scan_button.clicked.connect(self.choose_scans)
-        self.recapture_button = self._button("Neu aufnehmen", icons.RECAPTURE)
+        self.recapture_button = self._button(self.tr("Recapture"), icons.RECAPTURE)
         self.recapture_button.clicked.connect(self.recapture_selected)
-        self.crop_button = self._button("Zuschneiden", icons.CROP)
+        self.crop_button = self._button(self.tr("Crop"), icons.CROP)
         self.crop_button.clicked.connect(self.crop_selected)
-        self.delete_button = self._button("Löschen", icons.DELETE)
+        self.delete_button = self._button(self.tr("Delete"), icons.DELETE)
         self.delete_button.clicked.connect(self.delete_selected)
-        self.settings_button = self._button("Einstellungen", icons.SETTINGS)
+        self.settings_button = self._button(self.tr("Settings"), icons.SETTINGS)
         self.settings_button.clicked.connect(self.edit_settings)
-        self.open_button = self._button("Öffnen …", icons.OPEN)
-        self.open_button.setToolTip("Gespeichertes Projekt öffnen (Strg+O)")
+        self.open_button = self._button(self.tr("Open …"), icons.OPEN)
+        self.open_button.setToolTip(
+            self.tr("Open a saved project ({shortcut})").format(
+                shortcut=_shortcut_text(QKeySequence.Open)
+            )
+        )
         self.open_button.clicked.connect(self.open_project)
-        self.save_button = self._button("Speichern", icons.SAVE)
+        self.save_button = self._button(self.tr("Save"), icons.SAVE)
         self.save_button.setToolTip(
-            "Aufnahmen als Projekt speichern (Strg+S, Speichern unter: F12)"
+            self.tr("Save the captures as a project ({save}, save as: {save_as})").format(
+                save=_shortcut_text(QKeySequence.Save), save_as=SAVE_AS_KEY
+            )
         )
         self.save_button.clicked.connect(self.save)
-        self.shrink_button = self._button("PDF verkleinern …", icons.SHRINK)
+        self.shrink_button = self._button(self.tr("Shrink PDF …"), icons.SHRINK)
         self.shrink_button.setToolTip(
-            "Ein vorhandenes PDF verkleinern; das Original bleibt unverändert"
+            self.tr("Shrink an existing PDF; the original stays unchanged")
         )
         self.shrink_button.clicked.connect(self.shrink_pdf)
 
@@ -343,8 +358,9 @@ class MainWindow(QMainWindow):
         self.shot_list.itemDoubleClicked.connect(self._crop_item)
 
         self.empty_state = QLabel(
-            f"Noch nichts aufgenommen.\n\n{self.settings.hotkey} drücken, "
-            "dann den Bereich aufziehen."
+            self.tr("Nothing captured yet.\n\nPress {hotkey}, then drag out the area.").format(
+                hotkey=self.settings.hotkey
+            )
         )
         self.empty_state.setObjectName("EmptyState")
         self.empty_state.setAlignment(Qt.AlignCenter)
@@ -354,7 +370,7 @@ class MainWindow(QMainWindow):
         self._list_stack.addWidget(self.empty_state)
         self._list_stack.addWidget(self.shot_list)
 
-        heading = QLabel("Aufnahmen")
+        heading = QLabel(self.tr("Captures"))
         heading.setObjectName("Heading")
 
         side = QWidget()
@@ -379,15 +395,15 @@ class MainWindow(QMainWindow):
         splitter.setStretchFactor(1, 1)
         splitter.setSizes([320, 920])
 
-        self.status = QLabel("Noch keine Aufnahme")
+        self.status = QLabel(self.tr("No capture yet"))
         self.status.setObjectName("StatusText")
         self.update_label = QLabel()
         self.update_label.setObjectName("StatusText")
         self.update_label.hide()
-        self.update_button = self._button("Jetzt neu starten", icons.RECAPTURE, "Primary")
+        self.update_button = self._button(self.tr("Restart now"), icons.RECAPTURE, "Primary")
         self.update_button.clicked.connect(self._restart_into_update)
         self.update_button.hide()
-        self.export_button = self._button("Als PDF exportieren", icons.EXPORT, "Primary")
+        self.export_button = self._button(self.tr("Export as PDF"), icons.EXPORT, "Primary")
         self.export_button.clicked.connect(self.export)
         self.export_button.setEnabled(False)
 
@@ -410,15 +426,15 @@ class MainWindow(QMainWindow):
         container.setLayout(root)
         self.setCentralWidget(container)
 
-        undo_action = QAction("Rückgängig", self)
+        undo_action = QAction(self.tr("Undo"), self)
         undo_action.setShortcut(QKeySequence.Undo)
         undo_action.triggered.connect(self.undo)
         self.addAction(undo_action)
         # Not Ctrl+Shift+S for "save as": that is the global capture hotkey.
         for label, keys, slot in (
-            ("Öffnen", QKeySequence.Open, self.open_project),
-            ("Speichern", QKeySequence.Save, self.save),
-            ("Speichern unter", QKeySequence("F12"), self.save_as),
+            (self.tr("Open"), QKeySequence.Open, self.open_project),
+            (self.tr("Save"), QKeySequence.Save, self.save),
+            (self.tr("Save as"), QKeySequence(SAVE_AS_KEY), self.save_as),
         ):
             action = QAction(label, self)
             action.setShortcut(keys)
@@ -429,12 +445,12 @@ class MainWindow(QMainWindow):
 
     def _build_zoom_bar(self) -> QWidget:
         self.zoom_out_button = self._button("", icons.ZOOM_OUT)
-        self.zoom_out_button.setToolTip("Verkleinern")
+        self.zoom_out_button.setToolTip(self.tr("Zoom out"))
         self.zoom_out_button.clicked.connect(lambda: self._step_zoom(1 / ZOOM_STEP))
         self.zoom_in_button = self._button("", icons.ZOOM_IN)
-        self.zoom_in_button.setToolTip("Vergrößern")
+        self.zoom_in_button.setToolTip(self.tr("Zoom in"))
         self.zoom_in_button.clicked.connect(lambda: self._step_zoom(ZOOM_STEP))
-        self.fit_button = self._button("Einpassen", icons.ZOOM_FIT)
+        self.fit_button = self._button(self.tr("Fit"), icons.ZOOM_FIT)
         self.fit_button.setCheckable(True)
         self.fit_button.setChecked(True)
         self.fit_button.clicked.connect(self._fit_width)
@@ -512,9 +528,10 @@ class MainWindow(QMainWindow):
         if not self._hotkey.register(self.settings.hotkey):
             QMessageBox.warning(
                 self,
-                "Hotkey belegt",
-                f"Der Hotkey {self.settings.hotkey} ist bereits vergeben. "
-                "Er lässt sich in den Einstellungen ändern.",
+                self.tr("Hotkey taken"),
+                self.tr(
+                    "The hotkey {hotkey} is already in use. It can be changed in the settings."
+                ).format(hotkey=self.settings.hotkey),
             )
 
     def schedule_rebuild(self) -> None:
@@ -536,9 +553,12 @@ class MainWindow(QMainWindow):
         self.preview.set_pdf(self._pdf_bytes)
         self.export_button.setEnabled(bool(pages))
         self._refresh_list(shots, set(missing))
-        text = f"{len(shots)} Aufnahmen, {len(pages)} Seiten"
+        text = self.tr("{captures}, {pages}").format(
+            captures=self.tr("%n capture(s)", "", len(shots)),
+            pages=self.tr("%n page(s)", "", len(pages)),
+        )
         if missing:
-            text += f", {len(missing)} Datei(en) fehlen"
+            text += self.tr(", %n file(s) missing", "", len(missing))
         self.status.setText(text)
         self._update_title()
         self._update_zoom_label()
@@ -590,7 +610,9 @@ class MainWindow(QMainWindow):
 
     def _on_update_found(self, update: PendingUpdate) -> None:
         log.info("downloading update %s", update.version)
-        self.update_label.setText(f"Version {update.version} wird geladen …")
+        self.update_label.setText(
+            self.tr("Downloading version {version} …").format(version=update.version)
+        )
         self.update_label.show()
         self._start_download(update)
 
@@ -609,11 +631,15 @@ class MainWindow(QMainWindow):
         log.info("update %s ready", update.version)
         self._ready_update = update
         self.update_label.setText(
-            f"Version {update.version} ist bereit — wird beim Schließen installiert"
+            self.tr("Version {version} is ready — it installs when you close ScoreCap").format(
+                version=update.version
+            )
         )
         self.update_label.show()
         self.update_button.setToolTip(
-            f"Startet ScoreCap sofort in Version {update.version}"
+            self.tr("Restarts ScoreCap in version {version} right away").format(
+                version=update.version
+            )
         )
         self.update_button.show()
 
@@ -628,7 +654,7 @@ class MainWindow(QMainWindow):
         if not self.updates.restart_into(update):
             self._restarting = False
             self.update_label.setText(
-                "Neustart nicht möglich — das Update wird beim Schließen installiert"
+                self.tr("Restart not possible — the update installs when you close ScoreCap")
             )
 
     def _fit_width(self) -> None:
@@ -660,7 +686,10 @@ class MainWindow(QMainWindow):
     def choose_scans(self) -> None:
         patterns = " ".join(f"*{suffix}" for suffix in sorted(SCAN_SUFFIXES))
         names, _ = QFileDialog.getOpenFileNames(
-            self, "Scans importieren", self._last_folder("scans"), f"Scans ({patterns})"
+            self,
+            self.tr("Import scans"),
+            self._last_folder("scans"),
+            self.tr("Scans ({patterns})").format(patterns=patterns),
         )
         if names:
             self._remember_folder("scans", Path(names[0]))
@@ -681,7 +710,7 @@ class MainWindow(QMainWindow):
             _ScanImport(list(paths), self._temp_dir, signals)
         )
         self.scan_button.setEnabled(False)
-        self.status.setText("Scans werden gelesen …")
+        self.status.setText(self.tr("Reading scans …"))
         QThreadPool.globalInstance().start(self._scan_task)
 
     def _on_scans_imported(self, result: ImportResult) -> None:
@@ -690,9 +719,26 @@ class MainWindow(QMainWindow):
         if result.shots:
             self.document.extend(result.shots)
             self.rebuild()
-        self.status.setText(import_summary(result))
+        self.status.setText(self._import_summary(result))
         if result.errors:
-            QMessageBox.warning(self, "Nicht alles importiert", "\n".join(result.errors))
+            QMessageBox.warning(
+                self, self.tr("Not everything was imported"), "\n".join(result.errors)
+            )
+
+    def _import_summary(self, result: ImportResult) -> str:
+        text = self.tr("{systems} from {pages} imported").format(
+            systems=self.tr("%n system(s)", "", len(result.shots)),
+            pages=self.tr("%n page(s)", "", result.pages),
+        )
+        if result.whole:
+            text += self.tr(" — no staff lines, kept whole: {pages}").format(
+                pages=", ".join(result.whole)
+            )
+        if result.blank:
+            text += self.tr(" — blank, skipped: {pages}").format(
+                pages=", ".join(result.blank)
+            )
+        return text
 
     def dragEnterEvent(self, event) -> None:  # noqa: N802
         urls = event.mimeData().urls() if event.mimeData().hasUrls() else []
@@ -724,7 +770,7 @@ class MainWindow(QMainWindow):
     def _arm(self) -> None:
         self._capturing = True
         self.showMinimized()
-        self._hint(f"Bereit — {self.settings.hotkey} drücken")
+        self._hint(self.tr("Ready — press {hotkey}").format(hotkey=self.settings.hotkey))
 
     def begin_capture(self) -> None:
         """What the hotkey does: dim the screen and let the user drag."""
@@ -760,7 +806,9 @@ class MainWindow(QMainWindow):
             return
         # Stay minimised so the browser keeps the focus and the next hotkey
         # press works right away. Rendering waits until capturing is done.
-        self._show_toast(rect, f"Aufnahme {len(self.document.shots)}")
+        self._show_toast(
+            rect, self.tr("Capture {number}").format(number=len(self.document.shots))
+        )
 
     def changeEvent(self, event) -> None:  # noqa: N802
         # Restoring from the taskbar also ends a capture series, so the
@@ -824,36 +872,48 @@ class MainWindow(QMainWindow):
         dialog = SettingsDialog(self.settings, self)
         if not dialog.exec():
             return
-        previous_hotkey = self.settings.hotkey
+        previous = self.settings
         self.settings = dialog.settings
         save_settings(self.settings, self._store)
-        if self.settings.hotkey != previous_hotkey:
+        if self.settings.hotkey != previous.hotkey:
             self._hotkey.register(self.settings.hotkey)
         self.rebuild()
+        if self.settings.language != previous.language:
+            QMessageBox.information(
+                self,
+                self.tr("Language"),
+                self.tr("The language changes the next time ScoreCap starts."),
+            )
 
     def shrink_pdf_file(self, source: Path, target: Path) -> OptimizeResult:
         """Write a shrunk copy of `source` to `target`, unless it cannot shrink."""
         result = optimize_pdf(source.read_bytes())  # ValueError if not a PDF
         if result.after >= result.before:
-            self.status.setText(f"{source.name} ist bereits kompakt — nichts geändert")
+            self.status.setText(
+                self.tr("{name} is already compact — nothing changed").format(name=source.name)
+            )
             return result
         target.write_bytes(result.data)
         self.status.setText(
-            f"{source.name}: {_megabytes(result.before)} → {_megabytes(result.after)}, "
-            f"gespeichert als {target.name}"
+            self.tr("{name}: {before} → {after}, saved as {target}").format(
+                name=source.name,
+                before=_megabytes(result.before),
+                after=_megabytes(result.after),
+                target=target.name,
+            )
         )
         return result
 
     def shrink_pdf(self) -> None:
         name, _ = QFileDialog.getOpenFileName(
-            self, "PDF verkleinern", self._last_folder("pdf"), "PDF (*.pdf)"
+            self, self.tr("Shrink PDF"), self._last_folder("pdf"), "PDF (*.pdf)"
         )
         if not name:
             return
         source = Path(name)
         self._remember_folder("pdf", source)
         target_name, _ = QFileDialog.getSaveFileName(
-            self, "Verkleinerte Kopie speichern", str(shrunk_name(source)), "PDF (*.pdf)"
+            self, self.tr("Save shrunk copy"), str(shrunk_name(source)), "PDF (*.pdf)"
         )
         if not target_name:
             return
@@ -862,7 +922,7 @@ class MainWindow(QMainWindow):
             self.shrink_pdf_file(source, Path(target_name))
         except (OSError, ValueError) as error:
             QApplication.restoreOverrideCursor()
-            QMessageBox.critical(self, "Verkleinern fehlgeschlagen", str(error))
+            QMessageBox.critical(self, self.tr("Shrinking failed"), str(error))
         else:
             QApplication.restoreOverrideCursor()
 
@@ -873,7 +933,7 @@ class MainWindow(QMainWindow):
         return self.document.revision != self._saved_revision
 
     def _update_title(self) -> None:
-        name = self._project_path.stem if self._project_path else "Unbenannt"
+        name = self._project_path.stem if self._project_path else self.tr("Untitled")
         # [*] is where Qt shows the unsaved marker when windowModified is set.
         self.setWindowTitle(f"{name}[*] — ScoreCap")
         self.setWindowModified(self.is_modified)
@@ -881,18 +941,16 @@ class MainWindow(QMainWindow):
     def _unsaved_changes_box(self) -> tuple[QMessageBox, QPushButton, QPushButton]:
         box = QMessageBox(self)
         box.setIcon(QMessageBox.Icon.Warning)
-        box.setWindowTitle("Ungespeicherte Aufnahmen")
-        box.setText("Die Aufnahmen sind nicht gespeichert.")
-        box.setInformativeText(
-            "Nicht gespeicherte Aufnahmen gehen verloren, wenn ScoreCap schließt."
-        )
-        save = box.addButton("Speichern", QMessageBox.ButtonRole.AcceptRole)
-        discard = box.addButton("Nicht speichern", QMessageBox.ButtonRole.DestructiveRole)
-        box.addButton("Abbrechen", QMessageBox.ButtonRole.RejectRole)
+        box.setWindowTitle(self.tr("Unsaved captures"))
+        box.setText(self.tr("The captures have not been saved."))
+        box.setInformativeText(self.tr("Unsaved captures are lost when ScoreCap closes."))
+        save = box.addButton(self.tr("Save"), QMessageBox.ButtonRole.AcceptRole)
+        discard = box.addButton(self.tr("Don't save"), QMessageBox.ButtonRole.DestructiveRole)
+        box.addButton(self.tr("Cancel"), QMessageBox.ButtonRole.RejectRole)
         box.setDefaultButton(save)
         # The message box sizes its buttons before the window's stylesheet
         # has styled them, and the stylesheet's larger font then cut
-        # "Nicht speichern" off. Styling them first fixes the widths.
+        # the German "Nicht speichern" off. Styling them first fixes the widths.
         for button in box.buttons():
             button.ensurePolished()
             button.setMinimumWidth(button.sizeHint().width())
@@ -925,7 +983,7 @@ class MainWindow(QMainWindow):
         self._saved_revision = self.document.revision
         self._remember_folder("project", path)
         self._update_title()
-        self.status.setText(f"Gespeichert: {path.name}")
+        self.status.setText(self.tr("Saved: {name}").format(name=path.name))
 
     def save(self) -> bool:
         if self._project_path is None:
@@ -934,9 +992,9 @@ class MainWindow(QMainWindow):
 
     def save_as(self) -> bool:
         folder = self._last_folder("project") or str(Path.home())
-        suggestion = self._project_path or Path(folder) / f"Partitur{SUFFIX}"
+        suggestion = self._project_path or Path(folder) / f"{self.tr('Score')}{SUFFIX}"
         name, _ = QFileDialog.getSaveFileName(
-            self, "Projekt speichern", str(suggestion), f"ScoreCap-Projekt (*{SUFFIX})"
+            self, self.tr("Save project"), str(suggestion), self._project_filter()
         )
         if not name:
             return False
@@ -949,7 +1007,7 @@ class MainWindow(QMainWindow):
         try:
             self.save_to(path)
         except OSError as error:
-            QMessageBox.critical(self, "Speichern fehlgeschlagen", str(error))
+            QMessageBox.critical(self, self.tr("Saving failed"), str(error))
             return False
         return True
 
@@ -957,7 +1015,7 @@ class MainWindow(QMainWindow):
         if not self._confirm_discard():
             return
         name, _ = QFileDialog.getOpenFileName(
-            self, "Projekt öffnen", self._last_folder("project"), f"ScoreCap-Projekt (*{SUFFIX})"
+            self, self.tr("Open project"), self._last_folder("project"), self._project_filter()
         )
         if name:
             self.load_from(Path(name))
@@ -966,35 +1024,38 @@ class MainWindow(QMainWindow):
         try:
             shots = load_project(path, self._temp_dir)
         except (OSError, ValueError) as error:
-            QMessageBox.critical(self, "Öffnen fehlgeschlagen", str(error))
+            QMessageBox.critical(self, self.tr("Opening failed"), str(error))
             return
         self.document.replace_all(shots)
         self._project_path = path
         self._saved_revision = self.document.revision
         self._remember_folder("project", path)
         self.rebuild()
-        self.status.setText(f"Geöffnet: {path.name}")
+        self.status.setText(self.tr("Opened: {name}").format(name=path.name))
+
+    def _project_filter(self) -> str:
+        return self.tr("ScoreCap project (*{suffix})").format(suffix=SUFFIX)
 
     def export_to(self, path: Path) -> None:
         path.write_bytes(self._pdf_bytes)
 
     def export(self) -> None:
-        stem = self._project_path.stem if self._project_path else "noten"
+        stem = self._project_path.stem if self._project_path else self.tr("score")
         folder = self._last_folder("pdf") or (
             str(self._project_path.parent) if self._project_path else ""
         )
         name, _ = QFileDialog.getSaveFileName(
-            self, "Als PDF speichern", str(Path(folder) / f"{stem}.pdf"), "PDF (*.pdf)"
+            self, self.tr("Save as PDF"), str(Path(folder) / f"{stem}.pdf"), "PDF (*.pdf)"
         )
         if not name:
             return
         try:
             self.export_to(Path(name))
         except OSError as error:
-            QMessageBox.critical(self, "Export fehlgeschlagen", str(error))
+            QMessageBox.critical(self, self.tr("Export failed"), str(error))
         else:
             self._remember_folder("pdf", Path(name))
-            self.status.setText(f"Exportiert: {name}")
+            self.status.setText(self.tr("Exported: {name}").format(name=name))
 
     def closeEvent(self, event) -> None:  # noqa: N802
         if not self._restarting and not self._confirm_discard():

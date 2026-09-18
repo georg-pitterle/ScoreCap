@@ -64,8 +64,8 @@ def test_a_found_update_starts_downloading_without_a_button(window, monkeypatch)
 def test_a_finished_download_offers_the_restart(window):
     window._on_update_downloaded(UPDATE, True)
     assert window.update_button.isVisible() is True
-    assert "neu starten" in window.update_button.text().lower()
-    assert "Schließen" in window.update_label.text()
+    assert "restart now" in window.update_button.text().lower()
+    assert "when you close" in window.update_label.text()
 
 
 def test_the_restart_button_is_the_prominent_kind(window):

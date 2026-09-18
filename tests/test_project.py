@@ -82,7 +82,7 @@ def test_a_newer_format_is_refused_rather_than_misread(tmp_path):
     project = tmp_path / "new.scorecap"
     with zipfile.ZipFile(project, "w") as archive:
         archive.writestr("project.json", json.dumps({"format": FORMAT_VERSION + 1, "shots": []}))
-    with pytest.raises(ValueError, match="neuer"):
+    with pytest.raises(ValueError, match="newer"):
         load_project(project, tmp_path / "session")
 
 

@@ -55,7 +55,7 @@ def test_an_already_compact_pdf_is_not_rewritten(window, tmp_path):
     window.shrink_pdf_file(source, target)
 
     assert not target.exists()
-    assert "bereits" in window.status.text()
+    assert "already compact" in window.status.text()
 
 
 def test_a_file_that_is_not_a_pdf_raises_a_readable_error(window, tmp_path):
@@ -68,8 +68,8 @@ def test_a_file_that_is_not_a_pdf_raises_a_readable_error(window, tmp_path):
 def test_suggested_name_sits_beside_the_original(window, tmp_path):
     from scorecap.app import shrunk_name
 
-    assert shrunk_name(tmp_path / "Perseus.pdf") == tmp_path / "Perseus-klein.pdf"
+    assert shrunk_name(tmp_path / "Perseus.pdf") == tmp_path / "Perseus-small.pdf"
 
 
 def test_the_toolbar_offers_the_action(window):
-    assert window.shrink_button.text().startswith("PDF verkleinern")
+    assert window.shrink_button.text().startswith("Shrink PDF")

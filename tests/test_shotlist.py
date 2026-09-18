@@ -39,7 +39,7 @@ def test_low_resolution_gets_a_warning_chip_with_the_number(tmp_path):
 def test_missing_file_gets_its_own_chip_and_no_thumbnail(tmp_path):
     shot = Shot(path=tmp_path / "gone.png", width=1000, height=500)
     data = row_data(0, shot, Settings(), missing=True)
-    assert data.chip == "Datei fehlt"
+    assert data.chip == "File missing"
     assert data.chip_kind == "missing"
     assert data.path is None
 
@@ -47,7 +47,7 @@ def test_missing_file_gets_its_own_chip_and_no_thumbnail(tmp_path):
 def test_list_keeps_a_tooltip_for_every_row(qapp, tmp_path):
     widget = ShotList(LIGHT)
     widget.add_row(row_data(0, make_shot(tmp_path), Settings(), missing=False))
-    assert "Aufnahme 1" in widget.item(0).toolTip()
+    assert "Capture 1" in widget.item(0).toolTip()
     assert widget.count() == 1
 
 

@@ -66,7 +66,10 @@ a = Analysis(
     # follow, so point it at the source tree directly.
     pathex=[SPECPATH],
     binaries=collect_dynamic_libs("velopack"),
-    datas=[("assets/scorecap.ico", "assets")],
+    datas=[
+        ("assets/scorecap.ico", "assets"),
+        ("scorecap/translations/*.qm", "scorecap/translations"),
+    ],
     hiddenimports=["velopack", "scorecap.cli"],
     excludes=EXCLUDES,
     noarchive=False,

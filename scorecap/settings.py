@@ -25,6 +25,7 @@ class Settings:
     trim_padding_px: int = 2
     hotkey: str = "Ctrl+Shift+S"
     scan_mode: str = "bw"  # "bw" or "grey"
+    language: str = ""  # "" follows Windows, else a code from i18n.LANGUAGES
 
     @property
     def content_x_pt(self) -> float:

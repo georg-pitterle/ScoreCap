@@ -69,7 +69,7 @@ def test_toast_never_takes_focus(window):
     window._on_selected(QRect(0, 0, 120, 80))
     flags = window._toast.windowFlags()
     assert flags & Qt.WindowDoesNotAcceptFocus
-    assert window._toast.text() == "Aufnahme 1"
+    assert window._toast.text() == "Capture 1"
 
 
 def test_restoring_from_the_taskbar_ends_capture_mode(window):

@@ -9,7 +9,7 @@ from pathlib import Path
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
 
-from . import logs
+from . import i18n, logs
 from ._version import __version__
 from .app import MainWindow
 
@@ -113,6 +113,15 @@ def _selftest(report: Path) -> int:
         window.close()
         lines.append("qt: window constructed")
 
+        # The translations are data files a bundle can easily leave behind.
+        translators = i18n.install(app, "de")
+        german = QApplication.translate("CropDialog", "Crop")
+        for translator in translators:
+            app.removeTranslator(translator)
+        lines.append(f"i18n: {len(translators)} translation(s), Crop -> {german}")
+        if german != "Zuschneiden":
+            raise RuntimeError("German translation missing")
+
         # Makes an installed copy's update wiring observable from a script.
         # Only an installed copy asks GitHub; the build job must stay offline.
         from .updater import UpdateService
@@ -151,6 +160,12 @@ def main() -> int:
     app = QApplication(sys.argv)
     app.setApplicationName("ScoreCap")
     app.setApplicationVersion(__version__)
+    from .app import settings_store
+    from .settingsdialog import load_settings
+
+    language = load_settings(settings_store()).language
+    loaded = i18n.install(app, language)
+    log.info("language %r, %d translation(s) loaded", language or "system", len(loaded))
     icon = _icon_path()
     if icon.is_file():
         app.setWindowIcon(QIcon(str(icon)))

@@ -65,7 +65,7 @@ def test_footer_shows_page_of_total(tmp_path):
     try:
         total = doc.page_count
         for number in range(total):
-            assert f"{number + 1} von {total}" in doc.load_page(number).get_text()
+            assert f"{number + 1} of {total}" in doc.load_page(number).get_text()
     finally:
         doc.close()
 

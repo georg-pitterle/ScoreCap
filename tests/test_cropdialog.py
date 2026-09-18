@@ -44,7 +44,7 @@ def test_dialog_starts_with_the_existing_crop_and_can_reset(tmp_path, qapp):
     assert dialog.crop is None
 
 
-def test_dialog_buttons_speak_german(tmp_path, qapp):
+def test_dialog_buttons_speak_german(tmp_path, qapp, german):
     from PySide6.QtWidgets import QPushButton
 
     from scorecap.cropdialog import CropDialog

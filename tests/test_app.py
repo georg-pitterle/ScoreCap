@@ -75,7 +75,7 @@ def test_missing_files_are_skipped_in_the_layout(tmp_path, qapp):
         assert len(doc.load_page(0).get_images(full=True)) == 1
     finally:
         doc.close()
-    assert "fehlen" in window.status.text()
+    assert "1 file missing" in window.status.text()
 
 
 def test_undo_restores_a_removed_shot(tmp_path, qapp):

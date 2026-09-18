@@ -116,6 +116,29 @@ Bundsteg. Schrift ist Segoe UI Variable, Zahlen stehen in Cascadia Mono mit
 Tabellenziffern untereinander, Symbole kommen aus Segoe Fluent Icons. Hell und
 Dunkel folgen der Windows-Einstellung.
 
+## Sprache
+
+ScoreCap gibt es auf Deutsch und Englisch. Es nimmt die erste Sprache aus der
+Windows-Spracheinstellung, für die es eine Übersetzung gibt, sonst Englisch. In
+den Einstellungen lässt sich unter *Sprache* eine feste Sprache wählen; sie gilt
+ab dem nächsten Start. Auch Zahlen, Tastenkürzel (`Strg+O` / `Ctrl+O`) und die
+Fußzeile im PDF („1 von 3“ / „1 of 3“) folgen der Sprache.
+
+Übersetzt wird mit den Werkzeugen von Qt: Texte stehen im Code auf Englisch in
+`tr()` bzw. `QCoreApplication.translate()`, die Übersetzungen in
+`scorecap/translations/scorecap_<sprache>.ts`. Nach dem Ändern eines Textes:
+
+```bash
+.venv/Scripts/python.exe tools/update_translations.py   # .ts abgleichen, .qm bauen
+.venv/Scripts/pyside6-linguist.exe scorecap/translations/scorecap_de.ts
+.venv/Scripts/python.exe tools/update_translations.py   # nach dem Übersetzen
+```
+
+Die Tests schlagen fehl, solange ein Text im Code fehlt, unübersetzt ist oder
+die `.qm` veraltet ist. Für eine neue Sprache ihren Code in `LANGUAGES` in
+`tools/update_translations.py` und `scorecap/i18n.py` ergänzen und das Skript
+laufen lassen.
+
 ## Weiße Ränder
 
 Jede Aufnahme wird beim Anlegen automatisch auf ihren Inhalt beschnitten: alles
@@ -183,6 +206,7 @@ nicht angefasst, und größer als vorher wird eine Datei nie.
 | `staff.py` | erkennt, wo die Notenlinien eines Systems enden |
 | `scan.py` | Scans bereinigen, gerade stellen, in Systeme zerlegen |
 | `theme.py`, `icons.py` | Farb- und Schrift-Tokens, Symbole |
+| `i18n.py`, `translations/` | Sprache wählen, Übersetzungen laden |
 | `optimize.py` | vorhandene PDFs verkleinern |
 | `project.py` | Projekte als `.scorecap` speichern und öffnen |
 | `updater.py` | Selbst-Update über die GitHub-Releases |

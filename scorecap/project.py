@@ -17,6 +17,8 @@ import zipfile
 from pathlib import Path
 from typing import Sequence
 
+from PySide6.QtCore import QCoreApplication
+
 from ._version import __version__
 from .model import Shot
 
@@ -50,20 +52,30 @@ def save_project(path: Path, shots: Sequence[Shot]) -> None:
         partial.unlink(missing_ok=True)
 
 
+def _not_a_project() -> ValueError:
+    return ValueError(QCoreApplication.translate("project", "The file is not a ScoreCap project."))
+
+
+def _damaged() -> ValueError:
+    return ValueError(QCoreApplication.translate("project", "The project is damaged."))
+
+
 def _read_manifest(archive: zipfile.ZipFile) -> dict:
     try:
         manifest = json.loads(archive.read(MANIFEST))
     except KeyError as error:
-        raise ValueError("Die Datei ist kein ScoreCap-Projekt.") from error
+        raise _not_a_project() from error
     except json.JSONDecodeError as error:
-        raise ValueError("Das Projekt ist beschädigt.") from error
+        raise _damaged() from error
     version = manifest.get("format")
     if not isinstance(version, int):
-        raise ValueError("Das Projekt ist beschädigt.")
+        raise _damaged()
     if version > FORMAT_VERSION:
         raise ValueError(
-            "Das Projekt stammt aus einer neueren ScoreCap-Version. "
-            "Bitte ScoreCap aktualisieren."
+            QCoreApplication.translate(
+                "project",
+                "The project comes from a newer version of ScoreCap. Please update ScoreCap.",
+            )
         )
     return manifest
 
@@ -72,7 +84,7 @@ def load_project(path: Path, target_dir: Path) -> list[Shot]:
     try:
         archive = zipfile.ZipFile(path)
     except (zipfile.BadZipFile, OSError) as error:
-        raise ValueError("Die Datei ist kein ScoreCap-Projekt.") from error
+        raise _not_a_project() from error
     with archive:
         manifest = _read_manifest(archive)
         target_dir.mkdir(parents=True, exist_ok=True)
@@ -94,7 +106,10 @@ def load_project(path: Path, target_dir: Path) -> list[Shot]:
                     )
                 )
             except (KeyError, TypeError) as error:
-                raise ValueError("Im Projekt fehlt eine Aufnahme.") from error
+                missing = QCoreApplication.translate(
+                    "project", "A capture is missing from the project."
+                )
+                raise ValueError(missing) from error
             except ValueError as error:  # e.g. a crop outside the image
-                raise ValueError("Das Projekt ist beschädigt.") from error
+                raise _damaged() from error
         return shots

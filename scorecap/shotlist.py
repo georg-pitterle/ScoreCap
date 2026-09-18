@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from PySide6.QtCore import QRect, QSize, Qt
+from PySide6.QtCore import QCoreApplication, QRect, QSize, Qt
 from PySide6.QtGui import QColor, QFont, QFontMetrics, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -43,7 +43,8 @@ class RowData:
 def row_data(index: int, shot: Shot, settings: Settings, missing: bool) -> RowData:
     width, height = shot.effective_size
     if missing:
-        return RowData(index + 1, f"{width}×{height}", "Datei fehlt", "missing", None)
+        missing_file = QCoreApplication.translate("ShotList", "File missing")
+        return RowData(index + 1, f"{width}×{height}", missing_file, "missing", None)
     dpi = effective_dpi(shot.effective_size, settings)
     chip = f"{dpi:.0f} dpi" if dpi < settings.min_dpi else None
     return RowData(
@@ -189,8 +190,10 @@ class ShotList(QListWidget):
         item.setSizeHint(QSize(240, ROW_HEIGHT))
         # Screen readers and tooltips still need words.
         item.setToolTip(
-            f"Aufnahme {data.number}, {data.size_label} px"
+            self.tr("Capture {number}, {size} px").format(
+                number=data.number, size=data.size_label
+            )
             + (f" — {data.chip}" if data.chip else "")
-            + ("" if data.path is None else "\nDoppelklick: zuschneiden")
+            + ("" if data.path is None else "\n" + self.tr("Double-click to crop"))
         )
         self.addItem(item)

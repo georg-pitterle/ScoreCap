@@ -41,7 +41,7 @@ def test_importing_a_scan_adds_one_shot_per_system(window, tmp_path, qtbot):
     assert len(window.document.shots) == 3
     assert window.shot_list.count() == 3
     assert window.pdf_bytes
-    assert "3 Systeme aus 1 Seite" in window.status.text()
+    assert "3 systems from 1 page imported" in window.status.text()
     assert window.scan_button.isEnabled()
 
 
