@@ -19,9 +19,15 @@ FOOTER_BASELINE_MM = 8.0
 
 
 def _png_bytes(shot: Shot) -> bytes:
-    """Load the shot, apply its crop, and re-encode losslessly."""
+    """Load the shot, apply its crop, and re-encode losslessly in grey.
+
+    Notation is black on white, so colour carries nothing but a third of the
+    bytes. Grey keeps the anti-aliased edges that make staves look clean -
+    pure black and white would not: at screenshot resolution it makes staff
+    lines of uneven weight.
+    """
     with Image.open(shot.path) as image:
-        image = image.convert("RGB")
+        image = image.convert("L")
         if shot.crop is not None:
             image = image.crop(shot.crop)
         buffer = io.BytesIO()
@@ -60,6 +66,8 @@ def build(shots: Sequence[Shot], pages: Sequence[Page], settings: Settings) -> b
                     fontsize=FOOTER_SIZE,
                     color=FOOTER_COLOR,
                 )
-        return doc.tobytes()
+        # PyMuPDF keeps inserted images as raw samples unless told to
+        # compress on save: nine pages of screenshots came out at 58 MB.
+        return doc.tobytes(garbage=3, deflate=True)
     finally:
         doc.close()

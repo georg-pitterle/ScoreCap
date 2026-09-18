@@ -100,3 +100,49 @@ def test_empty_document_produces_no_bytes():
     # PyMuPDF refuses to serialise a zero-page document, so an empty
     # document is represented by empty bytes.
     assert build([], [], Settings()) == b""
+
+
+def line_art(tmp_path: Path, name: str, seed: int = 0, width: int = 1200, height: int = 300) -> Shot:
+    """Something shaped like a staff: black strokes on white.
+
+    Every call must produce different pixels: PyMuPDF stores identical images
+    only once, so ten copies of one image would measure as a single image.
+    """
+    from PIL import ImageDraw
+
+    image = Image.new("RGB", (width, height), (255, 255, 255))
+    draw = ImageDraw.Draw(image)
+    for line in range(5):
+        y = 80 + line * 22
+        draw.line([20, y, width - 20, y], fill=(20, 20, 20), width=2)
+    for step, x in enumerate(range(60 + seed * 7, width - 60, 70)):
+        y = 90 + ((step * 5 + seed * 3) % 9) * 11
+        draw.ellipse([x, y, x + 22, y + 16], fill=(0, 0, 0))
+    path = tmp_path / name
+    image.save(path)
+    return Shot(path=path, width=width, height=height)
+
+
+def test_images_are_stored_grey_and_compressed(tmp_path):
+    settings = Settings(footer_enabled=False)
+    shots = [line_art(tmp_path, "a.png")]
+    pages = paginate([s.effective_size for s in shots], settings)
+    doc = pymupdf.open(stream=build(shots, pages, settings), filetype="pdf")
+    try:
+        info = doc.load_page(0).get_images(full=True)[0]
+        xref, image_filter = info[0], info[8]
+        # One channel is what matters; PyMuPDF labels it ICCBased with a grey
+        # profile rather than DeviceGray.
+        assert pymupdf.Pixmap(doc, xref).n == 1
+        assert image_filter == "FlateDecode", f"stored with filter {image_filter!r}"
+    finally:
+        doc.close()
+
+
+def test_a_score_sized_document_stays_small(tmp_path):
+    # Ten staves of 1200 x 300 were 10.8 MB as raw RGB samples.
+    settings = Settings()
+    shots = [line_art(tmp_path, f"{i}.png", seed=i) for i in range(10)]
+    pages = paginate([s.effective_size for s in shots], settings)
+    data = build(shots, pages, settings)
+    assert len(data) < 1_000_000, f"{len(data) / 1e6:.1f} MB"
