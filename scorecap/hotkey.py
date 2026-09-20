@@ -39,22 +39,28 @@ _NAMED_KEYS = {
 
 
 def _virtual_key(name: str) -> int:
-    if len(name) == 1 and (name.isalpha() or name.isdigit()):
+    """The virtual key code Windows knows a key by, e.g. "s" or "f9".
+
+    Only the keys whose code is their own character are taken that way; an
+    umlaut has a code of its own, and guessing it would silently register a
+    hotkey the user never asked for.
+    """
+    if len(name) == 1 and ("a" <= name <= "z" or "0" <= name <= "9"):
         return ord(name.upper())
     if name in _NAMED_KEYS:
         return _NAMED_KEYS[name]
-    raise ValueError(f"Unbekannte Taste: {name}")
+    raise ValueError(f"unknown key: {name}")
 
 
 def parse_hotkey(spec: str) -> tuple[int, int]:
     parts = [part.strip().lower() for part in spec.split("+") if part.strip()]
     if len(parts) < 2:
-        raise ValueError("Hotkey braucht mindestens einen Modifier und eine Taste")
+        raise ValueError("a hotkey needs at least one modifier and a key")
     *modifier_names, key = parts
     modifiers = MOD_NOREPEAT
     for name in modifier_names:
         if name not in _MODIFIERS:
-            raise ValueError(f"Unbekannter Modifier: {name}")
+            raise ValueError(f"unknown modifier: {name}")
         modifiers |= _MODIFIERS[name]
     return modifiers, _virtual_key(key)
 

@@ -44,7 +44,7 @@ def test_dialog_starts_with_the_existing_crop_and_can_reset(tmp_path, qapp):
     assert dialog.crop is None
 
 
-def test_dialog_buttons_speak_german(tmp_path, qapp, german):
+def test_the_dialog_speaks_german(tmp_path, qapp, german):
     from PySide6.QtWidgets import QPushButton
 
     from scorecap.cropdialog import CropDialog
@@ -53,8 +53,7 @@ def test_dialog_buttons_speak_german(tmp_path, qapp, german):
     Image.new("RGB", (200, 100), (0, 0, 0)).save(path)
     dialog = CropDialog(Shot(path=path, width=200, height=100))
     labels = {b.text() for b in dialog.findChildren(QPushButton)}
-    assert "Abbrechen" in labels
-    assert "Übernehmen" in labels
+    assert {"Abbrechen", "Übernehmen", "Zuschneiden", "Radierer"} <= labels
     assert not any(label in {"Cancel", "OK"} for label in labels)
 
 
@@ -216,18 +215,6 @@ def test_whole_image_keeps_the_erasures(tmp_path, qapp):
     dialog.reset()
     assert dialog.crop is None
     assert dialog.erasures == ((10, 10, 20, 20),)
-
-
-def test_the_mode_buttons_speak_german(tmp_path, qapp, german):
-    from PySide6.QtWidgets import QPushButton
-
-    from scorecap.cropdialog import CropDialog
-
-    path = tmp_path / "a.png"
-    Image.new("RGB", (200, 100), (0, 0, 0)).save(path)
-    dialog = CropDialog(Shot(path=path, width=200, height=100))
-    labels = {b.text() for b in dialog.findChildren(QPushButton)}
-    assert {"Zuschneiden", "Radierer"} <= labels
 
 
 def test_the_canvas_draws_the_erasures_white(tmp_path, qapp):

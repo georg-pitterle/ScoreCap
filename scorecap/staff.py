@@ -16,62 +16,30 @@ from pathlib import Path
 
 from PIL import Image, ImageFilter
 
+from .ink import binary, staff_lines
 from .model import Shot
 
-DARK = 128            # below this a pixel counts as ink
 LINE_SPAN = 0.5       # a staff line runs across at least half the capture
 MIN_STAFF_ROWS = 5    # one staff has five lines; fewer is not a system
-
-
-def _longest_run_end(row: bytes) -> tuple[int, int]:
-    """Length and end (exclusive) of the longest run of ink in one pixel row."""
-    best, best_end, start = 0, 0, None
-    for x, value in enumerate(row + b"\x00"):
-        if value and start is None:
-            start = x
-        elif not value and start is not None:
-            if x - start > best:
-                best, best_end = x - start, x
-            start = None
-    return best, best_end
 
 
 def staff_extent(image: Image.Image) -> tuple[int, int] | None:
     """x of the first and just past the last pixel of the staff lines.
 
-    None if there is no staff. Only rows mostly covered by ink are examined -
-    staff lines, not notes or text. In each, the longest continuous run is
-    the line itself, so a mark that merely crosses that height before or
-    after it, like an arrow, is ignored. A line on paper is thin and sags a
-    little, so each pixel row holds only a piece of it; grown by a pixel up
-    and down, the pieces merge, and a line reaches as far as any of its rows.
+    None if there is no staff. A line on paper is thin and sags a little, so
+    each pixel row holds only a piece of it; grown by a pixel up and down,
+    the pieces merge into one line again.
     """
-    ink = image.convert("L").point(lambda value: 255 if value < DARK else 0)
-    width, height = ink.size
+    width, height = image.size
     if width == 0 or height == 0:
         return None
-    ink = ink.filter(ImageFilter.MaxFilter(3))
-    # Squashing to one column averages each row in C: its share of ink.
-    coverage = ink.resize((1, height), Image.BOX).tobytes()
-    rows: list[tuple[int, int, int]] = []
-    for y, level in enumerate(coverage):
-        if level < LINE_SPAN * 255:
-            continue
-        length, end = _longest_run_end(ink.crop((0, y, width, y + 1)).tobytes())
-        if length >= LINE_SPAN * width:
-            rows.append((y, end - length, end))
-    lines: list[tuple[int, int]] = []
-    for index, (y, start, end) in enumerate(rows):
-        if index and y == rows[index - 1][0] + 1:
-            previous_start, previous_end = lines[-1]
-            lines[-1] = (min(previous_start, start), max(previous_end, end))
-        else:
-            lines.append((start, end))
+    grown = binary(image.convert("L")).filter(ImageFilter.MaxFilter(3))
+    lines = staff_lines(grown, LINE_SPAN)
     if len(lines) < MIN_STAFF_ROWS:
         return None
     # Grown ink reaches one pixel further on either side.
-    start = round(statistics.median(line[0] for line in lines)) + 1
-    end = round(statistics.median(line[1] for line in lines)) - 1
+    start = round(statistics.median(line.left for line in lines)) + 1
+    end = round(statistics.median(line.right for line in lines)) - 1
     return start, end
 
 

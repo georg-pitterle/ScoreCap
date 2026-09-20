@@ -35,6 +35,24 @@ def trim_box(
     )
 
 
+def trim_within(
+    image: Image.Image,
+    region: tuple[int, int, int, int],
+    threshold: int,
+    padding: int,
+) -> tuple[int, int, int, int] | None:
+    """`trim_box` of a region, given back in the whole image's coordinates.
+
+    None when the region holds no ink, so every caller can say for itself
+    what a blank region should fall back to.
+    """
+    box = trim_box(image.crop(region), threshold, padding)
+    if box is None:
+        return None
+    left, top = region[0], region[1]
+    return (left + box[0], top + box[1], left + box[2], top + box[3])
+
+
 def auto_crop(shot: Shot, settings: Settings) -> Shot:
     """Return the shot with its white margin cropped away.
 
@@ -60,14 +78,11 @@ def crop_after_erasing(shot: Shot, settings: Settings) -> tuple[int, int, int, i
     """
     if not settings.auto_trim:
         return shot.crop
-    left, top, right, bottom = shot.crop or (0, 0, shot.width, shot.height)
+    region = shot.crop or (0, 0, shot.width, shot.height)
     with Image.open(shot.path) as image:
         erased = erase(image.convert("L"), shot.erasures)
-        box = trim_box(
-            erased.crop((left, top, right, bottom)),
-            settings.trim_threshold,
-            settings.trim_padding_px,
+        box = trim_within(
+            erased, region, settings.trim_threshold, settings.trim_padding_px
         )
-    if box is None:
-        return shot.crop  # nothing left; better kept than reduced to nothing
-    return (left + box[0], top + box[1], left + box[2], top + box[3])
+    # Nothing left: better kept than reduced to nothing.
+    return box or shot.crop

@@ -13,7 +13,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "pytest-qt", "pyinstaller"]
+dev = ["pytest", "pytest-qt", "pytest-xdist", "pyinstaller"]
 
 [project.scripts]
 scorecap = "scorecap.cli:main"
@@ -27,3 +27,6 @@ include = ["scorecap*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# The suite is Qt-heavy and runs offscreen: spreading it over the cores
+# costs nothing and turns half a minute into a few seconds.
+addopts = "-n auto"

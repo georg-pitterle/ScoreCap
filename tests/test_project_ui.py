@@ -58,7 +58,7 @@ def test_save_and_open_round_trip(window, tmp_path, qapp):
         assert len(other.document.shots) == 3
         assert other.preview.page_count == window.preview.page_count
         assert other.is_modified is False
-        assert other.document.can_undo is False
+        assert other.document.undo() is False  # a fresh history
     finally:
         other.close()
 
@@ -88,10 +88,10 @@ def test_cancelling_the_save_dialog_saves_nothing(window, tmp_path, monkeypatch)
 
 def test_closing_with_unsaved_captures_can_be_cancelled(window, tmp_path, monkeypatch):
     window.add_shot(capture(tmp_path, "a.png"))
-    monkeypatch.setattr(type(window), "_ask_save_changes", lambda self: "cancel")
+    monkeypatch.setattr("scorecap.app.ask_save_changes", lambda parent: "cancel")
     window.close()
     assert window.isVisible()
-    monkeypatch.setattr(type(window), "_ask_save_changes", lambda self: "discard")
+    monkeypatch.setattr("scorecap.app.ask_save_changes", lambda parent: "discard")
 
 
 def test_closing_can_save_first(window, tmp_path, monkeypatch):
@@ -99,7 +99,7 @@ def test_closing_can_save_first(window, tmp_path, monkeypatch):
     project = tmp_path / "p.scorecap"
     window.save_to(project)
     window.add_shot(capture(tmp_path, "b.png", 1))
-    monkeypatch.setattr(type(window), "_ask_save_changes", lambda self: "save")
+    monkeypatch.setattr("scorecap.app.ask_save_changes", lambda parent: "save")
     window.close()
     assert not window.isVisible()
     from scorecap.project import load_project
@@ -111,7 +111,8 @@ def test_a_saved_window_closes_without_asking(window, tmp_path, monkeypatch):
     window.add_shot(capture(tmp_path, "a.png"))
     window.save_to(tmp_path / "p.scorecap")
     monkeypatch.setattr(
-        type(window), "_ask_save_changes", lambda self: pytest.fail("asked needlessly")
+        "scorecap.app.ask_save_changes",
+        lambda parent: pytest.fail("asked needlessly"),
     )
     window.close()
     assert not window.isVisible()
@@ -119,7 +120,7 @@ def test_a_saved_window_closes_without_asking(window, tmp_path, monkeypatch):
 
 def test_opening_over_unsaved_work_can_be_cancelled(window, tmp_path, monkeypatch):
     window.add_shot(capture(tmp_path, "a.png"))
-    monkeypatch.setattr(type(window), "_ask_save_changes", lambda self: "cancel")
+    monkeypatch.setattr("scorecap.app.ask_save_changes", lambda parent: "cancel")
     monkeypatch.setattr(
         QFileDialog, "getOpenFileName", lambda *a, **k: pytest.fail("opened anyway")
     )
@@ -158,20 +159,23 @@ def test_restarting_for_an_update_offers_to_save_unsaved_work(window, tmp_path, 
     window._on_update_downloaded(update, True)
     window.add_shot(capture(tmp_path, "a.png"))
 
-    monkeypatch.setattr(type(window), "_ask_save_changes", lambda self: "cancel")
+    monkeypatch.setattr("scorecap.app.ask_save_changes", lambda parent: "cancel")
     window.update_button.click()
     assert Service.restarted == []
 
     window.save_to(tmp_path / "p.scorecap")  # nothing left to lose
     monkeypatch.setattr(
-        type(window), "_ask_save_changes", lambda self: pytest.fail("asked needlessly")
+        "scorecap.app.ask_save_changes",
+        lambda parent: pytest.fail("asked needlessly"),
     )
     window.update_button.click()
     assert Service.restarted == [update]
 
 
 def test_no_button_of_the_save_question_is_cut_off(window, qapp):
-    box, _save, _discard = window._unsaved_changes_box()
+    from scorecap.projectui import unsaved_changes_box
+
+    box, _save, _discard = unsaved_changes_box(window)
     box.show()
     qapp.processEvents()
     try:
@@ -233,3 +237,15 @@ def test_a_vanished_folder_is_not_proposed(window, tmp_path, monkeypatch):
     )
     window.open_project()
     assert asked == [""]
+
+
+def test_saving_says_when_a_capture_has_no_file_left(window, tmp_path):
+    window.add_shot(capture(tmp_path, "a.png"))
+    window.add_shot(capture(tmp_path, "gone.png", 1))
+    (tmp_path / "gone.png").unlink()
+    window.save_to(tmp_path / "p.scorecap")
+    assert "1" in window.status.text() and "left out" in window.status.text()
+
+    from scorecap.project import load_project
+
+    assert len(load_project(tmp_path / "p.scorecap", tmp_path / "check")) == 1

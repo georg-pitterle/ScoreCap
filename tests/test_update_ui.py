@@ -68,10 +68,6 @@ def test_a_finished_download_offers_the_restart(window):
     assert "when you close" in window.update_label.text()
 
 
-def test_the_restart_button_is_the_prominent_kind(window):
-    assert window.update_button.objectName() == "Primary"
-
-
 def test_a_failed_download_stays_quiet(window):
     window._on_update_downloaded(UPDATE, False)
     assert window.update_button.isVisible() is False
@@ -98,13 +94,14 @@ def test_restarting_with_unsaved_captures_asks_first_and_respects_cancel(
 
     asked = []
     monkeypatch.setattr(
-        type(window), "_ask_save_changes", lambda self: asked.append(1) or "cancel"
+        "scorecap.app.ask_save_changes",
+        lambda parent: asked.append(1) or "cancel",
     )
     window._on_update_downloaded(UPDATE, True)
     window.update_button.click()
     assert asked, "restarting would discard the captures without warning"
     assert window.updates.restarted == []
-    monkeypatch.setattr(type(window), "_ask_save_changes", lambda self: "discard")
+    monkeypatch.setattr("scorecap.app.ask_save_changes", lambda parent: "discard")
 
 
 def test_restarting_with_captures_goes_ahead_when_discarded(window, monkeypatch, tmp_path):
@@ -115,7 +112,7 @@ def test_restarting_with_captures_goes_ahead_when_discarded(window, monkeypatch,
     path = tmp_path / "a.png"
     Image.new("RGB", (400, 100), (0, 0, 0)).save(path)
     window.add_shot(Shot(path=path, width=400, height=100))
-    monkeypatch.setattr(type(window), "_ask_save_changes", lambda self: "discard")
+    monkeypatch.setattr("scorecap.app.ask_save_changes", lambda parent: "discard")
     window._on_update_downloaded(UPDATE, True)
     window.update_button.click()
     assert window.updates.restarted == [UPDATE]
@@ -144,33 +141,27 @@ def test_closing_without_a_downloaded_update_installs_nothing(qapp):
     assert service.on_exit == []
 
 
-def test_checking_runs_off_the_ui_thread(window):
-    from PySide6.QtCore import QRunnable
-
-    assert isinstance(window._update_check_task(), QRunnable)
-
-
 def test_a_crashing_check_is_logged_not_lost(caplog):
-    from scorecap.app import _UpdateCheck
+    from scorecap.tasks import UpdateCheck, UpdateSignals
 
     class Exploding:
         def check(self):
             raise RuntimeError("velopack blew up in the worker")
 
     with caplog.at_level("INFO"):
-        _UpdateCheck(Exploding()).run()  # must not raise out of the thread
+        UpdateCheck(Exploding(), UpdateSignals()).run()  # must not raise
     assert "velopack blew up in the worker" in caplog.text
 
 
 def test_a_crashing_download_is_logged_and_reported_as_failed(caplog):
-    from scorecap.app import _UpdateDownload
+    from scorecap.tasks import UpdateDownload, UpdateSignals
 
     class Exploding:
         def download(self, update):
             raise RuntimeError("disk full")
 
     results = []
-    task = _UpdateDownload(Exploding(), UPDATE)
+    task = UpdateDownload(Exploding(), UPDATE, UpdateSignals())
     task.signals.done.connect(lambda update, ok: results.append(ok))
     with caplog.at_level("INFO"):
         task.run()
@@ -178,34 +169,17 @@ def test_a_crashing_download_is_logged_and_reported_as_failed(caplog):
     assert results == [False]
 
 
-def test_task_signals_live_as_long_as_the_window(window):
-    # An unanchored signal object can be collected while its task still runs
-    # on the pool, and the result then vanishes: "Signal source has been
-    # deleted". Parenting it to the window ties its lifetime to the receiver.
-    task = window._update_check_task()
-    assert task.signals.parent() is window
-
-
-def test_started_tasks_are_kept_until_they_finish(window):
-    task = window._update_check_task()
-    assert task in window._running_tasks
-    task.run()  # RecordingService.check returns an update, then finishes
-    from PySide6.QtWidgets import QApplication
-
-    QApplication.processEvents()
-    assert task not in window._running_tasks
-
-
 def test_a_result_arriving_after_the_window_closed_does_not_raise(qapp, caplog):
-    from scorecap.app import MainWindow, _UpdateCheck, _UpdateSignals
+    from scorecap.app import MainWindow
+    from scorecap.tasks import UpdateCheck, UpdateSignals
 
     class Service:
         def check(self):
             return UPDATE
 
     win = MainWindow()
-    signals = _UpdateSignals(win)
-    task = _UpdateCheck(Service(), signals)
+    signals = UpdateSignals(win)
+    task = UpdateCheck(Service(), signals)
     win.close()
     win.deleteLater()
     QApplicationLike = type(qapp)

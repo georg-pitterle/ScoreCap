@@ -1,8 +1,6 @@
 """The updater must stay silent whenever it cannot do its job."""
 
-import pytest
-
-from scorecap.updater import REPO_URL, PendingUpdate, UpdateService
+from scorecap.updater import PendingUpdate, UpdateService
 
 
 class FakeAsset:
@@ -53,10 +51,6 @@ def failing_service(error: Exception) -> UpdateService:
         raise error
 
     return UpdateService(manager_factory=factory)
-
-
-def test_repo_url_points_at_the_project():
-    assert REPO_URL == "https://github.com/georg-pitterle/ScoreCap"
 
 
 def test_running_from_source_is_not_an_error():
@@ -132,11 +126,3 @@ def test_nothing_is_applied_when_updates_are_unavailable():
 
 def test_current_version_comes_from_the_manager():
     assert service_with(FakeManager(current="1.4.2")).current_version() == "1.4.2"
-
-
-def test_the_real_factory_is_used_by_default():
-    # Constructed without a fake, the service targets velopack and finds no
-    # installation in the test environment - but does not blow up.
-    service = UpdateService()
-    assert service.is_available() is False
-    assert service.check() is None

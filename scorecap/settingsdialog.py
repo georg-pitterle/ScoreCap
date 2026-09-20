@@ -13,10 +13,12 @@ from PySide6.QtWidgets import (
     QDoubleSpinBox,
     QFormLayout,
     QLineEdit,
+    QMessageBox,
     QVBoxLayout,
     QWidget,
 )
 
+from .hotkey import parse_hotkey
 from .i18n import LANGUAGES
 from .settings import Settings
 
@@ -88,6 +90,9 @@ class SettingsDialog(QDialog):
         )
         self._align_staff_ends.setChecked(settings.align_staff_ends)
         self._hotkey = QLineEdit(settings.hotkey)
+        self._hotkey.setToolTip(
+            self.tr("One or more modifiers and a key, for example Ctrl+Shift+S")
+        )
         self._scan_mode = QComboBox()
         self._scan_mode.addItem(self.tr("Black and white"), "bw")
         self._scan_mode.addItem(self.tr("Greyscale"), "grey")
@@ -129,6 +134,28 @@ class SettingsDialog(QDialog):
         layout = QVBoxLayout(self)
         layout.addLayout(form)
         layout.addWidget(buttons)
+
+    def accept(self) -> None:  # noqa: D102 - QDialog's own slot
+        """Refuse a hotkey that is no hotkey, rather than saving it.
+
+        Saved, it would be read again at every start, where nothing can be
+        typed to put it right.
+        """
+        try:
+            parse_hotkey(self.settings.hotkey)
+        except ValueError:
+            QMessageBox.warning(
+                self,
+                self.tr("Hotkey"),
+                self.tr(
+                    "{hotkey} is not a usable hotkey. It needs one or more "
+                    "modifiers and a key, for example Ctrl+Shift+S."
+                ).format(hotkey=self._hotkey.text().strip()),
+            )
+            self._hotkey.setFocus()
+            self._hotkey.selectAll()
+            return
+        super().accept()
 
     @property
     def settings(self) -> Settings:

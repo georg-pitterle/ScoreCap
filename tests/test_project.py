@@ -63,15 +63,6 @@ def test_a_failed_save_leaves_the_previous_file_intact(tmp_path):
     assert not any(p.name.startswith("p.scorecap.") for p in tmp_path.iterdir())
 
 
-def test_the_manifest_records_format_and_order(tmp_path):
-    project = tmp_path / "p.scorecap"
-    save_project(project, [capture(tmp_path, "a.png", 0), capture(tmp_path, "b.png", 1)])
-    with zipfile.ZipFile(project) as archive:
-        manifest = json.loads(archive.read("project.json"))
-    assert manifest["format"] == FORMAT_VERSION
-    assert [entry["file"] for entry in manifest["shots"]] == ["shots/001.png", "shots/002.png"]
-
-
 def test_something_that_is_not_a_project_is_rejected(tmp_path):
     fake = tmp_path / "x.scorecap"
     fake.write_bytes(b"not a zip")

@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 import logging
-import sys
+import shutil
 import tempfile
-import threading
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Sequence
 
@@ -14,15 +13,12 @@ from PySide6.QtCore import (
     QCoreApplication,
     QEvent,
     QLocale,
-    QObject,
-    QRunnable,
     QSettings,
     Qt,
     QThreadPool,
     QTimer,
-    Signal,
 )
-from PySide6.QtGui import QAction, QCursor, QKeySequence
+from PySide6.QtGui import QAction, QCursor, QGuiApplication, QKeySequence
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
@@ -46,11 +42,20 @@ from .optimize import OptimizeResult, optimize_pdf
 from .model import Document, Shot, normalize_move
 from .preview import PreviewWidget
 from .project import SUFFIX, load_project, save_project
+from .projectui import ask_save_changes, project_filter
 from .scan import SUFFIXES as SCAN_SUFFIXES
-from .scan import ImportResult, import_scans
+from .scan import ImportResult
 from .settingsdialog import SettingsDialog, load_settings, save_settings
 from .shotlist import ShotList, row_data
 from .staff import staff_extent_of
+from .tasks import (
+    BackgroundTask,
+    ScanImport,
+    ScanSignals,
+    UpdateCheck,
+    UpdateDownload,
+    UpdateSignals,
+)
 from .theme import Palette, palette_for, stylesheet, system_prefers_dark
 from .trim import auto_crop, crop_after_erasing
 from .updater import PendingUpdate, UpdateService
@@ -68,150 +73,14 @@ UPDATE_CHECK_DELAY_MS = 2000
 log = logging.getLogger(__name__)
 
 
-class _UpdateSignals(QObject):
-    """Created on the UI thread and parented to the window.
-
-    A QRunnable is not a QObject and nothing keeps its Python wrapper alive
-    once the pool has it, so signals owned by the task itself can be
-    collected mid-run - the result then vanishes with "Signal source has been
-    deleted". Owned by the window, they live exactly as long as the receiver.
-    """
-
-    found = Signal(object)
-    done = Signal(object, bool)
-    finished = Signal()
-
-
-class _ScanSignals(QObject):
-    """Owned by the window for the same reason as _UpdateSignals."""
-
-    progress = Signal(str)
-    done = Signal(object)
-    finished = Signal()
-
-
 def settings_store() -> QSettings:
     """Where settings and remembered folders live: the user's registry."""
     return QSettings("ScoreCap", "ScoreCap")
 
 
-def _attach_debugger_to_this_thread() -> None:
-    """Let breakpoints fire in a Qt pool thread.
-
-    debugpy only traces threads Python's threading module started; Qt's
-    QThreadPool threads are invisible to it, so a breakpoint in a task's run()
-    would never hit. Outside a debug session debugpy is not loaded and this
-    does nothing.
-    """
-    debugpy = sys.modules.get("debugpy")
-    if debugpy is None:
-        return
-    try:
-        # Without a connected client, debug_this_thread() tries to connect
-        # itself: a stall of several seconds and a traceback per task.
-        if debugpy.is_client_connected():
-            debugpy.debug_this_thread()
-    except Exception:  # noqa: BLE001 - a debugging aid must never break the app
-        pass
-
-
-def _emit(signal, *args) -> None:
-    """Deliver a result unless the window is already gone."""
-    try:
-        signal.emit(*args)
-    except RuntimeError:
-        log.info("window closed before a background result arrived")
-
-
-class _UpdateCheck(QRunnable):
-    """Asks GitHub for a newer release without holding up the window."""
-
-    def __init__(self, service: UpdateService, signals: _UpdateSignals | None = None) -> None:
-        super().__init__()
-        self.signals = signals or _UpdateSignals()
-        self._service = service
-
-    def run(self) -> None:
-        _attach_debugger_to_this_thread()
-        # Runs on a pool thread: an exception here would otherwise vanish.
-        log.info("update check started")
-        try:
-            update = self._service.check()
-        except BaseException:  # noqa: BLE001 - logged, never raised into Qt
-            log.exception("update check crashed")
-            update = None
-        else:
-            log.info(
-                "update check finished: %s", update.version if update else "up to date"
-            )
-        if update is not None:
-            _emit(self.signals.found, update)
-        _emit(self.signals.finished)
-
-
-class _ScanImport(QRunnable):
-    """Cleans scanned pages and cuts them into systems, off the UI thread."""
-
-    def __init__(self, paths: list[Path], target_dir: Path, signals: _ScanSignals) -> None:
-        super().__init__()
-        self.signals = signals
-        self._paths = paths
-        self._target_dir = target_dir
-        self._cancelled = threading.Event()
-        self.stopped = threading.Event()
-
-    def cancel(self) -> None:
-        self._cancelled.set()
-
-    def run(self) -> None:
-        _attach_debugger_to_this_thread()
-        log.info("scan import of %d file(s) started", len(self._paths))
-        try:
-            result = import_scans(
-                self._paths,
-                self._target_dir,
-                progress=lambda text: _emit(self.signals.progress, text),
-                cancelled=self._cancelled.is_set,
-            )
-        except BaseException:  # noqa: BLE001 - logged, never raised into Qt
-            log.exception("scan import crashed")
-            aborted = QCoreApplication.translate("MainWindow", "The import was aborted.")
-            result = ImportResult([], 0, [], [], [aborted])
-        finally:
-            self.stopped.set()
-        log.info("scan import finished: %d shot(s)", len(result.shots))
-        _emit(self.signals.done, result)
-        _emit(self.signals.finished)
-
-
 def scan_files(paths: Sequence[Path]) -> list[Path]:
     """The paths a scan import can read, by their suffix."""
     return [path for path in paths if path.suffix.lower() in SCAN_SUFFIXES]
-
-
-class _UpdateDownload(QRunnable):
-    """Fetches an update in the background; reports success either way."""
-
-    def __init__(
-        self,
-        service: UpdateService,
-        update: PendingUpdate,
-        signals: _UpdateSignals | None = None,
-    ) -> None:
-        super().__init__()
-        self.signals = signals or _UpdateSignals()
-        self._service = service
-        self._update = update
-
-    def run(self) -> None:
-        _attach_debugger_to_this_thread()
-        try:
-            ok = bool(self._service.download(self._update))
-        except BaseException:  # noqa: BLE001 - logged, never raised into Qt
-            log.exception("update download crashed")
-            ok = False
-        _emit(self.signals.done, self._update, ok)
-        _emit(self.signals.finished)
 
 
 def _shortcut_text(key: QKeySequence.StandardKey) -> str:
@@ -229,16 +98,27 @@ def _megabytes(size: int) -> str:
     return QLocale().toString(size / 1024 / 1024, "f", 1) + " MB"
 
 
-def usable_shots(shots: Sequence[Shot]) -> tuple[list[Shot], list[int]]:
+@dataclass(frozen=True)
+class Usable:
+    """The shots that can be rendered, and where they sit in the document."""
+
+    shots: list[Shot]
+    rows: list[int]     # the document row each shot above came from
+    missing: list[int]  # the rows whose file disappeared
+
+
+def usable_shots(shots: Sequence[Shot]) -> Usable:
     """Split off shots whose file disappeared; they cannot be rendered."""
-    usable: list[Shot] = []
+    kept: list[Shot] = []
+    rows: list[int] = []
     missing: list[int] = []
     for index, shot in enumerate(shots):
         if shot.path.exists():
-            usable.append(shot)
+            kept.append(shot)
+            rows.append(index)
         else:
             missing.append(index)
-    return usable, missing
+    return Usable(shots=kept, rows=rows, missing=missing)
 
 
 class MainWindow(QMainWindow):
@@ -258,7 +138,7 @@ class MainWindow(QMainWindow):
         self._usable_rows: list[int] = []
         self._temp_dir = Path(tempfile.mkdtemp(prefix="scorecap-"))
         self._pending_replace: int | None = None
-        self._scan_task: _ScanImport | None = None
+        self._scan_task: ScanImport | None = None
         self._capturing = False
         self._project_path: Path | None = None
         self._saved_revision = self.document.revision
@@ -292,11 +172,15 @@ class MainWindow(QMainWindow):
         for button in self.findChildren(QPushButton):
             if button.property("glyph"):
                 self._apply_icon(button)
+        # The preview takes its colours from the stylesheet above.
         self.shot_list.set_palette(palette)
-        self.preview.set_palette(palette)
         self._toast.setStyleSheet(
             f"background: {palette.text}; color: {palette.app}; border-radius: 4px;"
         )
+
+    def _follow_colour_scheme(self, scheme) -> None:
+        """Windows switched between its light and dark app colours."""
+        self.apply_palette(palette_for(scheme == Qt.ColorScheme.Dark))
 
     def _build_ui(self) -> None:
         self.capture_button = self._button(self.tr("Prepare capture"), icons.CAPTURE, "Primary")
@@ -365,11 +249,7 @@ class MainWindow(QMainWindow):
         self.shot_list.currentRowChanged.connect(self._update_actions)
         self.shot_list.itemDoubleClicked.connect(self._edit_item)
 
-        self.empty_state = QLabel(
-            self.tr("Nothing captured yet.\n\nPress {hotkey}, then drag out the area.").format(
-                hotkey=self.settings.hotkey
-            )
-        )
+        self.empty_state = QLabel(self._empty_state_text())
         self.empty_state.setObjectName("EmptyState")
         self.empty_state.setAlignment(Qt.AlignCenter)
         self.empty_state.setWordWrap(True)
@@ -389,7 +269,7 @@ class MainWindow(QMainWindow):
         side_layout.addWidget(heading)
         side_layout.addWidget(self._list_stack, 1)
 
-        self.preview = PreviewWidget(self.palette_tokens)
+        self.preview = PreviewWidget()
         self.preview.clicked_at.connect(self.select_at)
         preview_panel = QWidget()
         preview_layout = QVBoxLayout(preview_panel)
@@ -452,6 +332,11 @@ class MainWindow(QMainWindow):
         self._update_title()
         self._update_actions()
 
+    def _empty_state_text(self) -> str:
+        return self.tr(
+            "Nothing captured yet.\n\nPress {hotkey}, then drag out the area."
+        ).format(hotkey=self.settings.hotkey)
+
     def _build_zoom_bar(self) -> QWidget:
         self.zoom_out_button = self._button("", icons.ZOOM_OUT)
         self.zoom_out_button.setToolTip(self.tr("Zoom out"))
@@ -508,11 +393,14 @@ class MainWindow(QMainWindow):
 
         self._hotkey = HotkeyFilter(self.begin_capture)
 
+        hints = QGuiApplication.styleHints()
+        hints.colorSchemeChanged.connect(self._follow_colour_scheme)
+
         self.updates = UpdateService()
         self._ready_update: PendingUpdate | None = None
         self._restarting = False
         # Keeps each background task's wrapper alive until it has reported.
-        self._running_tasks: set[QRunnable] = set()
+        self._running_tasks: set[BackgroundTask] = set()
         # Deferred so the first capture is never waiting on a network call.
         QTimer.singleShot(UPDATE_CHECK_DELAY_MS, self.check_for_updates)
 
@@ -534,14 +422,31 @@ class MainWindow(QMainWindow):
 
     def install_hotkey(self, app) -> None:
         app.installNativeEventFilter(self._hotkey)
-        if not self._hotkey.register(self.settings.hotkey):
-            QMessageBox.warning(
-                self,
-                self.tr("Hotkey taken"),
-                self.tr(
-                    "The hotkey {hotkey} is already in use. It can be changed in the settings."
-                ).format(hotkey=self.settings.hotkey),
+        self._register_hotkey()
+
+    def _register_hotkey(self) -> None:
+        """Take the global hotkey, and say so when it cannot be had.
+
+        A hotkey saved by an older version, or typed into the settings, may
+        no longer parse - which must not cost the user the whole window.
+        """
+        try:
+            if self._hotkey.register(self.settings.hotkey):
+                return
+            message = self.tr(
+                "The hotkey {hotkey} is already in use. "
+                "It can be changed in the settings."
             )
+        except ValueError as error:
+            log.info("hotkey %r not usable: %s", self.settings.hotkey, error)
+            message = self.tr(
+                "{hotkey} is not a usable hotkey. It can be changed in the settings."
+            )
+        QMessageBox.warning(
+            self,
+            self.tr("Hotkey unavailable"),
+            message.format(hotkey=self.settings.hotkey),
+        )
 
     def schedule_rebuild(self) -> None:
         self._timer.start()
@@ -553,24 +458,25 @@ class MainWindow(QMainWindow):
             self._dirty = True
             return
         shots = self.document.shots
-        usable, missing = usable_shots(shots)
+        ready = usable_shots(shots)
         spans = (
-            [staff_extent_of(s) for s in usable] if self.settings.align_staff_ends else None
+            [staff_extent_of(s) for s in ready.shots]
+            if self.settings.align_staff_ends
+            else None
         )
-        pages = paginate([s.effective_size for s in usable], self.settings, spans)
+        pages = paginate([s.effective_size for s in ready.shots], self.settings, spans)
         self._pages = pages
-        gone = set(missing)
-        self._usable_rows = [i for i in range(len(shots)) if i not in gone]
-        self._pdf_bytes = pdf.build(usable, pages, self.settings)
+        self._usable_rows = ready.rows
+        self._pdf_bytes = pdf.build(ready.shots, pages, self.settings)
         self.preview.set_pdf(self._pdf_bytes)
         self.export_button.setEnabled(bool(pages))
-        self._refresh_list(shots, set(missing))
+        self._refresh_list(shots, set(ready.missing))
         text = self.tr("{captures}, {pages}").format(
             captures=self.tr("%n capture(s)", "", len(shots)),
             pages=self.tr("%n page(s)", "", len(pages)),
         )
-        if missing:
-            text += self.tr(", %n file(s) missing", "", len(missing))
+        if ready.missing:
+            text += self.tr(", %n file(s) missing", "", len(ready.missing))
         self.status.setText(text)
         self._update_title()
         self._update_zoom_label()
@@ -603,15 +509,27 @@ class MainWindow(QMainWindow):
 
     # --- updates ---------------------------------------------------------
 
-    def _track(self, task: QRunnable) -> QRunnable:
+    def _track(self, task: BackgroundTask) -> BackgroundTask:
+        """Keep a task and its signals alive until it has reported - no longer.
+
+        The window outlives every task, so signals parented to it would pile
+        up over a session of imports; letting them go takes the finished task
+        with them.
+        """
+        signals = task.signals
         self._running_tasks.add(task)
-        task.signals.finished.connect(lambda: self._running_tasks.discard(task))
+
+        def retire() -> None:
+            self._running_tasks.discard(task)
+            signals.deleteLater()
+
+        signals.finished.connect(retire)
         return task
 
-    def _update_check_task(self) -> _UpdateCheck:
-        signals = _UpdateSignals(self)
+    def _update_check_task(self) -> UpdateCheck:
+        signals = UpdateSignals(self)
         signals.found.connect(self._on_update_found)
-        return self._track(_UpdateCheck(self.updates, signals))
+        return self._track(UpdateCheck(self.updates, signals))
 
     def check_for_updates(self) -> None:
         available = self.updates.is_available()
@@ -629,9 +547,9 @@ class MainWindow(QMainWindow):
         self._start_download(update)
 
     def _start_download(self, update: PendingUpdate) -> None:
-        signals = _UpdateSignals(self)
+        signals = UpdateSignals(self)
         signals.done.connect(self._on_update_downloaded)
-        task = self._track(_UpdateDownload(self.updates, update, signals))
+        task = self._track(UpdateDownload(self.updates, update, signals))
         QThreadPool.globalInstance().start(task)
 
     def _on_update_downloaded(self, update: PendingUpdate, ok: bool) -> None:
@@ -715,12 +633,10 @@ class MainWindow(QMainWindow):
         paths = scan_files(paths)
         if not paths or self.is_importing:
             return
-        signals = _ScanSignals(self)
+        signals = ScanSignals(self)
         signals.progress.connect(self.status.setText)
         signals.done.connect(self._on_scans_imported)
-        self._scan_task = self._track(
-            _ScanImport(list(paths), self._temp_dir, signals)
-        )
+        self._scan_task = self._track(ScanImport(paths, self._temp_dir, signals))
         self.scan_button.setEnabled(False)
         self.status.setText(self.tr("Reading scans …"))
         QThreadPool.globalInstance().start(self._scan_task)
@@ -785,7 +701,13 @@ class MainWindow(QMainWindow):
         self._hint(self.tr("Ready — press {hotkey}").format(hotkey=self.settings.hotkey))
 
     def begin_capture(self) -> None:
-        """What the hotkey does: dim the screen and let the user drag."""
+        """What the hotkey does: dim the screen and let the user drag.
+
+        Not while a dialog is open: it would take no drag - a modal dialog
+        blocks every other window - and would hide the question being asked.
+        """
+        if QApplication.activeModalWidget() is not None:
+            return
         self._capturing = True
         if not self.isMinimized():
             self.showMinimized()
@@ -915,7 +837,8 @@ class MainWindow(QMainWindow):
         self.settings = dialog.settings
         save_settings(self.settings, self._store)
         if self.settings.hotkey != previous.hotkey:
-            self._hotkey.register(self.settings.hotkey)
+            self._register_hotkey()
+            self.empty_state.setText(self._empty_state_text())
         self.rebuild()
         if self.settings.language != previous.language:
             QMessageBox.information(
@@ -977,52 +900,32 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(f"{name}[*] — ScoreCap")
         self.setWindowModified(self.is_modified)
 
-    def _unsaved_changes_box(self) -> tuple[QMessageBox, QPushButton, QPushButton]:
-        box = QMessageBox(self)
-        box.setIcon(QMessageBox.Icon.Warning)
-        box.setWindowTitle(self.tr("Unsaved captures"))
-        box.setText(self.tr("The captures have not been saved."))
-        box.setInformativeText(self.tr("Unsaved captures are lost when ScoreCap closes."))
-        save = box.addButton(self.tr("Save"), QMessageBox.ButtonRole.AcceptRole)
-        discard = box.addButton(self.tr("Don't save"), QMessageBox.ButtonRole.DestructiveRole)
-        box.addButton(self.tr("Cancel"), QMessageBox.ButtonRole.RejectRole)
-        box.setDefaultButton(save)
-        # The message box sizes its buttons before the window's stylesheet
-        # has styled them, and the stylesheet's larger font then cut
-        # the German "Nicht speichern" off. Styling them first fixes the widths.
-        for button in box.buttons():
-            button.ensurePolished()
-            button.setMinimumWidth(button.sizeHint().width())
-        return box, save, discard
-
-    def _ask_save_changes(self) -> str:
-        """'save', 'discard' or 'cancel' for unsaved work."""
-        box, save, discard = self._unsaved_changes_box()
-        box.exec()
-        clicked = box.clickedButton()
-        if clicked is save:
-            return "save"
-        if clicked is discard:
-            return "discard"
-        return "cancel"
-
     def _confirm_discard(self) -> bool:
         """True when it is fine to drop the current document."""
         if not self.is_modified or not self.document.shots:
             return True
-        answer = self._ask_save_changes()
+        answer = ask_save_changes(self)
         if answer == "save":
             return self.save()
         return answer == "discard"
 
     def save_to(self, path: Path) -> None:
-        usable, _missing = usable_shots(self.document.shots)
-        save_project(path, usable)
+        ready = usable_shots(self.document.shots)
+        save_project(path, ready.shots)
         self._project_path = path
         self._saved_revision = self.document.revision
         self._remember_folder("project", path)
         self._update_title()
-        self.status.setText(self.tr("Saved: {name}").format(name=path.name))
+        text = self.tr("Saved: {name}").format(name=path.name)
+        if ready.missing:
+            # They cannot be saved, and after reopening they would be gone
+            # without ever having been mentioned.
+            text += self.tr(
+                " — %n capture(s) whose file is gone were left out",
+                "",
+                len(ready.missing),
+            )
+        self.status.setText(text)
 
     def save(self) -> bool:
         if self._project_path is None:
@@ -1033,7 +936,7 @@ class MainWindow(QMainWindow):
         folder = self._last_folder("project") or str(Path.home())
         suggestion = self._project_path or Path(folder) / f"{self.tr('Score')}{SUFFIX}"
         name, _ = QFileDialog.getSaveFileName(
-            self, self.tr("Save project"), str(suggestion), self._project_filter()
+            self, self.tr("Save project"), str(suggestion), project_filter()
         )
         if not name:
             return False
@@ -1054,7 +957,7 @@ class MainWindow(QMainWindow):
         if not self._confirm_discard():
             return
         name, _ = QFileDialog.getOpenFileName(
-            self, self.tr("Open project"), self._last_folder("project"), self._project_filter()
+            self, self.tr("Open project"), self._last_folder("project"), project_filter()
         )
         if name:
             self.load_from(Path(name))
@@ -1071,9 +974,6 @@ class MainWindow(QMainWindow):
         self._remember_folder("project", path)
         self.rebuild()
         self.status.setText(self.tr("Opened: {name}").format(name=path.name))
-
-    def _project_filter(self) -> str:
-        return self.tr("ScoreCap project (*{suffix})").format(suffix=SUFFIX)
 
     def export_to(self, path: Path) -> None:
         path.write_bytes(self._pdf_bytes)
@@ -1112,7 +1012,8 @@ class MainWindow(QMainWindow):
             # It writes into the session folder that is about to go.
             self._scan_task.cancel()
             self._scan_task.stopped.wait(SCAN_CLOSE_WAIT_S)
-        for file in self._temp_dir.glob("*.png"):
-            file.unlink(missing_ok=True)
-        self._temp_dir.rmdir()
+        # Whatever is still in there goes with it: a cancelled import may
+        # not have stopped writing, and a half-written file must not keep
+        # the window from closing.
+        shutil.rmtree(self._temp_dir, ignore_errors=True)
         super().closeEvent(event)

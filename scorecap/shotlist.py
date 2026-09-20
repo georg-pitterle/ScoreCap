@@ -24,6 +24,9 @@ THUMB_WIDTH = 96
 THUMB_HEIGHT = 48
 PADDING = 10
 GAP = 10
+# Every crop and every erasure makes a thumbnail of its own; without a limit
+# a long session of editing keeps all of them.
+THUMB_CACHE = 64
 
 DATA_ROLE = Qt.UserRole + 1
 
@@ -96,6 +99,8 @@ class ShotDelegate(QStyledItemDelegate):
                 # A scanned system sits in a band of the page; show the system.
                 left, top, right, bottom = crop
                 pixmap = pixmap.copy(QRect(left, top, right - left, bottom - top))
+            if len(self._thumbs) >= THUMB_CACHE:
+                self._thumbs.pop(next(iter(self._thumbs)))  # the oldest goes
             self._thumbs[key] = (
                 QPixmap()
                 if pixmap.isNull()

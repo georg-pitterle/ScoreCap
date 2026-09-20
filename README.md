@@ -2,6 +2,9 @@
 
 Bildschirmbereiche per Hotkey aufnehmen, bündig auf A4 stapeln, als PDF exportieren.
 
+Gedacht für Noten: was im Browser oder auf dem Scanner liegt, wird zu einem
+Heft, das sich ausdrucken und aufs Pult legen lässt.
+
 ## Installieren
 
 Unter [Releases](https://github.com/georg-pitterle/ScoreCap/releases) die Datei
@@ -20,17 +23,6 @@ wird beim Schließen installiert", daneben *Jetzt neu starten*.
 
 Ohne Internet oder bei einem Fehler passiert nichts Sichtbares. Was geschehen
 ist, steht in `%LocalAppData%\ScoreCap\logs\scorecap.log`.
-
-## Aus dem Quellcode starten
-
-```bash
-python -m venv .venv
-.venv/Scripts/python.exe -m pip install -e ".[dev]"
-.venv/Scripts/python.exe -m scorecap
-```
-
-So gestartet ist die Update-Prüfung stillgelegt — sie greift nur in einer
-installierten Fassung.
 
 ## Bedienung
 
@@ -131,174 +123,13 @@ den Einstellungen lässt sich unter *Sprache* eine feste Sprache wählen; sie gi
 ab dem nächsten Start. Auch Zahlen, Tastenkürzel (`Strg+O` / `Ctrl+O`) und die
 Fußzeile im PDF („1 von 3“ / „1 of 3“) folgen der Sprache.
 
-Übersetzt wird mit den Werkzeugen von Qt: Texte stehen im Code auf Englisch in
-`tr()` bzw. `QCoreApplication.translate()`, die Übersetzungen in
-`scorecap/translations/scorecap_<sprache>.ts`. Nach dem Ändern eines Textes:
+## Weiterlesen
 
-```bash
-.venv/Scripts/python.exe tools/update_translations.py   # .ts abgleichen, .qm bauen
-.venv/Scripts/pyside6-linguist.exe scorecap/translations/scorecap_de.ts
-.venv/Scripts/python.exe tools/update_translations.py   # nach dem Übersetzen
-```
-
-Die Tests schlagen fehl, solange ein Text im Code fehlt, unübersetzt ist oder
-die `.qm` veraltet ist. Für eine neue Sprache ihren Code in `LANGUAGES` in
-`tools/update_translations.py` und `scorecap/i18n.py` ergänzen und das Skript
-laufen lassen.
-
-## Weiße Ränder
-
-Jede Aufnahme wird beim Anlegen automatisch auf ihren Inhalt beschnitten: alles
-heller als 245 gilt als Hintergrund, um den Rest bleiben 2 px Luft. Beschnitten
-wird nur als Rechteck, die PNG-Datei bleibt unangetastet — *Bearbeiten →
-Ganzes Bild* holt den vollen Screenshot zurück, und ein selbst gezogener
-Zuschnitt wird beim Anlegen nie überschrieben. Eine leere, ganz weiße Aufnahme
-bleibt wie sie ist.
-
-Dieselbe Rechnung läuft noch einmal, sobald etwas wegradiert wurde — diesmal
-innerhalb des bestehenden Zuschnitts, der dadurch nur enger werden kann.
-Beides ist in den Einstellungen abschaltbar; dann bleibt der Zuschnitt auch
-nach dem Radieren stehen.
-
-Das spart Seiten: zwölf Notenzeilen mit großzügigem Weißraum brauchen ohne Trim
-zwei Seiten, mit Trim eine.
-
-## Layout
-
-Jede Aufnahme wird auf die Inhaltsbreite skaliert und untereinander gesetzt.
-Passt eine weitere Aufnahme knapp nicht mehr, wird die ganze Seite einheitlich
-verkleinert, höchstens bis zum eingestellten Schrumpffaktor (Standard 0,85).
-Das spart Seiten, ohne die Noten unlesbar zu machen. Aufnahmen unter 120 dpi
-markiert die Liste als niedrige Druckqualität; dann im Browser hineinzoomen und
-neu aufnehmen.
-
-## Bündige Notenlinien
-
-Zeichen hinter dem Ende eines Systems — etwa die Pfeile, die eine Teilung im
-nächsten System ankündigen — und vor seinem Anfang — eine geschweifte Klammer,
-die Stimmen zusammenfasst — gehören mit auf die Aufnahme. Würde die ganze
-Aufnahme auf Satzbreite gebracht, begännen oder endeten die Notenlinien dieses
-Systems anders als die aller anderen, und das System wäre kleiner. ScoreCap
-erkennt deshalb, wo die Notenlinien beginnen und enden, legt beides auf die
-Satzränder und lässt alles davor und dahinter in den Seitenrand ragen, wie im
-Notensatz üblich.
-
-Erkannt wird ein System an mindestens fünf Linien, die über mehr als die Hälfte
-der Aufnahme laufen. Ohne erkanntes System bleibt es beim Einpassen der ganzen
-Aufnahme; käme ein Überstand näher als 3 mm an die Blattkante, gilt das für
-diese Seite. Stimmnamen vor dem ersten System sind dafür meist zu breit — es
-bleibt dann eingerückt, wie im Notensatz. Abschaltbar in den Einstellungen.
-
-## Dateigröße
-
-Aufnahmen landen in Graustufen und verlustfrei komprimiert im PDF: neun Seiten
-Partitur ergeben rund 2 MB. Reines Schwarz-Weiß wäre noch kleiner, macht bei
-Bildschirmauflösung aber die Notenlinien ungleich dick und die Notenköpfe
-treppig — deshalb Graustufen, die die geglätteten Kanten behalten.
-
-*PDF verkleinern …* wendet dasselbe auf ein vorhandenes PDF an, etwa auf
-Exporte älterer Versionen, die ihre Bilder unkomprimiert enthielten. Das
-Ergebnis landet als neue Datei neben dem Original (`Name-klein.pdf`), das
-Original bleibt unverändert. Farbige Bilder bleiben farbig, JPEG-Fotos werden
-nicht angefasst, und größer als vorher wird eine Datei nie.
-
-## Aufbau
-
-| Modul | Aufgabe |
+| | |
 |---|---|
-| `settings.py` | Seitenmaße, Ränder, Schrumpffaktor |
-| `model.py` | Aufnahmen, Reihenfolge, Crop, Radierungen, Undo |
-| `layout.py` | Paginierung, reine Rechnung in PDF-Punkten |
-| `pdf.py` | PDF-Bau samt Fußzeile |
-| `preview.py` | rastert dasselbe PDF für die Vorschau |
-| `capture.py` | Auswahl-Overlay und Bildschirmaufnahme |
-| `hotkey.py` | systemweiter Hotkey über Win32 |
-| `cropdialog.py`, `settingsdialog.py` | Dialoge |
-| `erase.py` | malt die Radierungen weiß, wenn eine Aufnahme gerendert wird |
-| `shotlist.py` | Aufnahmeliste mit Vorschaubildern |
-| `staff.py` | erkennt, wo die Notenlinien eines Systems enden |
-| `scan.py` | Scans bereinigen, gerade stellen, in Systeme zerlegen |
-| `theme.py`, `icons.py` | Farb- und Schrift-Tokens, Symbole |
-| `i18n.py`, `translations/` | Sprache wählen, Übersetzungen laden |
-| `optimize.py` | vorhandene PDFs verkleinern |
-| `project.py` | Projekte als `.scorecap` speichern und öffnen |
-| `updater.py` | Selbst-Update über die GitHub-Releases |
-| `app.py` | Hauptfenster, verdrahtet alles |
-| `cli.py` | Start: Velopack-Übergabe, Symbol, Selbsttest |
-
-Vorschau und Export teilen sich denselben Renderpfad: gebaut wird immer ein PDF,
-die Vorschau zeigt genau dieses PDF. Was zu sehen ist, wird auch gedruckt.
-
-## Debuggen in VS Code
-
-`.vscode/launch.json` bringt fünf Konfigurationen mit (F5 bzw. *Ausführen und
-Debuggen*):
-
-| Konfiguration | Zweck |
-|---|---|
-| **ScoreCap** | App starten, Breakpoints im eigenen Code, Log bis DEBUG im Terminal |
-| **ScoreCap (auch in Bibliotheken anhalten)** | wie oben, aber auch durch PySide6, PyMuPDF, Pillow, Velopack steppen |
-| **ScoreCap: Selbsttest** | den Selbsttest debuggen; Bericht in `selftest.txt` |
-| **Tests: aktuelle Datei** / **Tests: alle** | pytest unter dem Debugger |
-
-Breakpoints im Update-Check und im Download greifen ebenfalls: diese laufen in
-Threads von Qt, die der Debugger von sich aus nicht kennt, und melden sich
-deshalb selbst bei ihm an. Aus dem Quellcode gestartet bleibt die Update-Prüfung
-stillgelegt; um sie zu debuggen, braucht es eine installierte Fassung.
-
-## Tests
-
-```bash
-.venv/Scripts/python.exe -m pytest
-```
-
-Der manuelle Abnahmetest steht in [docs/manual-test.md](docs/manual-test.md),
-Spec und Plan unter `docs/superpowers/`.
-
-## Paket bauen
-
-```bash
-.venv/Scripts/python.exe -m PyInstaller ScoreCap.spec --noconfirm
-dist/ScoreCap/ScoreCap.exe --selftest selftest.txt   # prüft das fertige Paket
-```
-
-Der Selbsttest baut im gepackten Zustand ein PDF und konstruiert das Fenster.
-Er findet genau die Fehler, die erst beim Paketieren entstehen — fehlende
-PyMuPDF-Daten, fehlende Qt-Plugins — und schreibt sein Ergebnis in die
-angegebene Datei, weil eine fensterbasierte Anwendung nichts ausgeben kann.
-
-Das Symbol entsteht aus der Palette: `.venv/Scripts/python.exe tools/make_icon.py`.
-
-## Wie ein Release entsteht
-
-`main` ist immer auslieferbar; es gibt keinen Entwicklungszweig. Bei jedem Push
-nach `main` aktualisiert [release-please](https://github.com/googleapis/release-please)
-einen offenen Release-PR: es sammelt die Commits seit dem letzten Release, leitet
-daraus die nächste Version ab (`fix:` → Patch, `feat:` → Minor, `feat!:` → Major)
-und schreibt den Changelog.
-
-Solange dieser PR offen liegt, ist nichts veröffentlicht. **Der Merge ist die
-Veröffentlichung**: er erzeugt Tag und Release, und erst dann baut der Workflow
-das Paket, prüft es mit dem Selbsttest und hängt Setup, portables ZIP und
-Delta-Paket an das Release. Ein Tag wie `v1.4.0` bezeichnet damit unveränderlich
-den Stand, aus dem ein Paket entstanden ist.
-
-Vorabversionen laufen über Tags der Form `v1.4.0-beta.1`.
-
-**Einmalig einzustellen:** unter *Settings → Actions → General → Workflow
-permissions* muss „Allow GitHub Actions to create and approve pull requests"
-angehakt sein. GitHub verbietet das standardmäßig, und der Workflow scheitert
-sonst mit „GitHub Actions is not permitted to create or approve pull requests" —
-unabhängig davon, dass er `pull-requests: write` anfordert.
-
-Auf dem Release-PR selbst laufen bewusst keine Tests: er enthält nur
-Versionssprung und Changelog, und der Release-Workflow testet ohnehin erneut,
-bevor er packt. GitHub zeigt dort trotzdem „workflow awaiting approval", weil es
-Läufe aus Bot-PRs vor jeder Job-Bedingung zurückhält. Das blockiert nichts — der
-PR lässt sich ohne Freigabe mergen.
-
-Das Release entsteht zunächst als **Entwurf** und wird erst veröffentlicht,
-wenn Setup, Pakete und Update-Feed angehängt sind. Sonst wäre es für die Minuten
-des Builds öffentlich die neueste Version, ohne dass installierte Kopien sich
-darauf aktualisieren könnten — und ein gescheiterter Build hinterließe ein leeres
-Release.
+| [docs/verarbeitung.md](docs/verarbeitung.md) | Weiße Ränder, Layout, bündige Notenlinien, Dateigröße |
+| [docs/aufbau.md](docs/aufbau.md) | welches Modul was tut |
+| [docs/entwicklung.md](docs/entwicklung.md) | aus dem Quellcode starten, Tests, Übersetzen, Debuggen, Paket bauen |
+| [docs/release.md](docs/release.md) | wie aus `main` ein Release wird |
+| [docs/manual-test.md](docs/manual-test.md) | manueller Abnahmetest |
+| [AGENTS.md](AGENTS.md) | Programmierstil im Projekt |

@@ -177,11 +177,15 @@ Press {hotkey}, then drag out the area.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Hotkey taken</source>
+        <source>The hotkey {hotkey} is already in use. It can be changed in the settings.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>The hotkey {hotkey} is already in use. It can be changed in the settings.</source>
+        <source>{hotkey} is not a usable hotkey. It can be changed in the settings.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Hotkey unavailable</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -288,6 +292,13 @@ Press {hotkey}, then drag out the area.</source>
         <source>Untitled</source>
         <translation type="unfinished"></translation>
     </message>
+    <message numerus="yes">
+        <source> — %n capture(s) whose file is gone were left out</source>
+        <translation>
+            <numerusform> — %n capture whose file is gone was left out</numerusform>
+            <numerusform> — %n captures whose files are gone were left out</numerusform>
+        </translation>
+    </message>
     <message>
         <source>Unsaved captures</source>
         <translation type="unfinished"></translation>
@@ -376,6 +387,10 @@ Press {hotkey}, then drag out the area.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>One or more modifiers and a key, for example Ctrl+Shift+S</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Black and white</source>
         <translation type="unfinished"></translation>
     </message>
@@ -437,6 +452,10 @@ Press {hotkey}, then drag out the area.</source>
     </message>
     <message>
         <source>Cancel</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>{hotkey} is not a usable hotkey. It needs one or more modifiers and a key, for example Ctrl+Shift+S.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

@@ -9,11 +9,9 @@ import pytest
 def _never_block_on_unsaved_changes(monkeypatch):
     """Closing a window with captures would ask to save and wait forever.
 
-    Tests that are about that question patch _ask_save_changes themselves.
+    Tests that are about that question patch ask_save_changes themselves.
     """
-    monkeypatch.setattr(
-        "scorecap.app.MainWindow._ask_save_changes", lambda self: "discard"
-    )
+    monkeypatch.setattr("scorecap.app.ask_save_changes", lambda parent: "discard")
 
 
 @pytest.fixture(autouse=True)

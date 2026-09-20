@@ -7,8 +7,8 @@ surface, with a soft shadow and the page number set in the gutter beside it.
 from __future__ import annotations
 
 import pymupdf
-from PySide6.QtCore import QPoint, QRect, QSize, Qt, QTimer, Signal
-from PySide6.QtGui import QColor, QImage, QPainter, QPixmap
+from PySide6.QtCore import QPoint, Qt, QTimer, Signal
+from PySide6.QtGui import QColor, QImage, QPixmap
 from PySide6.QtWidgets import (
     QGraphicsDropShadowEffect,
     QHBoxLayout,
@@ -18,8 +18,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from .settings import A4_HEIGHT_PT, A4_WIDTH_PT
-from .theme import LIGHT, Palette
+from .settings import A4_WIDTH_PT
 
 PAGE_SPACING_PX = 28
 GUTTER_PX = 34
@@ -75,7 +74,7 @@ class PageView(QWidget):
     # connect a plain method rather than a closure over itself.
     clicked = Signal(int, QPoint)
 
-    def __init__(self, image: QImage, number: int, palette: Palette) -> None:
+    def __init__(self, image: QImage, number: int) -> None:
         super().__init__()
         self._index = number - 1
         label = QLabel()
@@ -118,10 +117,9 @@ class PreviewWidget(QScrollArea):
     # Page number (from zero) and the point clicked, in PDF points.
     clicked_at = Signal(int, float, float)
 
-    def __init__(self, palette: Palette = LIGHT) -> None:
+    def __init__(self) -> None:
         super().__init__()
         self.setObjectName("Preview")
-        self._palette = palette
         self._zoom = 1.0
         self._fit = True
         self._pdf_bytes = b""
@@ -159,10 +157,6 @@ class PreviewWidget(QScrollArea):
 
     def page_views(self) -> list[PageView]:
         return list(self._pages)
-
-    def set_palette(self, palette: Palette) -> None:
-        self._palette = palette
-        self._rebuild()
 
     def _fit_source_width(self) -> int:
         """Width to fit into, measured so a scrollbar cannot change it.
@@ -223,7 +217,7 @@ class PreviewWidget(QScrollArea):
             for page, image in zip(self._pages, images):
                 page.set_image(image)
             for number in range(len(self._pages) + 1, len(images) + 1):
-                page = PageView(images[number - 1], number, self._palette)
+                page = PageView(images[number - 1], number)
                 page.clicked.connect(self._page_clicked)
                 self._pages.append(page)
                 self._layout.addWidget(page, 0, Qt.AlignHCenter)

@@ -179,12 +179,16 @@ Press {hotkey}, then drag out the area.</source>
         <translation>Einpassen</translation>
     </message>
     <message>
-        <source>Hotkey taken</source>
-        <translation>Hotkey belegt</translation>
-    </message>
-    <message>
         <source>The hotkey {hotkey} is already in use. It can be changed in the settings.</source>
         <translation>Der Hotkey {hotkey} ist bereits vergeben. Er lässt sich in den Einstellungen ändern.</translation>
+    </message>
+    <message>
+        <source>{hotkey} is not a usable hotkey. It can be changed in the settings.</source>
+        <translation>{hotkey} ist kein brauchbarer Hotkey. Er lässt sich in den Einstellungen ändern.</translation>
+    </message>
+    <message>
+        <source>Hotkey unavailable</source>
+        <translation>Hotkey nicht verfügbar</translation>
     </message>
     <message>
         <source>{captures}, {pages}</source>
@@ -290,6 +294,13 @@ Press {hotkey}, then drag out the area.</source>
         <source>Untitled</source>
         <translation>Unbenannt</translation>
     </message>
+    <message numerus="yes">
+        <source> — %n capture(s) whose file is gone were left out</source>
+        <translation>
+            <numerusform> — %n Aufnahme ohne Datei wurde ausgelassen</numerusform>
+            <numerusform> — %n Aufnahmen ohne Datei wurden ausgelassen</numerusform>
+        </translation>
+    </message>
     <message>
         <source>Unsaved captures</source>
         <translation>Ungespeicherte Aufnahmen</translation>
@@ -378,6 +389,10 @@ Press {hotkey}, then drag out the area.</source>
         <translation>Notenlinien beginnen am linken und enden am rechten Rand; Klammern davor und Zeichen dahinter, etwa Teilungspfeile, ragen in den Seitenrand</translation>
     </message>
     <message>
+        <source>One or more modifiers and a key, for example Ctrl+Shift+S</source>
+        <translation>Ein oder mehrere Modifier und eine Taste, zum Beispiel Strg+Umschalt+S</translation>
+    </message>
+    <message>
         <source>Black and white</source>
         <translation>Schwarz/Weiß</translation>
     </message>
@@ -440,6 +455,10 @@ Press {hotkey}, then drag out the area.</source>
     <message>
         <source>Cancel</source>
         <translation>Abbrechen</translation>
+    </message>
+    <message>
+        <source>{hotkey} is not a usable hotkey. It needs one or more modifiers and a key, for example Ctrl+Shift+S.</source>
+        <translation>{hotkey} ist kein brauchbarer Hotkey. Er braucht ein oder mehrere Modifier und eine Taste, zum Beispiel Strg+Umschalt+S.</translation>
     </message>
 </context>
 <context>

@@ -79,6 +79,23 @@ def test_fit_zoom_never_leaves_the_allowed_range():
     assert fit_zoom(20000) == MAX_ZOOM
 
 
+def test_fit_zoom_ignores_whether_a_scrollbar_is_showing(tmp_path, qapp):
+    # Fitting to a viewport the scrollbar has just narrowed makes the page
+    # smaller, which hides the scrollbar, which widens the viewport again.
+    from scorecap.preview import PreviewWidget
+
+    widget = PreviewWidget()
+    widget.resize(900, 620)
+    widget.show()
+    try:
+        widget.set_pdf(make_pdf(tmp_path, 10)[0])  # tall: needs a scrollbar
+        with_bar = widget.zoom
+        widget.set_pdf(make_pdf(tmp_path, 1)[0])  # short: fits without one
+        assert with_bar == pytest.approx(widget.zoom)
+    finally:
+        widget.close()
+
+
 def test_setting_a_zoom_turns_fit_mode_off(tmp_path, qapp):
     from scorecap.preview import PreviewWidget
 

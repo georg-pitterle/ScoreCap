@@ -12,15 +12,13 @@ whitespace that separates it from its neighbours, straightened once more on
 its own. The capture's crop is the system's content inside that band, so the
 crop dialog can still widen it - to take in a title, say.
 
-Everything runs through Pillow operations that work in C. Where a whole row or
-column has to be summed, the image is squashed to one pixel with a box
-filter, which averages it.
+Everything runs through Pillow operations that work in C: where the ink sits
+is read off the profiles `ink.py` builds.
 """
 
 from __future__ import annotations
 
 import math
-import re
 import statistics
 import uuid
 from dataclasses import dataclass
@@ -31,16 +29,15 @@ import pymupdf
 from PySide6.QtCore import QCoreApplication
 from PIL import Image, ImageDraw, ImageFilter, ImageMath, ImageOps, ImageSequence
 
+from .ink import DARK, Line, binary, columns, rows, staff_lines
 from .model import Shot
-from .trim import trim_box
+from .trim import trim_box, trim_within
 
 SCAN_DPI = 300
 MAX_WIDTH = 3600        # wider scans are scaled down: 300 dpi is plenty to print
 IMAGE_SUFFIXES = frozenset({".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp"})
 SUFFIXES = IMAGE_SUFFIXES | {".pdf"}
-MODES = ("bw", "grey")
 
-DARK = 128              # below this a pixel counts as ink
 EDGE_COVER = 0.6        # a border row or column is mostly dark
 EDGE_LIMIT = 0.08       # borders are never deeper than this share of the page
 EDGE_MARGIN = 0.03      # ink this close to the page edge is a scanner mark
@@ -51,10 +48,6 @@ WHITE_ROW = 1           # a row squashed to this or less holds no ink
 GREY_WHITE = 225        # in grey mode, anything this light becomes paper
 TRIM_THRESHOLD = 200    # ink for the crop around a system - specks stay out
 STRAIGHT_ENOUGH = 0.05  # degrees; smaller tilts are not worth resampling
-
-# A run of ink that may be broken by a gap of up to three pixels: scanned
-# staff lines fray, and a notehead or barline never breaks them.
-_RUN = re.compile(rb"\xff(?:\xff|\x00{1,3}(?=\xff))*")
 
 
 @dataclass(frozen=True)
@@ -83,18 +76,6 @@ class ImportResult:
 
 
 @dataclass(frozen=True)
-class _Line:
-    top: int
-    bottom: int
-    left: int
-    right: int
-
-    @property
-    def centre(self) -> float:
-        return (self.top + self.bottom) / 2.0
-
-
-@dataclass(frozen=True)
 class _Staff:
     top: int
     bottom: int
@@ -118,7 +99,10 @@ def load_pages(path: Path) -> Iterator[Image.Image]:
         with doc:
             for pdf_page in doc:
                 pixmap = pdf_page.get_pixmap(dpi=SCAN_DPI, colorspace=pymupdf.csGRAY)
-                yield Image.frombytes("L", (pixmap.width, pixmap.height), pixmap.samples)
+                page = Image.frombytes(
+                    "L", (pixmap.width, pixmap.height), pixmap.samples
+                )
+                yield _limited(page)
         return
     if suffix not in IMAGE_SUFFIXES:
         message = QCoreApplication.translate("scan", "{name}: not a supported format.")
@@ -143,18 +127,6 @@ def _limited(grey: Image.Image) -> Image.Image:
 
 
 # --- cleaning ---------------------------------------------------------------
-
-
-def _ink(grey: Image.Image) -> Image.Image:
-    return grey.point(lambda value: 255 if value < DARK else 0)
-
-
-def _rows(image: Image.Image) -> bytes:
-    return image.resize((1, image.height), Image.BOX).tobytes()
-
-
-def _columns(image: Image.Image) -> bytes:
-    return image.resize((image.width, 1), Image.BOX).tobytes()
 
 
 def flatten_background(grey: Image.Image) -> Image.Image:
@@ -184,9 +156,9 @@ def flatten_background(grey: Image.Image) -> Image.Image:
 
 def clear_edges(grey: Image.Image) -> Image.Image:
     """Whiten dark borders that run in from the edge of the page."""
-    ink = _ink(grey)
+    ink = binary(grey)
     width, height = grey.size
-    columns, rows = _columns(ink), _rows(ink)
+    across, down = columns(ink), rows(ink)
 
     def depth(profile: bytes, size: int) -> int:
         reach = 0
@@ -195,8 +167,8 @@ def clear_edges(grey: Image.Image) -> Image.Image:
         # The border's frayed inner edge is lighter than the border itself.
         return reach + 2 if reach else 0
 
-    left, right = depth(columns, width), depth(columns[::-1], width)
-    top, bottom = depth(rows, height), depth(rows[::-1], height)
+    left, right = depth(across, width), depth(across[::-1], width)
+    top, bottom = depth(down, height), depth(down[::-1], height)
     if not (left or right or top or bottom):
         return grey
     cleared = grey.copy()
@@ -221,8 +193,8 @@ def _scaled(image: Image.Image, width: int) -> Image.Image:
 
 def _sharpness(ink: Image.Image, angle: float) -> int:
     """How strongly the ink gathers in few rows: large when lines are level."""
-    rows = _rows(ink.rotate(angle, Image.BILINEAR, fillcolor=0))
-    return sum(level * level for level in rows)
+    profile = rows(ink.rotate(angle, Image.BILINEAR, fillcolor=0))
+    return sum(level * level for level in profile)
 
 
 def _best_angle(ink: Image.Image, centre: float, reach: float, step: float) -> float:
@@ -234,7 +206,7 @@ def _best_angle(ink: Image.Image, centre: float, reach: float, step: float) -> f
 
 def skew_angle(grey: Image.Image, limit: float = 5.0) -> float:
     """Degrees to rotate the image by (counter-clockwise) to level its lines."""
-    ink = _ink(grey)
+    ink = binary(grey)
     if ink.getbbox() is None:
         return 0.0
     coarse_step = 0.2 if limit > 1.0 else 0.05
@@ -282,36 +254,7 @@ def finish(grey: Image.Image, mode: str) -> Image.Image:
 # --- systems ----------------------------------------------------------------
 
 
-def _staff_lines(ink: Image.Image) -> list[_Line]:
-    width = ink.width
-    pixels = ink.tobytes()
-    found: list[tuple[int, int, int]] = []
-    for y, level in enumerate(_rows(ink)):
-        if level < LINE_SPAN * 255:
-            continue
-        row = pixels[y * width : (y + 1) * width]
-        run = max(_RUN.finditer(row), key=lambda match: match.end() - match.start())
-        if run.end() - run.start() >= LINE_SPAN * width:
-            found.append((y, run.start(), run.end()))
-    lines: list[_Line] = []
-    group: list[tuple[int, int, int]] = []
-    for row in found + [(-2, 0, 0)]:  # a sentinel flushes the last group
-        if group and row[0] != group[-1][0] + 1:
-            lines.append(
-                _Line(
-                    top=group[0][0],
-                    bottom=group[-1][0],
-                    # Each row of a sagging line reaches a different part.
-                    left=min(r[1] for r in group),
-                    right=max(r[2] for r in group),
-                )
-            )
-            group = []
-        group.append(row)
-    return lines
-
-
-def _staves(lines: list[_Line]) -> list[_Staff]:
+def _staves(lines: list[Line]) -> list[_Staff]:
     """Five lines at an even spacing make a staff."""
     staves: list[_Staff] = []
     index = 0
@@ -342,10 +285,10 @@ def _joined(ink: Image.Image, upper: _Staff, lower: _Staff) -> bool:
     top, bottom = upper.bottom + 1, lower.top
     if bottom <= top:
         return True
-    return max(_columns(ink.crop((left, top, right, bottom)))) >= JOIN_COVER * 255
+    return max(columns(ink.crop((left, top, right, bottom)))) >= JOIN_COVER * 255
 
 
-def _split(rows: bytes, top: int, bottom: int) -> int:
+def _split(profile: bytes, top: int, bottom: int) -> int:
     """Where to cut between two systems: in their widest band of white.
 
     Lyrics sit close under their staff and dynamics close above theirs, so
@@ -355,7 +298,7 @@ def _split(rows: bytes, top: int, bottom: int) -> int:
     runs: list[tuple[int, int]] = []
     start = None
     for y in range(top, bottom + 1):
-        white = y < bottom and rows[y] <= WHITE_ROW
+        white = y < bottom and profile[y] <= WHITE_ROW
         if white and start is None:
             start = y
         elif not white and start is not None:
@@ -364,14 +307,14 @@ def _split(rows: bytes, top: int, bottom: int) -> int:
     if runs:
         start, end = max(runs, key=lambda r: (r[1] - r[0], -abs((r[0] + r[1]) / 2 - middle)))
         return (start + end) // 2
-    least = min(rows[top:bottom])
+    least = min(profile[top:bottom])
     return min(
-        (y for y in range(top, bottom) if rows[y] == least),
+        (y for y in range(top, bottom) if profile[y] == least),
         key=lambda y: abs(y - middle),
     )
 
 
-def _reach(rows: bytes, start: int, step: int, limit: int, gap: int) -> int:
+def _reach(profile: bytes, start: int, step: int, limit: int, gap: int) -> int:
     """Follow ink from a system outwards until a gap of white or the limit.
 
     Returns the last row with ink, or `start` when there is none - titles and
@@ -380,8 +323,8 @@ def _reach(rows: bytes, start: int, step: int, limit: int, gap: int) -> int:
     last = start
     white = 0
     y = start + step
-    while 0 <= y < len(rows) and abs(y - start) <= limit:
-        if rows[y] <= WHITE_ROW:
+    while 0 <= y < len(profile) and abs(y - start) <= limit:
+        if profile[y] <= WHITE_ROW:
             white += 1
             if white >= gap:
                 break
@@ -394,14 +337,14 @@ def _reach(rows: bytes, start: int, step: int, limit: int, gap: int) -> int:
 
 def find_systems(grey: Image.Image) -> list[System]:
     """The systems on a level page, top to bottom."""
-    ink = _ink(grey)
+    ink = binary(grey)
     width, height = grey.size
     # On paper, staff lines are thin and never quite straight: a line that
     # sags by two pixels across the page leaves each pixel row only a piece
     # of it, and the piece that looks longest may start mid-system. Grown by
     # a pixel up and down, the pieces merge into one line again.
     lines_ink = ink.filter(ImageFilter.MaxFilter(3))
-    staves = _staves(_staff_lines(lines_ink))
+    staves = _staves(staff_lines(lines_ink, LINE_SPAN))
     if not staves:
         return []
     groups: list[list[_Staff]] = [[staves[0]]]
@@ -415,13 +358,13 @@ def find_systems(grey: Image.Image) -> list[System]:
     staff_height = round(4 * space)
     left = max(0, min(staff.left for staff in staves) - 3 * staff_height)
     right = min(width, max(staff.right for staff in staves) + 2 * staff_height)
-    rows = _rows(ink.crop((left, 0, right, height)))
+    down = rows(ink.crop((left, 0, right, height)))
     padding = max(2, round(space / 2))
     gap = round(3 * space)
     side_gap = round(2.5 * staff_height)
 
     splits = [
-        _split(rows, upper[-1].bottom + 1, lower[0].top)
+        _split(down, upper[-1].bottom + 1, lower[0].top)
         for upper, lower in zip(groups, groups[1:])
     ]
     bounds = [0, *splits, height]
@@ -437,21 +380,28 @@ def find_systems(grey: Image.Image) -> list[System]:
             if number == len(groups) - 1
             else band_bottom - group[-1].bottom - 2
         )
-        top = _reach(rows, group[0].top, -1, above, gap)
-        bottom = _reach(rows, group[-1].bottom, 1, below, gap) + 1
+        top = _reach(down, group[0].top, -1, above, gap)
+        bottom = _reach(down, group[-1].bottom, 1, below, gap) + 1
         # Sideways the same way, with more room: voice names may stand well
         # apart from the bracket. Marks the scanner leaves right at the edge
         # of the page are never part of the music.
-        columns = _columns(ink.crop((0, top, width, bottom)))
+        across = columns(ink.crop((0, top, width, bottom)))
         edge = round(width * EDGE_MARGIN)
         staff_left = min(s.left for s in group)
         staff_right = max(s.right for s in group) - 1
         first = _reach(
-            columns, staff_left, -1, min(3 * staff_height, staff_left - edge), side_gap
+            across, staff_left, -1, min(3 * staff_height, staff_left - edge), side_gap
         )
-        last = _reach(
-            columns, staff_right, 1, min(2 * staff_height, width - edge - staff_right), side_gap
-        ) + 1
+        last = (
+            _reach(
+                across,
+                staff_right,
+                1,
+                min(2 * staff_height, width - edge - staff_right),
+                side_gap,
+            )
+            + 1
+        )
         # Room for the padding, so the ink never touches the crop.
         region = (
             max(first - padding, 0),
@@ -459,16 +409,7 @@ def find_systems(grey: Image.Image) -> list[System]:
             min(last + padding, width),
             min(bottom + padding, band_bottom),
         )
-        box = trim_box(grey.crop(region), DARK, padding)
-        if box is None:
-            content = region
-        else:
-            content = (
-                region[0] + box[0],
-                region[1] + box[1],
-                region[0] + box[2],
-                region[1] + box[3],
-            )
+        content = trim_within(grey, region, DARK, padding) or region
         # Padding may spill over the cut; the band is where the file ends.
         content = (
             content[0],
@@ -493,13 +434,11 @@ def _save(image: Image.Image, crop: tuple[int, int, int, int], target_dir: Path)
     return Shot(path=path, width=width, height=height, crop=crop, scan=True)
 
 
-def _crop_within(
+def _trimmed(
     image: Image.Image, region: tuple[int, int, int, int], padding: int
 ) -> tuple[int, int, int, int]:
-    box = trim_box(image.crop(region), TRIM_THRESHOLD, padding)
-    if box is None:
-        return region
-    return (region[0] + box[0], region[1] + box[1], region[0] + box[2], region[1] + box[3])
+    """The region closed in on its ink, or the region itself when it is blank."""
+    return trim_within(image, region, TRIM_THRESHOLD, padding) or region
 
 
 def process_page(image: Image.Image, target_dir: Path) -> PageResult:
@@ -519,7 +458,7 @@ def process_page(image: Image.Image, target_dir: Path) -> PageResult:
             return PageResult(shots=[], found_staves=False)
         finished = finish(grey, "grey")
         return PageResult(
-            shots=[_save(finished, _crop_within(finished, whole, 4), target_dir)],
+            shots=[_save(finished, _trimmed(finished, whole, 4), target_dir)],
             found_staves=False,
         )
 
@@ -546,7 +485,7 @@ def process_page(image: Image.Image, target_dir: Path) -> PageResult:
                 min(band.height, content[3] + shift),
             )
         finished = finish(band, "grey")
-        shots.append(_save(finished, _crop_within(finished, content, padding), target_dir))
+        shots.append(_save(finished, _trimmed(finished, content, padding), target_dir))
     return PageResult(shots=shots, found_staves=True)
 
 

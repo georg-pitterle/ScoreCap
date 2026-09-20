@@ -59,10 +59,6 @@ class Document:
         return list(self._shots)
 
     @property
-    def can_undo(self) -> bool:
-        return bool(self._history)
-
-    @property
     def revision(self) -> int:
         return self._revision
 
@@ -97,10 +93,6 @@ class Document:
     def replace_shot(self, index: int, shot: Shot) -> None:
         self._snapshot()
         self._shots[index] = shot
-
-    def set_crop(self, index: int, crop: tuple[int, int, int, int] | None) -> None:
-        self._snapshot()
-        self._shots[index] = replace(self._shots[index], crop=crop)
 
     def set_edits(
         self,

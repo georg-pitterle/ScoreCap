@@ -18,9 +18,10 @@ def test_usable_shots_reports_missing_files(tmp_path):
 
     present = make_shot(tmp_path, "a.png")
     missing = Shot(path=tmp_path / "gone.png", width=100, height=50)
-    usable, missing_indexes = usable_shots([present, missing, present])
-    assert [s.path.name for s in usable] == ["a.png", "a.png"]
-    assert missing_indexes == [1]
+    ready = usable_shots([present, missing, present])
+    assert [s.path.name for s in ready.shots] == ["a.png", "a.png"]
+    assert ready.rows == [0, 2]
+    assert ready.missing == [1]
 
 
 def test_window_rebuilds_pdf_when_shots_are_added(tmp_path, qapp):
@@ -288,3 +289,14 @@ def test_a_visit_without_erasing_leaves_the_crop_as_it_was_set(tmp_path, qapp, m
     window.shot_list.setCurrentRow(0)
     window.edit_selected()
     assert window.document.shots[0].crop == (10, 10, 190, 90)
+
+
+def test_closing_clears_the_session_folder_whatever_is_left_in_it(tmp_path, qapp):
+    from scorecap.app import MainWindow
+
+    window = MainWindow()
+    session = window._temp_dir
+    # A cancelled scan import may not have stopped writing yet.
+    (session / "half-written.png.part").write_bytes(b"xx")
+    window.close()
+    assert not session.exists()
