@@ -131,9 +131,10 @@ def adjust_crop(
 class _CropCanvas(QWidget):
     """Shows the shot scaled to fit and lets the user drag rectangles on it.
 
-    In crop mode a drag draws the crop, or adjusts an existing one: its
-    corners and edges resize it, a drag inside moves it. In erase mode a drag
-    whites out the rectangle it spans.
+    In erase mode - where it starts, because erasing is the everyday job -
+    a drag whites out the rectangle it spans. In crop mode a drag draws the
+    crop, or adjusts an existing one: its corners and edges resize it, a drag
+    inside moves it.
     """
 
     erasures_changed = Signal()
@@ -150,7 +151,7 @@ class _CropCanvas(QWidget):
         self._crop = crop
         self._erasures = list(erasures)
         self._palette = palette
-        self._mode = "crop"
+        self._mode = "erase"
         self._start: QPoint | None = None
         self._now: QPoint | None = None   # the far corner while erasing
         # While adjusting: the part held, the crop and source point at the start.
@@ -369,7 +370,7 @@ class CropDialog(QDialog):
         self._erase_mode.setToolTip(
             self.tr("Drag over anything disturbing to paint it white")
         )
-        self._crop_mode.setChecked(True)
+        self._erase_mode.setChecked(True)
         modes = QButtonGroup(self)
         modes.setExclusive(True)
         modes.addButton(self._crop_mode)

@@ -48,13 +48,14 @@ installierten Fassung.
 - Links die Aufnahmen: per Drag&Drop sortieren, *Neu aufnehmen*, *Bearbeiten*,
   *Löschen*. Doppelklick auf einen Eintrag öffnet das Bearbeiten. `Strg+Z`
   macht rückgängig.
-- *Bearbeiten* kennt zwei Werkzeuge. Beim *Zuschneiden* lässt sich ein
-  vorhandener Rahmen nachbessern, statt ihn neu aufzuziehen: an den Ecken oder
-  Kanten ziehen ändert die Größe, im Rahmen ziehen verschiebt ihn, außerhalb
-  ziehen zeichnet einen neuen. Ohne Rahmen lassen sich die Bildkanten selbst
-  hereinziehen.
-- Der *Radierer* übermalt Rechtecke weiß — für Seitenzahlen, Bleistiftspuren
-  und anderes Störende. *Radierung zurück* nimmt das letzte wieder weg.
+- *Bearbeiten* kennt zwei Werkzeuge und öffnet mit dem *Radierer*, weil der
+  öfter gebraucht wird: ein gezogenes Rechteck wird weiß übermalt — für
+  Seitenzahlen, Bleistiftspuren und anderes Störende. *Radierung zurück* nimmt
+  das letzte wieder weg.
+- Auf *Zuschneiden* umgeschaltet lässt sich ein vorhandener Rahmen nachbessern,
+  statt ihn neu aufzuziehen: an den Ecken oder Kanten ziehen ändert die Größe,
+  im Rahmen ziehen verschiebt ihn, außerhalb ziehen zeichnet einen neuen. Ohne
+  Rahmen lassen sich die Bildkanten selbst hereinziehen.
 - Rechts die A4-Seiten, exakt so, wie sie exportiert werden.
 - *Als PDF exportieren* schreibt die Datei.
 

@@ -105,6 +105,7 @@ def test_dragging_a_corner_in_the_dialog_keeps_the_rest(tmp_path, qapp):
     path = tmp_path / "a.png"
     Image.new("RGB", (400, 200), (255, 255, 255)).save(path)
     dialog = CropDialog(Shot(path=path, width=400, height=200, crop=(40, 20, 360, 180)))
+    dialog.set_mode("crop")
     canvas = dialog._canvas
     canvas.resize(800, 400)  # two widget pixels per image pixel
     QTest.mousePress(canvas, Qt.LeftButton, pos=QPoint(720, 360))
@@ -122,6 +123,7 @@ def test_without_a_crop_the_image_edges_can_be_dragged_in(tmp_path, qapp):
     path = tmp_path / "a.png"
     Image.new("RGB", (400, 200), (255, 255, 255)).save(path)
     dialog = CropDialog(Shot(path=path, width=400, height=200))
+    dialog.set_mode("crop")
     canvas = dialog._canvas
     canvas.resize(800, 400)
     QTest.mousePress(canvas, Qt.LeftButton, pos=QPoint(0, 200))  # left edge
@@ -146,7 +148,6 @@ def erase_dialog(tmp_path, qapp, **kwargs):
     Image.new("RGB", (400, 200), (255, 255, 255)).save(path)
     dialog = CropDialog(Shot(path=path, width=400, height=200, **kwargs))
     dialog._canvas.resize(800, 400)  # two widget pixels per image pixel
-    dialog.set_mode("erase")
     return dialog
 
 
@@ -157,6 +158,14 @@ def drag(canvas, start, end):
     QTest.mousePress(canvas, Qt.LeftButton, pos=start)
     QTest.mouseMove(canvas, end)
     QTest.mouseRelease(canvas, Qt.LeftButton, pos=end)
+
+
+def test_the_dialog_opens_with_the_eraser(tmp_path, qapp):
+    """Erasing is wanted far more often than a second look at the crop."""
+    dialog = erase_dialog(tmp_path, qapp)
+    assert dialog._canvas.mode == "erase"
+    assert dialog._erase_mode.isChecked()
+    assert not dialog._crop_mode.isChecked()
 
 
 def test_a_drag_in_erase_mode_adds_a_white_rectangle(tmp_path, qapp):

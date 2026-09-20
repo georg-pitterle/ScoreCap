@@ -50,24 +50,24 @@ Partitur ist geöffnet.
    Erwartet: Vorschau folgt der neuen Reihenfolge.
 12. **Neu aufnehmen.** Eintrag wählen, *Neu aufnehmen*, neues Rechteck ziehen.
    Erwartet: Bild wird an derselben Listenposition ersetzt.
-13. **Zuschneiden.** Eintrag wählen, *Bearbeiten*, Rechteck ziehen, OK.
+13. **Zuschneiden.** Eintrag wählen, *Bearbeiten*, auf *Zuschneiden*
+    schalten, Rechteck ziehen, OK.
     Erwartet: außerhalb der Auswahl dunkelt das Bild ab, die Vorschau zeigt den
     beschnittenen Ausschnitt. *Ganzes Bild* stellt den vollen Screenshot wieder her.
-13a. **Zuschnitt nachbessern.** *Bearbeiten* bei einer beschnittenen Aufnahme:
-    eine Ecke ziehen, dann eine Kante, dann innen ziehen.
+13a. **Zuschnitt nachbessern.** *Bearbeiten* bei einer beschnittenen Aufnahme,
+    auf *Zuschneiden* schalten: eine Ecke ziehen, dann eine Kante, dann innen.
     Erwartet: der Mauszeiger zeigt vorher jeweils Diagonal-, Seiten- bzw.
     Verschiebepfeile; Ecke ändert zwei Kanten, Kante eine, innen verschiebt
     den Rahmen ohne Größenänderung. Nach *Ganzes Bild* lassen sich die
     Bildkanten hereinziehen.
-13b. **Radieren.** *Bearbeiten*, auf *Radierer* schalten, über eine Seitenzahl
-    oder einen Bleistiftstrich ziehen, dann noch einmal woanders, *Radierung
-    zurück*, OK.
-    Erwartet: das Fenster geht groß auf; jede gezogene Fläche wird sofort
-    weiß, *Radierung zurück* nimmt nur die letzte weg. Nach *Übernehmen*
-    zeigen Vorschaubild und A4-Vorschau dieselben weißen Flächen, das PDF
-    ebenso. `Strg+Z` macht Zuschnitt und Radierungen in einem Schritt
-    rückgängig. Ein Wechsel zurück auf *Zuschneiden* lässt die weißen Flächen
-    stehen, auch *Ganzes Bild* löscht sie nicht.
+13b. **Radieren.** *Bearbeiten*, über eine Seitenzahl oder einen
+    Bleistiftstrich ziehen, dann noch einmal woanders, *Radierung zurück*, OK.
+    Erwartet: das Fenster geht groß auf und steht gleich auf *Radierer*; jede
+    gezogene Fläche wird sofort weiß, *Radierung zurück* nimmt nur die letzte
+    weg. Nach *Übernehmen* zeigen Vorschaubild und A4-Vorschau dieselben
+    weißen Flächen, das PDF ebenso. `Strg+Z` macht Zuschnitt und Radierungen
+    in einem Schritt rückgängig. Ein Wechsel auf *Zuschneiden* lässt die
+    weißen Flächen stehen, auch *Ganzes Bild* löscht sie nicht.
 14. **Löschen und Undo.** Eintrag löschen, dann `Strg+Z`.
     Erwartet: Eintrag ist wieder da, an derselben Position.
 15. **Fußzeile.** In den Einstellungen die Fußzeile aus- und wieder einschalten.
@@ -119,7 +119,8 @@ Partitur ist geöffnet.
    Erwartet: je ein Eintrag pro System, Liedtext beim richtigen System,
    Seitenzahlen und Kopfzeilen nicht in den Aufnahmen.
 5. **Titel zurückholen.** Erstes System einer Seite mit Titel wählen,
-   *Bearbeiten*, oberen Rand des Rahmens hochziehen.
+   *Bearbeiten*, auf *Zuschneiden* schalten, oberen Rand des Rahmens
+   hochziehen.
    Erwartet: der Titel ist wieder da.
 6. **Bereinigung umstellen.** Nach dem Import in den Einstellungen *Scans
    drucken in* auf *Graustufen* stellen, ohne neu zu importieren.
