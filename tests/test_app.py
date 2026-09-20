@@ -235,3 +235,56 @@ def test_a_missing_file_does_not_shift_what_a_click_selects(tmp_path, qapp):
     window.preview.clicked_at.emit(*_middle_of(window, 1))
     assert window.shot_list.currentRow() == 2
 
+
+# --- erasing lets the crop close in ------------------------------------------
+
+
+def page_with_a_number(tmp_path: Path) -> Shot:
+    """A system in the middle, a page number in the top right corner."""
+    from PIL import ImageDraw
+
+    image = Image.new("RGB", (200, 100), (255, 255, 255))
+    draw = ImageDraw.Draw(image)
+    draw.rectangle([50, 40, 149, 59], fill=(0, 0, 0))
+    draw.rectangle([180, 10, 194, 19], fill=(0, 0, 0))
+    path = tmp_path / "page.png"
+    image.save(path)
+    return Shot(path=path, width=200, height=100, crop=(48, 8, 197, 62))
+
+
+def _dialog_returning(crop, erasures):
+    class FakeDialog:
+        def __init__(self, shot, parent, palette):
+            self.crop = shot.crop if crop == "unchanged" else crop
+            self.erasures = erasures
+
+        def exec(self):
+            return True
+
+    return FakeDialog
+
+
+def test_erasing_a_page_number_pulls_the_crop_in(tmp_path, qapp, monkeypatch):
+    import scorecap.app as app_module
+    from scorecap.app import MainWindow
+
+    monkeypatch.setattr(
+        app_module, "CropDialog", _dialog_returning("unchanged", ((178, 8, 197, 22),))
+    )
+    window = MainWindow()
+    window.add_shot(page_with_a_number(tmp_path))
+    window.shot_list.setCurrentRow(0)
+    window.edit_selected()
+    assert window.document.shots[0].crop == (48, 38, 152, 62)
+
+
+def test_a_visit_without_erasing_leaves_the_crop_as_it_was_set(tmp_path, qapp, monkeypatch):
+    import scorecap.app as app_module
+    from scorecap.app import MainWindow
+
+    monkeypatch.setattr(app_module, "CropDialog", _dialog_returning((10, 10, 190, 90), ()))
+    window = MainWindow()
+    window.add_shot(page_with_a_number(tmp_path))
+    window.shot_list.setCurrentRow(0)
+    window.edit_selected()
+    assert window.document.shots[0].crop == (10, 10, 190, 90)

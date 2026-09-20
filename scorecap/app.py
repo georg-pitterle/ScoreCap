@@ -6,6 +6,7 @@ import logging
 import sys
 import tempfile
 import threading
+from dataclasses import replace
 from pathlib import Path
 from typing import Sequence
 
@@ -51,7 +52,7 @@ from .settingsdialog import SettingsDialog, load_settings, save_settings
 from .shotlist import ShotList, row_data
 from .staff import staff_extent_of
 from .theme import Palette, palette_for, stylesheet, system_prefers_dark
-from .trim import auto_crop
+from .trim import auto_crop, crop_after_erasing
 from .updater import PendingUpdate, UpdateService
 
 REBUILD_DELAY_MS = 150
@@ -880,9 +881,16 @@ class MainWindow(QMainWindow):
         if not shot.path.exists():
             return  # nothing to show; the list already says the file is gone
         dialog = CropDialog(shot, self, self.palette_tokens)
-        if dialog.exec():
-            self.document.set_edits(index, dialog.crop, dialog.erasures)
-            self.rebuild()
+        if not dialog.exec():
+            return
+        crop = dialog.crop
+        if dialog.erasures != shot.erasures:
+            # Fresh white at an edge is white margin; let the crop close in.
+            crop = crop_after_erasing(
+                replace(shot, crop=crop, erasures=dialog.erasures), self.settings
+            )
+        self.document.set_edits(index, crop, dialog.erasures)
+        self.rebuild()
 
     def delete_selected(self) -> None:
         index = self.shot_list.currentRow()

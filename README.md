@@ -51,7 +51,9 @@ installierten Fassung.
 - *Bearbeiten* kennt zwei Werkzeuge und öffnet mit dem *Radierer*, weil der
   öfter gebraucht wird: ein gezogenes Rechteck wird weiß übermalt — für
   Seitenzahlen, Bleistiftspuren und anderes Störende. *Radierung zurück* nimmt
-  das letzte wieder weg.
+  das letzte wieder weg. Danach wird der Zuschnitt neu gerechnet: was weiß
+  geworden ist, zählt als Rand und fällt weg. Enger wird er dabei, nie wieder
+  weiter — was einmal weggeschnitten war, bleibt draußen.
 - Auf *Zuschneiden* umgeschaltet lässt sich ein vorhandener Rahmen nachbessern,
   statt ihn neu aufzuziehen: an den Ecken oder Kanten ziehen ändert die Größe,
   im Rahmen ziehen verschiebt ihn, außerhalb ziehen zeichnet einen neuen. Ohne
@@ -150,8 +152,13 @@ Jede Aufnahme wird beim Anlegen automatisch auf ihren Inhalt beschnitten: alles
 heller als 245 gilt als Hintergrund, um den Rest bleiben 2 px Luft. Beschnitten
 wird nur als Rechteck, die PNG-Datei bleibt unangetastet — *Bearbeiten →
 Ganzes Bild* holt den vollen Screenshot zurück, und ein selbst gezogener
-Zuschnitt wird nie überschrieben. Eine leere, ganz weiße Aufnahme bleibt wie sie
-ist. Abschaltbar in den Einstellungen.
+Zuschnitt wird beim Anlegen nie überschrieben. Eine leere, ganz weiße Aufnahme
+bleibt wie sie ist.
+
+Dieselbe Rechnung läuft noch einmal, sobald etwas wegradiert wurde — diesmal
+innerhalb des bestehenden Zuschnitts, der dadurch nur enger werden kann.
+Beides ist in den Einstellungen abschaltbar; dann bleibt der Zuschnitt auch
+nach dem Radieren stehen.
 
 Das spart Seiten: zwölf Notenzeilen mit großzügigem Weißraum brauchen ohne Trim
 zwei Seiten, mit Trim eine.

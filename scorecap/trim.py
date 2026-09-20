@@ -6,6 +6,7 @@ from dataclasses import replace
 
 from PIL import Image
 
+from .erase import apply as erase
 from .model import Shot
 from .settings import Settings
 
@@ -47,3 +48,26 @@ def auto_crop(shot: Shot, settings: Settings) -> Shot:
     if box is None or box == (0, 0, shot.width, shot.height):
         return shot
     return replace(shot, crop=box)
+
+
+def crop_after_erasing(shot: Shot, settings: Settings) -> tuple[int, int, int, int] | None:
+    """The crop the shot deserves once its erasures are painted white.
+
+    Erasing at an edge - a page number, a stray mark - leaves white where
+    there was ink, so the crop can close in on what is left. It only ever
+    tightens: what the crop already left out stays out, because pulling it
+    in was a decision, not a margin.
+    """
+    if not settings.auto_trim:
+        return shot.crop
+    left, top, right, bottom = shot.crop or (0, 0, shot.width, shot.height)
+    with Image.open(shot.path) as image:
+        erased = erase(image.convert("L"), shot.erasures)
+        box = trim_box(
+            erased.crop((left, top, right, bottom)),
+            settings.trim_threshold,
+            settings.trim_padding_px,
+        )
+    if box is None:
+        return shot.crop  # nothing left; better kept than reduced to nothing
+    return (left + box[0], top + box[1], left + box[2], top + box[3])
