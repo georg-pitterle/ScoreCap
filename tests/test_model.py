@@ -121,3 +121,15 @@ def test_extend_adds_several_shots_as_one_undo_step():
     assert [s.path.name for s in doc.shots] == ["a.png", "b.png", "c.png"]
     assert doc.undo() is True
     assert [s.path.name for s in doc.shots] == ["a.png"]
+
+
+def test_set_edits_changes_crop_and_erasures_in_one_step():
+    doc = Document()
+    doc.add(make_shot())
+    before = doc.revision
+    doc.set_edits(0, (0, 0, 50, 25), ((1, 1, 5, 5),))
+    shot = doc.shots[0]
+    assert (shot.crop, shot.erasures) == ((0, 0, 50, 25), ((1, 1, 5, 5),))
+    assert doc.revision != before
+    assert doc.undo() is True
+    assert (doc.shots[0].crop, doc.shots[0].erasures) == (None, ())

@@ -38,6 +38,7 @@ class RowData:
     chip_kind: str | None  # "warn" or "missing"
     path: str | None
     crop: tuple[int, int, int, int] | None = None
+    erasures: tuple[tuple[int, int, int, int], ...] = ()
 
 
 def row_data(index: int, shot: Shot, settings: Settings, missing: bool) -> RowData:
@@ -54,6 +55,7 @@ def row_data(index: int, shot: Shot, settings: Settings, missing: bool) -> RowDa
         chip_kind="warn" if chip else None,
         path=str(shot.path),
         crop=shot.crop,
+        erasures=shot.erasures,
     )
 
 
@@ -61,22 +63,35 @@ class ShotDelegate(QStyledItemDelegate):
     def __init__(self, palette: Palette) -> None:
         super().__init__()
         self.palette = palette
-        self._thumbs: dict[tuple[str, tuple[int, int, int, int] | None], QPixmap] = {}
+        self._thumbs: dict[tuple, QPixmap] = {}
 
     def sizeHint(self, option, index) -> QSize:  # noqa: N802 (Qt naming)
         return QSize(240, ROW_HEIGHT)
 
     def _thumbnail(
-        self, path: str, crop: tuple[int, int, int, int] | None = None
+        self,
+        path: str,
+        crop: tuple[int, int, int, int] | None = None,
+        erasures: tuple[tuple[int, int, int, int], ...] = (),
     ) -> QPixmap | None:
         """A staff strip is far wider than the row, so fill the box and crop.
 
         Fitting the whole strip would shrink it to an illegible hairline;
         cropping to the middle keeps the notation at a readable size.
         """
-        key = (path, crop)
+        key = (path, crop, erasures)
         if key not in self._thumbs:
             pixmap = QPixmap(path)
+            if erasures and not pixmap.isNull():
+                # Whited out here too, so the row shows what the export will.
+                painter = QPainter(pixmap)
+                try:
+                    for left, top, right, bottom in erasures:
+                        painter.fillRect(
+                            QRect(left, top, right - left, bottom - top), Qt.white
+                        )
+                finally:
+                    painter.end()
             if crop is not None and not pixmap.isNull():
                 # A scanned system sits in a band of the page; show the system.
                 left, top, right, bottom = crop
@@ -133,7 +148,9 @@ class ShotDelegate(QStyledItemDelegate):
         painter.setPen(QPen(QColor(self.palette.border), 1))
         painter.setBrush(QColor(self.palette.paper))
         painter.drawRect(rect)
-        thumb = self._thumbnail(data.path, data.crop) if data.path else None
+        thumb = (
+            self._thumbnail(data.path, data.crop, data.erasures) if data.path else None
+        )
         if thumb is None:
             return
         inner = rect.adjusted(1, 1, -1, -1)
@@ -194,6 +211,6 @@ class ShotList(QListWidget):
                 number=data.number, size=data.size_label
             )
             + (f" — {data.chip}" if data.chip else "")
-            + ("" if data.path is None else "\n" + self.tr("Double-click to crop"))
+            + ("" if data.path is None else "\n" + self.tr("Double-click to edit"))
         )
         self.addItem(item)

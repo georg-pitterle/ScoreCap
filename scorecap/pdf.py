@@ -9,6 +9,7 @@ import pymupdf
 from PIL import Image
 from PySide6.QtCore import QCoreApplication
 
+from .erase import apply as erase
 from .layout import Page
 from .model import Shot
 from .scan import finish
@@ -33,6 +34,8 @@ def _png_bytes(shot: Shot, settings: Settings) -> bytes:
     """
     with Image.open(shot.path) as image:
         image = image.convert("L")
+        # Erasures are in whole-image coordinates, so they go on before the crop.
+        image = erase(image, shot.erasures)
         if shot.crop is not None:
             image = image.crop(shot.crop)
         if shot.scan and settings.scan_mode != "grey":

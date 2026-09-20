@@ -2,6 +2,7 @@
 
 import json
 import zipfile
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -140,3 +141,30 @@ def test_projects_without_the_scan_flag_open_as_captures(tmp_path):
         archive.writestr("shots/001.png", image)
     (shot,) = load_project(project, tmp_path / "session")
     assert shot.scan is False
+
+
+def test_erasures_survive_a_save_and_open(tmp_path):
+    shot = capture(tmp_path, "a.png", 0, crop=(10, 10, 500, 170))
+    shot = replace(shot, erasures=((100, 20, 140, 60), (300, 30, 320, 50)))
+    project = tmp_path / "Perseus.scorecap"
+    save_project(project, [shot])
+    opened = load_project(project, tmp_path / "session")
+    assert opened[0].erasures == ((100, 20, 140, 60), (300, 30, 320, 50))
+
+
+def test_a_project_without_erasures_opens_with_none(tmp_path):
+    """Projects written before the eraser existed stay readable."""
+    project = tmp_path / "old.scorecap"
+    save_project(project, [capture(tmp_path, "a.png", 0)])
+    with zipfile.ZipFile(project) as archive:
+        manifest = json.loads(archive.read("project.json"))
+        data = {name: archive.read(name) for name in archive.namelist()}
+    for entry in manifest["shots"]:
+        entry.pop("erasures", None)
+    stripped = tmp_path / "stripped.scorecap"
+    with zipfile.ZipFile(stripped, "w") as archive:
+        for name, payload in data.items():
+            if name != "project.json":
+                archive.writestr(name, payload)
+        archive.writestr("project.json", json.dumps(manifest))
+    assert load_project(stripped, tmp_path / "session").pop().erasures == ()

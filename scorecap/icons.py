@@ -18,6 +18,7 @@ CAPTURE = "\ue7b3"      # crop marks
 RECAPTURE = "\ue72c"    # refresh
 SCAN = "\ue8fe"         # flatbed scanner
 CROP = "\ue7a8"
+EDIT = "\ue70f"        # pencil
 DELETE = "\ue74d"
 SETTINGS = "\ue713"
 EXPORT = "\ue749"       # printer

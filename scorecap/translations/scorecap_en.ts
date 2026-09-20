@@ -8,6 +8,30 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Edit</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Drag out the part of the capture to keep</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Eraser</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Drag over anything disturbing to paint it white</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Undo erasing</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Take back the last white rectangle</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Whole image</source>
         <translation type="unfinished"></translation>
     </message>
@@ -28,6 +52,14 @@
     <name>MainWindow</name>
     <message>
         <source>The import was aborted.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Edit</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Crop the capture or erase what disturbs</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -64,10 +96,6 @@
     </message>
     <message>
         <source>Recapture</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Crop</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -423,7 +451,7 @@ Press {hotkey}, then drag out the area.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Double-click to crop</source>
+        <source>Double-click to edit</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

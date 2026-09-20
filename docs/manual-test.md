@@ -31,7 +31,7 @@ Partitur ist geöffnet.
 9. **Weißer Rand.** Bewusst großzügig um eine Notenzeile herum auswählen, mit
    viel Weiß über und unter den Noten.
    Erwartet: in der Vorschau sitzt die Zeile ohne den weißen Rand auf der Seite;
-   *Zuschneiden → Ganzes Bild* zeigt wieder den vollen Screenshot. Mit
+   *Bearbeiten → Ganzes Bild* zeigt wieder den vollen Screenshot. Mit
    abgeschaltetem Auto-Trim in den Einstellungen bleibt der Rand erhalten.
 10. **Seitenfüllung.** So viele Zeilen aufnehmen, bis eine zweite Seite beginnt.
    Erwartet: Seite eins ist gleichmäßig gefüllt, nichts überlappt, alle Bilder
@@ -50,15 +50,24 @@ Partitur ist geöffnet.
    Erwartet: Vorschau folgt der neuen Reihenfolge.
 12. **Neu aufnehmen.** Eintrag wählen, *Neu aufnehmen*, neues Rechteck ziehen.
    Erwartet: Bild wird an derselben Listenposition ersetzt.
-13. **Zuschneiden.** Eintrag wählen, *Zuschneiden*, Rechteck ziehen, OK.
+13. **Zuschneiden.** Eintrag wählen, *Bearbeiten*, Rechteck ziehen, OK.
     Erwartet: außerhalb der Auswahl dunkelt das Bild ab, die Vorschau zeigt den
     beschnittenen Ausschnitt. *Ganzes Bild* stellt den vollen Screenshot wieder her.
-13a. **Zuschnitt nachbessern.** *Zuschneiden* bei einer beschnittenen Aufnahme:
+13a. **Zuschnitt nachbessern.** *Bearbeiten* bei einer beschnittenen Aufnahme:
     eine Ecke ziehen, dann eine Kante, dann innen ziehen.
     Erwartet: der Mauszeiger zeigt vorher jeweils Diagonal-, Seiten- bzw.
     Verschiebepfeile; Ecke ändert zwei Kanten, Kante eine, innen verschiebt
     den Rahmen ohne Größenänderung. Nach *Ganzes Bild* lassen sich die
     Bildkanten hereinziehen.
+13b. **Radieren.** *Bearbeiten*, auf *Radierer* schalten, über eine Seitenzahl
+    oder einen Bleistiftstrich ziehen, dann noch einmal woanders, *Radierung
+    zurück*, OK.
+    Erwartet: das Fenster geht groß auf; jede gezogene Fläche wird sofort
+    weiß, *Radierung zurück* nimmt nur die letzte weg. Nach *Übernehmen*
+    zeigen Vorschaubild und A4-Vorschau dieselben weißen Flächen, das PDF
+    ebenso. `Strg+Z` macht Zuschnitt und Radierungen in einem Schritt
+    rückgängig. Ein Wechsel zurück auf *Zuschneiden* lässt die weißen Flächen
+    stehen, auch *Ganzes Bild* löscht sie nicht.
 14. **Löschen und Undo.** Eintrag löschen, dann `Strg+Z`.
     Erwartet: Eintrag ist wieder da, an derselben Position.
 15. **Fußzeile.** In den Einstellungen die Fußzeile aus- und wieder einschalten.
@@ -74,10 +83,12 @@ Partitur ist geöffnet.
     gleich aus; das Original ist unverändert. Ein zweites Mal auf die kleine
     Datei angewandt meldet „bereits kompakt".
 16c. **Projekt speichern und öffnen.** Einige Aufnahmen machen, eine
-    zuschneiden, `Strg+S`, Namen vergeben, ScoreCap schließen, neu starten,
-    `Strg+O`, Projekt öffnen.
-    Erwartet: dieselben Aufnahmen in derselben Reihenfolge, der Zuschnitt ist
-    erhalten, die Vorschau gleich. Titelleiste zeigt den Projektnamen.
+    zuschneiden, in einer anderen etwas wegradieren, `Strg+S`, Namen vergeben,
+    ScoreCap schließen, neu starten, `Strg+O`, Projekt öffnen.
+    Erwartet: dieselben Aufnahmen in derselben Reihenfolge, Zuschnitt und
+    Radierungen sind erhalten, die Vorschau gleich. Titelleiste zeigt den
+    Projektnamen. Ein Projekt aus einer älteren ScoreCap-Version öffnet
+    weiterhin, einfach ohne Radierungen.
 16d. **Ungespeichertes nicht verlieren.** Aufnahme hinzufügen, Fenster
     schließen.
     Erwartet: Frage „Speichern / Nicht speichern / Abbrechen", alle drei
@@ -108,7 +119,7 @@ Partitur ist geöffnet.
    Erwartet: je ein Eintrag pro System, Liedtext beim richtigen System,
    Seitenzahlen und Kopfzeilen nicht in den Aufnahmen.
 5. **Titel zurückholen.** Erstes System einer Seite mit Titel wählen,
-   *Zuschneiden*, oberen Rand des Rahmens hochziehen.
+   *Bearbeiten*, oberen Rand des Rahmens hochziehen.
    Erwartet: der Titel ist wieder da.
 6. **Bereinigung umstellen.** Nach dem Import in den Einstellungen *Scans
    drucken in* auf *Graustufen* stellen, ohne neu zu importieren.

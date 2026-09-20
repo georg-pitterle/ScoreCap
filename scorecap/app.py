@@ -309,8 +309,11 @@ class MainWindow(QMainWindow):
         self.scan_button.clicked.connect(self.choose_scans)
         self.recapture_button = self._button(self.tr("Recapture"), icons.RECAPTURE)
         self.recapture_button.clicked.connect(self.recapture_selected)
-        self.crop_button = self._button(self.tr("Crop"), icons.CROP)
-        self.crop_button.clicked.connect(self.crop_selected)
+        self.edit_button = self._button(self.tr("Edit"), icons.EDIT)
+        self.edit_button.setToolTip(
+            self.tr("Crop the capture or erase what disturbs")
+        )
+        self.edit_button.clicked.connect(self.edit_selected)
         self.delete_button = self._button(self.tr("Delete"), icons.DELETE)
         self.delete_button.clicked.connect(self.delete_selected)
         self.settings_button = self._button(self.tr("Settings"), icons.SETTINGS)
@@ -343,7 +346,7 @@ class MainWindow(QMainWindow):
         bar.addWidget(self.capture_button)
         bar.addWidget(self.scan_button)
         bar.addSpacing(8)
-        for button in (self.recapture_button, self.crop_button, self.delete_button):
+        for button in (self.recapture_button, self.edit_button, self.delete_button):
             bar.addWidget(button)
         bar.addStretch(1)
         bar.addWidget(self.open_button)
@@ -355,7 +358,7 @@ class MainWindow(QMainWindow):
         self.shot_list = ShotList(self.palette_tokens)
         self.shot_list.model().rowsMoved.connect(self._on_rows_moved)
         self.shot_list.currentRowChanged.connect(self._update_actions)
-        self.shot_list.itemDoubleClicked.connect(self._crop_item)
+        self.shot_list.itemDoubleClicked.connect(self._edit_item)
 
         self.empty_state = QLabel(
             self.tr("Nothing captured yet.\n\nPress {hotkey}, then drag out the area.").format(
@@ -582,7 +585,7 @@ class MainWindow(QMainWindow):
 
     def _update_actions(self, *_args) -> None:
         has_selection = self.shot_list.currentRow() >= 0
-        for button in (self.recapture_button, self.crop_button, self.delete_button):
+        for button in (self.recapture_button, self.edit_button, self.delete_button):
             button.setEnabled(has_selection)
 
     def _update_zoom_label(self) -> None:
@@ -837,11 +840,11 @@ class MainWindow(QMainWindow):
         self._toast.move(x, y)
         self._toast.show()
 
-    def _crop_item(self, item) -> None:
+    def _edit_item(self, item) -> None:
         self.shot_list.setCurrentItem(item)
-        self.crop_selected()
+        self.edit_selected()
 
-    def crop_selected(self) -> None:
+    def edit_selected(self) -> None:
         index = self.shot_list.currentRow()
         if index < 0:
             return
@@ -850,7 +853,7 @@ class MainWindow(QMainWindow):
             return  # nothing to show; the list already says the file is gone
         dialog = CropDialog(shot, self, self.palette_tokens)
         if dialog.exec():
-            self.document.set_crop(index, dialog.crop)
+            self.document.set_edits(index, dialog.crop, dialog.erasures)
             self.rebuild()
 
     def delete_selected(self) -> None:

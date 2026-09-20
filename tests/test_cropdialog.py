@@ -134,3 +134,97 @@ def test_without_a_crop_the_image_edges_can_be_dragged_in(tmp_path, qapp):
     QTest.mouseMove(canvas, QPoint(400, 300))
     QTest.mouseRelease(canvas, Qt.LeftButton, pos=QPoint(400, 300))
     assert dialog.crop == (100, 50, 200, 150)
+
+
+# --- erasing ----------------------------------------------------------------
+
+
+def erase_dialog(tmp_path, qapp, **kwargs):
+    from scorecap.cropdialog import CropDialog
+
+    path = tmp_path / "e.png"
+    Image.new("RGB", (400, 200), (255, 255, 255)).save(path)
+    dialog = CropDialog(Shot(path=path, width=400, height=200, **kwargs))
+    dialog._canvas.resize(800, 400)  # two widget pixels per image pixel
+    dialog.set_mode("erase")
+    return dialog
+
+
+def drag(canvas, start, end):
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+
+    QTest.mousePress(canvas, Qt.LeftButton, pos=start)
+    QTest.mouseMove(canvas, end)
+    QTest.mouseRelease(canvas, Qt.LeftButton, pos=end)
+
+
+def test_a_drag_in_erase_mode_adds_a_white_rectangle(tmp_path, qapp):
+    dialog = erase_dialog(tmp_path, qapp)
+    drag(dialog._canvas, QPoint(100, 50), QPoint(200, 150))
+    assert dialog.erasures == ((50, 25, 100, 75),)
+
+
+def test_erasing_leaves_the_crop_alone(tmp_path, qapp):
+    dialog = erase_dialog(tmp_path, qapp, crop=(40, 20, 360, 180))
+    drag(dialog._canvas, QPoint(100, 50), QPoint(200, 150))
+    assert dialog.crop == (40, 20, 360, 180)
+
+
+def test_a_drag_backwards_still_gives_a_positive_rectangle(tmp_path, qapp):
+    dialog = erase_dialog(tmp_path, qapp)
+    drag(dialog._canvas, QPoint(200, 150), QPoint(100, 50))
+    assert dialog.erasures == ((50, 25, 100, 75),)
+
+
+def test_a_click_without_a_drag_erases_nothing(tmp_path, qapp):
+    dialog = erase_dialog(tmp_path, qapp)
+    drag(dialog._canvas, QPoint(100, 50), QPoint(101, 51))
+    assert dialog.erasures == ()
+
+
+def test_the_last_erasure_can_be_taken_back(tmp_path, qapp):
+    dialog = erase_dialog(tmp_path, qapp, erasures=((10, 10, 20, 20),))
+    drag(dialog._canvas, QPoint(100, 50), QPoint(200, 150))
+    dialog.undo_erase()
+    assert dialog.erasures == ((10, 10, 20, 20),)
+    dialog.undo_erase()
+    assert dialog.erasures == ()
+    dialog.undo_erase()  # nothing left to take back
+    assert dialog.erasures == ()
+
+
+def test_in_crop_mode_a_drag_still_crops(tmp_path, qapp):
+    dialog = erase_dialog(tmp_path, qapp)
+    dialog.set_mode("crop")
+    drag(dialog._canvas, QPoint(200, 100), QPoint(400, 300))
+    assert dialog.crop == (100, 50, 200, 150)
+    assert dialog.erasures == ()
+
+
+def test_whole_image_keeps_the_erasures(tmp_path, qapp):
+    dialog = erase_dialog(tmp_path, qapp, crop=(40, 20, 360, 180), erasures=((10, 10, 20, 20),))
+    dialog.reset()
+    assert dialog.crop is None
+    assert dialog.erasures == ((10, 10, 20, 20),)
+
+
+def test_the_mode_buttons_speak_german(tmp_path, qapp, german):
+    from PySide6.QtWidgets import QPushButton
+
+    from scorecap.cropdialog import CropDialog
+
+    path = tmp_path / "a.png"
+    Image.new("RGB", (200, 100), (0, 0, 0)).save(path)
+    dialog = CropDialog(Shot(path=path, width=200, height=100))
+    labels = {b.text() for b in dialog.findChildren(QPushButton)}
+    assert {"Zuschneiden", "Radierer"} <= labels
+
+
+def test_the_canvas_draws_the_erasures_white(tmp_path, qapp):
+    dialog = erase_dialog(tmp_path, qapp, crop=(40, 20, 360, 180))
+    drag(dialog._canvas, QPoint(100, 50), QPoint(200, 150))
+    canvas = dialog._canvas
+    image = canvas.grab().toImage()
+    middle = canvas._box_rect(canvas._display(), dialog.erasures[0]).center()
+    assert image.pixelColor(middle).name() == "#ffffff"

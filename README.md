@@ -45,13 +45,16 @@ installierten Fassung.
   kurzer Hinweis am Cursor zeigt, dass die Aufnahme saß. Zurück ins Fenster:
   Hotkey drücken und `Esc`, oder das Fenster aus der Taskleiste holen — dann
   wird die Vorschau nachgezogen.
-- Links die Aufnahmen: per Drag&Drop sortieren, *Neu aufnehmen*, *Zuschneiden*,
-  *Löschen*. Doppelklick auf einen Eintrag öffnet das Zuschneiden. `Strg+Z`
+- Links die Aufnahmen: per Drag&Drop sortieren, *Neu aufnehmen*, *Bearbeiten*,
+  *Löschen*. Doppelklick auf einen Eintrag öffnet das Bearbeiten. `Strg+Z`
   macht rückgängig.
-- Beim *Zuschneiden* lässt sich ein vorhandener Rahmen nachbessern, statt ihn
-  neu aufzuziehen: an den Ecken oder Kanten ziehen ändert die Größe, im Rahmen
-  ziehen verschiebt ihn, außerhalb ziehen zeichnet einen neuen. Ohne Rahmen
-  lassen sich die Bildkanten selbst hereinziehen.
+- *Bearbeiten* kennt zwei Werkzeuge. Beim *Zuschneiden* lässt sich ein
+  vorhandener Rahmen nachbessern, statt ihn neu aufzuziehen: an den Ecken oder
+  Kanten ziehen ändert die Größe, im Rahmen ziehen verschiebt ihn, außerhalb
+  ziehen zeichnet einen neuen. Ohne Rahmen lassen sich die Bildkanten selbst
+  hereinziehen.
+- Der *Radierer* übermalt Rechtecke weiß — für Seitenzahlen, Bleistiftspuren
+  und anderes Störende. *Radierung zurück* nimmt das letzte wieder weg.
 - Rechts die A4-Seiten, exakt so, wie sie exportiert werden.
 - *Als PDF exportieren* schreibt die Datei.
 
@@ -91,7 +94,7 @@ ScoreCap bereinigt jede Seite und zerlegt sie in Systeme:
 - **Jedes System wird eine Aufnahme.** Notensysteme, die links ein gemeinsamer
   Taktstrich verbindet, bleiben zusammen (Klavier, Chor). Liedtext und Dynamik
   kommen zum richtigen System, Titel, Kopfzeilen und Seitenzahlen bleiben
-  außen vor. Den Titel holt *Zuschneiden* zurück: jede Aufnahme enthält den
+  außen vor. Den Titel holt *Bearbeiten* zurück: jede Aufnahme enthält den
   ganzen Streifen der Seite bis zum Nachbarsystem, der obere Rand des Rahmens
   lässt sich einfach hochziehen.
 - Eine Seite ohne Notenlinien — Titelblatt, Text — wird ganz übernommen, eine
@@ -143,7 +146,7 @@ laufen lassen.
 
 Jede Aufnahme wird beim Anlegen automatisch auf ihren Inhalt beschnitten: alles
 heller als 245 gilt als Hintergrund, um den Rest bleiben 2 px Luft. Beschnitten
-wird nur als Rechteck, die PNG-Datei bleibt unangetastet — *Zuschneiden →
+wird nur als Rechteck, die PNG-Datei bleibt unangetastet — *Bearbeiten →
 Ganzes Bild* holt den vollen Screenshot zurück, und ein selbst gezogener
 Zuschnitt wird nie überschrieben. Eine leere, ganz weiße Aufnahme bleibt wie sie
 ist. Abschaltbar in den Einstellungen.
@@ -195,13 +198,14 @@ nicht angefasst, und größer als vorher wird eine Datei nie.
 | Modul | Aufgabe |
 |---|---|
 | `settings.py` | Seitenmaße, Ränder, Schrumpffaktor |
-| `model.py` | Aufnahmen, Reihenfolge, Crop, Undo |
+| `model.py` | Aufnahmen, Reihenfolge, Crop, Radierungen, Undo |
 | `layout.py` | Paginierung, reine Rechnung in PDF-Punkten |
 | `pdf.py` | PDF-Bau samt Fußzeile |
 | `preview.py` | rastert dasselbe PDF für die Vorschau |
 | `capture.py` | Auswahl-Overlay und Bildschirmaufnahme |
 | `hotkey.py` | systemweiter Hotkey über Win32 |
 | `cropdialog.py`, `settingsdialog.py` | Dialoge |
+| `erase.py` | malt die Radierungen weiß, wenn eine Aufnahme gerendert wird |
 | `shotlist.py` | Aufnahmeliste mit Vorschaubildern |
 | `staff.py` | erkennt, wo die Notenlinien eines Systems enden |
 | `scan.py` | Scans bereinigen, gerade stellen, in Systeme zerlegen |

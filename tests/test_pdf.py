@@ -1,3 +1,4 @@
+import io
 from pathlib import Path
 
 import pymupdf
@@ -201,3 +202,16 @@ def test_scans_follow_the_scan_setting_at_export(tmp_path):
 def test_screen_captures_are_never_turned_black_and_white(tmp_path):
     shot = grey_art(tmp_path, "capture.png", scan=False)
     assert embedded_bits(shot, Settings(scan_mode="bw")) == 8
+
+
+def test_erasures_are_painted_white_before_the_crop(tmp_path):
+    from dataclasses import replace
+
+    from scorecap.pdf import _png_bytes
+
+    shot = make_png(tmp_path, "dark.png", 100, 50)
+    shot = replace(shot, crop=(20, 10, 80, 40), erasures=((30, 20, 50, 30),))
+    with Image.open(io.BytesIO(_png_bytes(shot, Settings()))) as image:
+        assert image.size == (60, 30)
+        assert image.getpixel((15, 15)) == 255   # inside the erasure
+        assert image.getpixel((0, 0)) != 255     # untouched capture

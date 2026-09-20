@@ -8,6 +8,30 @@
         <translation>Zuschneiden</translation>
     </message>
     <message>
+        <source>Edit</source>
+        <translation>Bearbeiten</translation>
+    </message>
+    <message>
+        <source>Drag out the part of the capture to keep</source>
+        <translation>Den Teil der Aufnahme aufziehen, der bleiben soll</translation>
+    </message>
+    <message>
+        <source>Eraser</source>
+        <translation>Radierer</translation>
+    </message>
+    <message>
+        <source>Drag over anything disturbing to paint it white</source>
+        <translation>Über Störendes ziehen, um es weiß zu übermalen</translation>
+    </message>
+    <message>
+        <source>Undo erasing</source>
+        <translation>Radierung zurück</translation>
+    </message>
+    <message>
+        <source>Take back the last white rectangle</source>
+        <translation>Das letzte weiße Rechteck zurücknehmen</translation>
+    </message>
+    <message>
         <source>Whole image</source>
         <translation>Ganzes Bild</translation>
     </message>
@@ -29,6 +53,14 @@
     <message>
         <source>The import was aborted.</source>
         <translation>Der Import ist abgebrochen.</translation>
+    </message>
+    <message>
+        <source>Edit</source>
+        <translation>Bearbeiten</translation>
+    </message>
+    <message>
+        <source>Crop the capture or erase what disturbs</source>
+        <translation>Die Aufnahme zuschneiden oder Störendes wegradieren</translation>
     </message>
     <message>
         <source>{systems} from {pages} imported</source>
@@ -65,10 +97,6 @@
     <message>
         <source>Recapture</source>
         <translation>Neu aufnehmen</translation>
-    </message>
-    <message>
-        <source>Crop</source>
-        <translation>Zuschneiden</translation>
     </message>
     <message>
         <source>Delete</source>
@@ -425,8 +453,8 @@ Press {hotkey}, then drag out the area.</source>
         <translation>Aufnahme {number}, {size} px</translation>
     </message>
     <message>
-        <source>Double-click to crop</source>
-        <translation>Doppelklick: zuschneiden</translation>
+        <source>Double-click to edit</source>
+        <translation>Zum Bearbeiten doppelklicken</translation>
     </message>
 </context>
 <context>

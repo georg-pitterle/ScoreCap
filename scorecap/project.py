@@ -1,7 +1,8 @@
 """Save and open a session's captures as one .scorecap file.
 
 A project is a ZIP archive: project.json lists the captures in order with
-their crops, and shots/ holds each capture exactly as it was grabbed. Saving
+their crops and erasures, and shots/ holds each capture exactly as it was
+grabbed. Saving
 writes to a sibling file first and swaps it in only when complete, so a
 failure can never cost the previous version. Opening copies captures into the
 session folder under names of its own choosing - nothing named inside the
@@ -43,6 +44,7 @@ def save_project(path: Path, shots: Sequence[Shot]) -> None:
                         "height": shot.height,
                         "crop": list(shot.crop) if shot.crop else None,
                         "scan": shot.scan,
+                        "erasures": [list(box) for box in shot.erasures],
                     }
                 )
             manifest = {"format": FORMAT_VERSION, "app": __version__, "shots": entries}
@@ -103,6 +105,9 @@ def load_project(path: Path, target_dir: Path) -> list[Shot]:
                         height=int(entry["height"]),
                         crop=tuple(crop) if crop else None,
                         scan=bool(entry.get("scan", False)),
+                        erasures=tuple(
+                            tuple(box) for box in entry.get("erasures") or ()
+                        ),
                     )
                 )
             except (KeyError, TypeError) as error:

@@ -14,17 +14,25 @@ class Shot:
     crop: tuple[int, int, int, int] | None = None
     # A scanned system, kept in grey; the export decides on black and white.
     scan: bool = False
+    # Rectangles the eraser whites out, in the coordinates of the whole image.
+    erasures: tuple[tuple[int, int, int, int], ...] = ()
 
     def __post_init__(self) -> None:
         if self.width <= 0 or self.height <= 0:
             raise ValueError("shot size must be positive")
-        if self.crop is None:
+        # A project file hands us lists; store them as tuples so shots compare.
+        object.__setattr__(self, "erasures", tuple(tuple(e) for e in self.erasures))
+        for box in (self.crop, *self.erasures):
+            self._check_box(box)
+
+    def _check_box(self, box: tuple[int, int, int, int] | None) -> None:
+        if box is None:
             return
-        left, top, right, bottom = self.crop
+        left, top, right, bottom = box
         if left < 0 or top < 0 or right > self.width or bottom > self.height:
-            raise ValueError("crop outside of image bounds")
+            raise ValueError("box outside of image bounds")
         if right <= left or bottom <= top:
-            raise ValueError("crop must have positive area")
+            raise ValueError("box must have positive area")
 
     @property
     def effective_size(self) -> tuple[int, int]:
@@ -93,6 +101,16 @@ class Document:
     def set_crop(self, index: int, crop: tuple[int, int, int, int] | None) -> None:
         self._snapshot()
         self._shots[index] = replace(self._shots[index], crop=crop)
+
+    def set_edits(
+        self,
+        index: int,
+        crop: tuple[int, int, int, int] | None,
+        erasures: tuple[tuple[int, int, int, int], ...],
+    ) -> None:
+        """What one visit to the edit dialog changed - a single undo step."""
+        self._snapshot()
+        self._shots[index] = replace(self._shots[index], crop=crop, erasures=erasures)
 
     def undo(self) -> bool:
         if not self._history:
