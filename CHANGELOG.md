@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.5.0](https://github.com/georg-pitterle/ScoreCap/compare/v0.4.0...v0.5.0) (2026-09-18)
+
+
+### Features
+
+* adjust a crop by its corners and edges ([78f1947](https://github.com/georg-pitterle/ScoreCap/commit/78f194737bb606a7ea901f48a3ee5c4cfd86d316))
+* decide black and white for scans at export ([ae4d25e](https://github.com/georg-pitterle/ScoreCap/commit/ae4d25e5498bb77b47797fd3ecc7c25a3d7f7c2e))
+* end systems flush and let trailing marks hang into the margin ([131501d](https://github.com/georg-pitterle/ScoreCap/commit/131501de0812ed35b4a9fbfcf76034ae2bee2d16))
+* import scans and split them into systems ([1765bf0](https://github.com/georg-pitterle/ScoreCap/commit/1765bf0fe61e2b64361bd60a90d8a30b0ec2c578))
+* offer the interface in German and English ([59b90ae](https://github.com/georg-pitterle/ScoreCap/commit/59b90ae996e119bf7c21013081ee8962c559151d))
+* open the crop dialog by double-clicking a capture ([5ebe908](https://github.com/georg-pitterle/ScoreCap/commit/5ebe9080957ee5f5b7ef678879f188f20240ec89))
+* remember the last folder of each file dialog ([163428f](https://github.com/georg-pitterle/ScoreCap/commit/163428ffc25e492cb302284a27998b0d2ff28846))
+* save and open captures as .scorecap projects ([5216d00](https://github.com/georg-pitterle/ScoreCap/commit/5216d00f5ee2c823ac8ec7b0a15291403d348e83))
+* shrink existing PDFs from the toolbar ([6599cf2](https://github.com/georg-pitterle/ScoreCap/commit/6599cf22ef4eac4cece1f91268fe94993846eac4))
+* start staff lines flush at the left margin ([19bab33](https://github.com/georg-pitterle/ScoreCap/commit/19bab33bd8fb6a8bd1ccfc1b1997aa65a1739457))
+
+
+### Bug Fixes
+
+* compress the images in exported PDFs ([0941f48](https://github.com/georg-pitterle/ScoreCap/commit/0941f4823d2e9cf3eb14c1bafa268371fd055b0c))
+* keep scanned systems together and crop them tightly ([09f37c1](https://github.com/georg-pitterle/ScoreCap/commit/09f37c1d79f2fc61464680cebb753662e7dfc170))
+
 ## [0.4.0](https://github.com/georg-pitterle/ScoreCap/compare/v0.3.0...v0.4.0) (2026-09-12)
 
 
