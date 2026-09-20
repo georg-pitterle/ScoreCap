@@ -23,6 +23,21 @@ class Page:
     scale: float
 
 
+def placement_at(page: Page, x: float, y: float) -> int | None:
+    """Which capture covers this point on the page, in PDF points.
+
+    None where the point falls on paper no capture reaches: a margin, the
+    gap between two systems, the footer.
+    """
+    for placement in page.placements:
+        if (
+            placement.x <= x < placement.x + placement.w
+            and placement.y <= y < placement.y + placement.h
+        ):
+            return placement.index
+    return None
+
+
 def effective_dpi(size: tuple[int, int], settings: Settings) -> float:
     """Pixels per inch the image ends up with when printed at content width."""
     width_px, _ = size

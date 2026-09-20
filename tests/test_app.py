@@ -179,3 +179,59 @@ def test_a_missing_file_does_not_open_the_edit_dialog(tmp_path, qapp, monkeypatc
     shot.path.unlink()
     window.rebuild()
     window.shot_list.itemDoubleClicked.emit(window.shot_list.item(0))
+
+
+# --- clicking in the preview picks the capture out of the list ---------------
+
+
+def _middle_of(window, position: int) -> tuple[int, float, float]:
+    """Page number and point in PDF points at the centre of one placement."""
+    for page_number, page in enumerate(window.pages):
+        for placement in page.placements:
+            if placement.index == position:
+                return (
+                    page_number,
+                    placement.x + placement.w / 2,
+                    placement.y + placement.h / 2,
+                )
+    raise AssertionError(f"capture {position} is on no page")
+
+
+def test_clicking_a_capture_in_the_preview_selects_its_row(tmp_path, qapp):
+    from scorecap.app import MainWindow
+
+    window = MainWindow()
+    for name in ("a.png", "b.png", "c.png"):
+        window.add_shot(make_shot(tmp_path, name))
+    window.shot_list.setCurrentRow(0)
+
+    window.preview.clicked_at.emit(*_middle_of(window, 2))
+    assert window.shot_list.currentRow() == 2
+
+
+def test_clicking_beside_the_captures_keeps_the_selection(tmp_path, qapp):
+    from scorecap.app import MainWindow
+
+    window = MainWindow()
+    window.add_shot(make_shot(tmp_path, "a.png"))
+    window.shot_list.setCurrentRow(0)
+
+    window.preview.clicked_at.emit(0, 2.0, 2.0)  # the paper margin
+    assert window.shot_list.currentRow() == 0
+
+
+def test_a_missing_file_does_not_shift_what_a_click_selects(tmp_path, qapp):
+    """The preview leaves out captures whose file is gone; the list does not."""
+    from scorecap.app import MainWindow
+
+    window = MainWindow()
+    window.add_shot(make_shot(tmp_path, "a.png"))
+    window.add_shot(make_shot(tmp_path, "gone.png"))
+    window.add_shot(make_shot(tmp_path, "c.png"))
+    (tmp_path / "gone.png").unlink()
+    window.rebuild()
+
+    # The second capture the preview shows is the third row of the list.
+    window.preview.clicked_at.emit(*_middle_of(window, 1))
+    assert window.shot_list.currentRow() == 2
+

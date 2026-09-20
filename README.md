@@ -56,7 +56,8 @@ installierten Fassung.
   statt ihn neu aufzuziehen: an den Ecken oder Kanten ziehen ändert die Größe,
   im Rahmen ziehen verschiebt ihn, außerhalb ziehen zeichnet einen neuen. Ohne
   Rahmen lassen sich die Bildkanten selbst hereinziehen.
-- Rechts die A4-Seiten, exakt so, wie sie exportiert werden.
+- Rechts die A4-Seiten, exakt so, wie sie exportiert werden. Ein Klick auf
+  eine Aufnahme dort markiert sie links in der Liste.
 - *Als PDF exportieren* schreibt die Datei.
 
 ## Projekte speichern

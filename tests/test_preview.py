@@ -107,3 +107,39 @@ def test_each_page_gets_its_number_in_the_gutter(tmp_path, qapp):
         if label.objectName() == "PageNumber"
     ]
     assert numbers == [str(n) for n in range(1, page_count + 1)]
+
+
+def test_clicking_a_page_reports_the_point_in_pdf_points(tmp_path, qapp):
+    from PySide6.QtCore import QPoint, Qt
+    from PySide6.QtTest import QTest
+
+    from scorecap.preview import PreviewWidget
+
+    pdf_bytes, _ = make_pdf(tmp_path, 2)
+    widget = PreviewWidget()
+    widget.set_zoom(2.0)
+    widget.set_pdf(pdf_bytes)
+    seen = []
+    widget.clicked_at.connect(lambda page, x, y: seen.append((page, round(x), round(y))))
+
+    sheet = widget.page_views()[1]._sheet
+    QTest.mouseClick(sheet, Qt.LeftButton, pos=QPoint(120, 80))
+    assert seen == [(1, 60, 40)]  # the second page, at half the pixel offsets
+
+
+def test_a_click_beside_the_sheet_reports_nothing(tmp_path, qapp):
+    from PySide6.QtCore import QPoint, Qt
+    from PySide6.QtTest import QTest
+
+    from scorecap.preview import PreviewWidget
+
+    pdf_bytes, _ = make_pdf(tmp_path, 1)
+    widget = PreviewWidget()
+    widget.set_pdf(pdf_bytes)
+    seen = []
+    widget.clicked_at.connect(lambda *args: seen.append(args))
+
+    page = widget.page_views()[0]
+    page.layout().activate()  # without a shown window Qt has not placed the sheet
+    QTest.mouseClick(page, Qt.LeftButton, pos=QPoint(2, 2))  # the number gutter
+    assert seen == []

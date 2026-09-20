@@ -40,7 +40,7 @@ from . import icons, pdf
 from .capture import SelectionOverlay, grab
 from .cropdialog import CropDialog
 from .hotkey import HotkeyFilter
-from .layout import paginate
+from .layout import Page, paginate, placement_at
 from .optimize import OptimizeResult, optimize_pdf
 from .model import Document, Shot, normalize_move
 from .preview import PreviewWidget
@@ -251,6 +251,10 @@ class MainWindow(QMainWindow):
         self.palette_tokens: Palette = palette_for(system_prefers_dark())
         self.document = Document()
         self._pdf_bytes = b""
+        # The laid-out pages behind the preview, and which list row each
+        # capture on them belongs to - the preview leaves missing files out.
+        self._pages: list[Page] = []
+        self._usable_rows: list[int] = []
         self._temp_dir = Path(tempfile.mkdtemp(prefix="scorecap-"))
         self._pending_replace: int | None = None
         self._scan_task: _ScanImport | None = None
@@ -385,6 +389,7 @@ class MainWindow(QMainWindow):
         side_layout.addWidget(self._list_stack, 1)
 
         self.preview = PreviewWidget(self.palette_tokens)
+        self.preview.clicked_at.connect(self.select_at)
         preview_panel = QWidget()
         preview_layout = QVBoxLayout(preview_panel)
         preview_layout.setContentsMargins(0, 0, 0, 0)
@@ -552,6 +557,9 @@ class MainWindow(QMainWindow):
             [staff_extent_of(s) for s in usable] if self.settings.align_staff_ends else None
         )
         pages = paginate([s.effective_size for s in usable], self.settings, spans)
+        self._pages = pages
+        gone = set(missing)
+        self._usable_rows = [i for i in range(len(shots)) if i not in gone]
         self._pdf_bytes = pdf.build(usable, pages, self.settings)
         self.preview.set_pdf(self._pdf_bytes)
         self.export_button.setEnabled(bool(pages))
@@ -839,6 +847,26 @@ class MainWindow(QMainWindow):
         self._toast.adjustSize()
         self._toast.move(x, y)
         self._toast.show()
+
+    @property
+    def pages(self) -> list[Page]:
+        """The pages the preview currently shows."""
+        return list(self._pages)
+
+    def select_at(self, page_number: int, x: float, y: float) -> None:
+        """A click on the proof picks that capture out of the list.
+
+        Clicking bare paper - a margin, the gap between two systems - is no
+        answer to "which capture?", so the selection stays where it was.
+        """
+        if not 0 <= page_number < len(self._pages):
+            return
+        position = placement_at(self._pages[page_number], x, y)
+        if position is None or position >= len(self._usable_rows):
+            return
+        row = self._usable_rows[position]
+        self.shot_list.setCurrentRow(row)
+        self.shot_list.scrollToItem(self.shot_list.item(row))
 
     def _edit_item(self, item) -> None:
         self.shot_list.setCurrentItem(item)

@@ -7,7 +7,7 @@ surface, with a soft shadow and the page number set in the gutter beside it.
 from __future__ import annotations
 
 import pymupdf
-from PySide6.QtCore import QRect, QSize, Qt, QTimer
+from PySide6.QtCore import QPoint, QRect, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QImage, QPainter, QPixmap
 from PySide6.QtWidgets import (
     QGraphicsDropShadowEffect,
@@ -70,8 +70,14 @@ def _clamp(zoom: float) -> float:
 class PageView(QWidget):
     """One page: the sheet itself, with its number set beside it."""
 
+    # Page number (from zero) and where on the sheet it was clicked, in
+    # rendered pixels. The page carries its own number so the preview can
+    # connect a plain method rather than a closure over itself.
+    clicked = Signal(int, QPoint)
+
     def __init__(self, image: QImage, number: int, palette: Palette) -> None:
         super().__init__()
+        self._index = number - 1
         label = QLabel()
         label.setObjectName("PageSheet")
         self._sheet = label
@@ -101,8 +107,17 @@ class PageView(QWidget):
         self._sheet.setPixmap(QPixmap.fromImage(image))
         self._sheet.setFixedSize(image.size())
 
+    def mousePressEvent(self, event) -> None:  # noqa: N802 (Qt naming)
+        point = self._sheet.mapFrom(self, event.position().toPoint())
+        if self._sheet.rect().contains(point):
+            self.clicked.emit(self._index, point)
+        super().mousePressEvent(event)
+
 
 class PreviewWidget(QScrollArea):
+    # Page number (from zero) and the point clicked, in PDF points.
+    clicked_at = Signal(int, float, float)
+
     def __init__(self, palette: Palette = LIGHT) -> None:
         super().__init__()
         self.setObjectName("Preview")
@@ -186,6 +201,10 @@ class PreviewWidget(QScrollArea):
             self._zoom = new_zoom
             self._rebuild()
 
+    def _page_clicked(self, index: int, point: QPoint) -> None:
+        """Rendered pixels back to the points the layout worked in."""
+        self.clicked_at.emit(index, point.x() / self._zoom, point.y() / self._zoom)
+
     def _rebuild(self) -> None:
         """Bring the page widgets up to date without ever emptying the canvas.
 
@@ -205,6 +224,7 @@ class PreviewWidget(QScrollArea):
                 page.set_image(image)
             for number in range(len(self._pages) + 1, len(images) + 1):
                 page = PageView(images[number - 1], number, self._palette)
+                page.clicked.connect(self._page_clicked)
                 self._pages.append(page)
                 self._layout.addWidget(page, 0, Qt.AlignHCenter)
             while len(self._pages) > len(images):

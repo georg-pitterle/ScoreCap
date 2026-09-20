@@ -212,3 +212,38 @@ def test_a_left_overhang_reaching_the_paper_edge_is_ignored():
     pages = paginate([(1000, 300)], SETTINGS, spans=[(300, 1000)])
     (placement,) = pages[0].placements
     assert placement.x == pytest.approx(SETTINGS.content_x_pt)
+
+
+# --- finding a capture under a point on the page -----------------------------
+
+
+def test_a_point_on_a_capture_names_it():
+    from scorecap.layout import Page, Placement, placement_at
+
+    page = Page(
+        placements=(
+            Placement(index=3, x=50.0, y=60.0, w=400.0, h=100.0),
+            Placement(index=4, x=50.0, y=180.0, w=400.0, h=100.0),
+        ),
+        scale=1.0,
+    )
+    assert placement_at(page, 60.0, 70.0) == 3
+    assert placement_at(page, 449.0, 279.0) == 4
+
+
+def test_a_point_beside_every_capture_names_none():
+    from scorecap.layout import Page, Placement, placement_at
+
+    page = Page(
+        placements=(Placement(index=0, x=50.0, y=60.0, w=400.0, h=100.0),),
+        scale=1.0,
+    )
+    assert placement_at(page, 20.0, 70.0) is None     # in the margin
+    assert placement_at(page, 60.0, 170.0) is None    # in the gap below
+    assert placement_at(page, 450.0, 60.0) is None    # just past the right edge
+
+
+def test_an_empty_page_names_none():
+    from scorecap.layout import Page, placement_at
+
+    assert placement_at(Page(placements=(), scale=1.0), 100.0, 100.0) is None
