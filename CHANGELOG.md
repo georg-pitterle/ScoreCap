@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/georg-pitterle/ScoreCap/compare/v0.6.0...v0.7.0) (2026-09-21)
+
+
+### Features
+
+* print scans with smooth edges in black and white and grey ([1858092](https://github.com/georg-pitterle/ScoreCap/commit/18580925bf082c88125ce4bd970c234807023b47))
+
 ## [0.6.0](https://github.com/georg-pitterle/ScoreCap/compare/v0.5.0...v0.6.0) (2026-09-20)
 
 
