@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.6.0](https://github.com/georg-pitterle/ScoreCap/compare/v0.5.0...v0.6.0) (2026-09-20)
+
+
+### Features
+
+* erase disturbing objects in the edit dialog ([41b0112](https://github.com/georg-pitterle/ScoreCap/commit/41b01127d02ab563219b48e5c9e7298e2e37bebe))
+* open the edit dialog with the eraser ([feef603](https://github.com/georg-pitterle/ScoreCap/commit/feef603780c1e4a0bf713a3ccdb1650cfd7b30c5))
+* pick a capture by clicking it in the preview ([922b638](https://github.com/georg-pitterle/ScoreCap/commit/922b638f5137b86b0860c21e0662afe5c04155d0))
+* recompute the crop after erasing ([5376728](https://github.com/georg-pitterle/ScoreCap/commit/5376728ad9efce0f8768e3aa39d45eb25428dce5))
+
+
+### Bug Fixes
+
+* survive an unusable hotkey and a busy session folder ([362577c](https://github.com/georg-pitterle/ScoreCap/commit/362577c16798800bbae4adf6b3b59bc640bc4bcf))
+
 ## [0.5.0](https://github.com/georg-pitterle/ScoreCap/compare/v0.4.0...v0.5.0) (2026-09-18)
 
 

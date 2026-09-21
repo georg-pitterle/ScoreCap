@@ -1,6 +1,6 @@
 [project]
 name = "scorecap"
-version = "0.5.0"
+version = "0.6.0"
 description = "Capture screen regions and tile them onto A4 pages as PDF"
 requires-python = ">=3.11"
 dependencies = [
