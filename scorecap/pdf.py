@@ -31,6 +31,8 @@ def _png_bytes(shot: Shot, settings: Settings) -> bytes:
 
     Scans are the exception: at scanner resolution black and white prints
     cleanly and makes the file far smaller, so the setting decides for them.
+    Either way they get their print finish here rather than on import, so a
+    project saved before a better finish still gets it.
     """
     with Image.open(shot.path) as image:
         image = image.convert("L")
@@ -38,8 +40,8 @@ def _png_bytes(shot: Shot, settings: Settings) -> bytes:
         image = erase(image, shot.erasures)
         if shot.crop is not None:
             image = image.crop(shot.crop)
-        if shot.scan and settings.scan_mode != "grey":
-            image = finish(image, "bw")
+        if shot.scan:
+            image = finish(image, settings.scan_mode)
         buffer = io.BytesIO()
         image.save(buffer, format="PNG")
     return buffer.getvalue()

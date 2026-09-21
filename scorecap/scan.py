@@ -45,7 +45,10 @@ BACKGROUND_SCALE = 16   # the paper is estimated on a much smaller copy
 LINE_SPAN = 0.4         # a staff line runs across at least this share of the page
 JOIN_COVER = 0.9        # a barline joining two staves is this unbroken
 WHITE_ROW = 1           # a row squashed to this or less holds no ink
-GREY_WHITE = 225        # in grey mode, anything this light becomes paper
+GREY_WHITE = 225        # on import, anything this light becomes paper
+SOFT_BELOW = 60         # grey print: this far below the threshold is solid ink
+SOFT_ABOVE = 30         # ... and this far above it is paper
+BW_SMOOTHING = 0.7      # blur radius at double size; irons out Lanczos ringing
 TRIM_THRESHOLD = 200    # ink for the crop around a system - specks stay out
 STRAIGHT_ENOUGH = 0.05  # degrees; smaller tilts are not worth resampling
 
@@ -239,15 +242,42 @@ def _otsu(grey: Image.Image) -> int:
     return threshold
 
 
+def _whitened(grey: Image.Image) -> Image.Image:
+    """Paper turned white, ink left as scanned: what a capture is kept as."""
+    return grey.point(
+        lambda value: 255 if value >= GREY_WHITE else round(value * 255 / GREY_WHITE)
+    )
+
+
+def _soft(grey: Image.Image, threshold: int) -> Image.Image:
+    """Paper white, ink black, and a narrow grey ramp at the edges between."""
+    low = max(0, threshold - SOFT_BELOW)
+    high = min(255, threshold + SOFT_ABOVE)
+
+    def ramp(value: int) -> int:
+        if value <= low:
+            return 0
+        if value >= high:
+            return 255
+        return round((value - low) * 255 / (high - low))
+
+    return grey.point(ramp)
+
+
 def finish(grey: Image.Image, mode: str) -> Image.Image:
-    """Final look: pure black and white (1 bit), or grey on white paper."""
-    if mode == "grey":
-        return grey.point(
-            lambda value: 255 if value >= GREY_WHITE else round(value * 255 / GREY_WHITE)
-        )
+    """Final look for print: black and white (1 bit), or grey with clean paper.
+
+    Black and white is thresholded at twice the scan's resolution: the grey
+    shades along an edge then decide where it runs to half a pixel, and
+    noteheads come out round instead of stepped.
+    """
     # A nearly empty page makes Otsu wander; keep it where ink plausibly ends.
     threshold = max(96, min(200, _otsu(grey)))
-    black_white = grey.point(lambda value: 255 if value > threshold else 0)
+    if mode == "grey":
+        return _soft(grey, threshold)
+    fine = grey.resize((grey.width * 2, grey.height * 2), Image.LANCZOS)
+    fine = fine.filter(ImageFilter.GaussianBlur(BW_SMOOTHING))
+    black_white = fine.point(lambda value: 255 if value > threshold else 0)
     return black_white.convert("1", dither=Image.Dither.NONE)
 
 
@@ -456,7 +486,7 @@ def process_page(image: Image.Image, target_dir: Path) -> PageResult:
         whole = (0, 0, grey.width, grey.height)
         if trim_box(grey, TRIM_THRESHOLD, 0) is None:
             return PageResult(shots=[], found_staves=False)
-        finished = finish(grey, "grey")
+        finished = _whitened(grey)
         return PageResult(
             shots=[_save(finished, _trimmed(finished, whole, 4), target_dir)],
             found_staves=False,
@@ -484,7 +514,7 @@ def process_page(image: Image.Image, target_dir: Path) -> PageResult:
                 content[2],
                 min(band.height, content[3] + shift),
             )
-        finished = finish(band, "grey")
+        finished = _whitened(band)
         shots.append(_save(finished, _trimmed(finished, content, padding), target_dir))
     return PageResult(shots=shots, found_staves=True)
 

@@ -99,7 +99,10 @@ ScoreCap bereinigt jede Seite und zerlegt sie in Systeme:
 Ein Import lässt sich mit einem `Strg+Z` zurücknehmen. Scans werden in
 Graustufen abgelegt; erst Vorschau und Export entscheiden nach der Einstellung
 *Scans drucken in*: *Schwarz/Weiß* (Standard) ergibt die kleinsten PDFs — bei
-sechs Seiten rund 0,5 statt 5 MB —, *Graustufen* glattere Kanten. Umstellen
+fünf Seiten rund 1,3 statt 2 MB — und wird auf doppelter Auflösung gerechnet,
+damit Notenköpfe rund statt treppig werden. *Graustufen* macht das Papier weiß
+und die Tinte satt und behält nur an den Kanten einen weichen Übergang; das
+glättet am meisten und rettet blasse Striche. Umstellen
 wirkt sofort, auch auf schon importierte und gespeicherte Scans;
 Bildschirmaufnahmen bleiben immer in Graustufen. Gebogene
 Linien einer stark gewölbten Buchseite werden nicht entzerrt; flach auflegen

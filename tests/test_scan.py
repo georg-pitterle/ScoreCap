@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pymupdf
 import pytest
-from PIL import Image, ImageDraw
+from PIL import Image, ImageChops, ImageDraw
 
 from scorecap.scan import (
     clear_edges,
@@ -212,13 +212,38 @@ def test_finish_black_and_white_is_one_bit():
     assert result.mode == "1"
 
 
-def test_finish_grey_keeps_grey_but_whitens_paper():
-    image = Image.new("L", (100, 100), 235)
-    ImageDraw.Draw(image).rectangle([10, 10, 20, 20], fill=120)
-    result = finish(image, "grey")
+def _notehead(scale: int) -> Image.Image:
+    """A slanted notehead on 60 x 40 pixels, drawn `scale` times as fine."""
+    image = Image.new("L", (60 * scale, 40 * scale), 255)
+    ImageDraw.Draw(image).ellipse(
+        [12 * scale, 13 * scale, 47 * scale, 28 * scale], fill=0
+    )
+    return image.rotate(-20, Image.BICUBIC, fillcolor=255)
+
+
+def _mismatch(image: Image.Image, ideal: Image.Image) -> int:
+    image = image.convert("L").resize(ideal.size, Image.NEAREST)
+    return sum(ImageChops.difference(image, ideal).histogram()[1:])
+
+
+def test_black_and_white_noteheads_are_rounder_than_the_scan_pixels():
+    fine = _notehead(8)
+    scanned = fine.resize((60, 40), Image.BOX)
+    ideal = fine.resize((240, 160), Image.BOX).point(lambda v: 255 if v > 128 else 0)
+    plain = scanned.point(lambda v: 255 if v > 128 else 0)
+    assert _mismatch(finish(scanned, "bw"), ideal) < _mismatch(plain, ideal) * 0.6
+
+
+def test_grey_scans_print_white_paper_solid_ink_and_soft_edges():
+    # Ink at 30 on paper at 230, as a scan leaves them.
+    scanned = _notehead(8).resize((60, 40), Image.BOX)
+    scanned = scanned.point(lambda v: 30 + v * 200 // 255)
+    result = finish(scanned, "grey")
     assert result.mode == "L"
-    assert result.getpixel((50, 50)) == 255
-    assert 100 < result.getpixel((15, 15)) < 160
+    assert result.getpixel((2, 2)) == 255
+    assert result.getpixel((30, 20)) == 0
+    edges = result.histogram()[1:255]
+    assert sum(edges) > 0
 
 
 def test_unknown_mode_falls_back_to_black_and_white():
