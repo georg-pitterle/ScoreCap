@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.8.0](https://github.com/georg-pitterle/ScoreCap/compare/v0.7.0...v0.8.0) (2026-09-22)
+
+
+### Features
+
+* correct a wrong system cut on the whole page ([94b7acf](https://github.com/georg-pitterle/ScoreCap/commit/94b7acf4e065b32c3270bc2cbbe77109bf15fd27))
+
+
+### Documentation
+
+* name the scores the MusicXML experiment measures ([1151e1d](https://github.com/georg-pitterle/ScoreCap/commit/1151e1d511abd8b50a773c2b088cbc25e0d29b70))
+* plan correcting a system cut on the whole page ([38ee2c0](https://github.com/georg-pitterle/ScoreCap/commit/38ee2c0363e47de0ba2515a3a7f12fb38ea35219))
+* plan the experiment that decides the MusicXML cut ([c28b880](https://github.com/georg-pitterle/ScoreCap/commit/c28b880f476073f410c07ef16304fecdd0ca228d))
+* plan the harness that measures the MusicXML cut ([a06068b](https://github.com/georg-pitterle/ScoreCap/commit/a06068b76eff956567aad7abe3f6108871e2b1b5))
+* plan the way back from a wrong system cut ([24bf361](https://github.com/georg-pitterle/ScoreCap/commit/24bf36143c32e1539c83a2f35f2567b9d500d14d))
+
 ## [0.7.0](https://github.com/georg-pitterle/ScoreCap/compare/v0.6.0...v0.7.0) (2026-09-21)
 
 
