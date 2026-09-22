@@ -29,14 +29,17 @@ Menüpunkt. Ergebnis ist eine Tabelle.
 
 ## Material
 
-Ein vierstimmiger Chorsatz aus MuseScore, ein bis zwei Seiten, daraus:
+Unter `assets/test_music_xml/`, nicht im Repo — die Noten gehören uns nicht.
 
-- **Vorlage:** das PDF aus MuseScore.
-- **Wahrheit:** MusicXML aus derselben Datei.
+| Datei | Rolle |
+|---|---|
+| `Earth Song.pdf` | gescannt, der Realfall, für den ScoreCap da ist |
+| `Earth_Song.mxl` | Wahrheit dazu |
+| `Dawn.pdf` | direkt aus MuseScore, sauberer Notensatz |
+| `Dawn.mxl` | Wahrheit dazu |
 
-Wenn greifbar zusätzlich derselbe Satz als echter Scan. Sauberer Notensatz und
-Scan antworten verschieden; wenn nur eines gemessen wird, dann der Scan, denn
-für ihn ist ScoreCap da.
+Beide werden gemessen: der Scan sagt, was die Funktion im Alltag leistet, der
+saubere Satz trennt Fehler der Vorlage von Fehlern der Erkennung.
 
 ## Varianten
 
