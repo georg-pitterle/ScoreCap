@@ -42,6 +42,20 @@ class Shot:
         return right - left, bottom - top
 
 
+@dataclass(frozen=True)
+class PageSource:
+    """The scanned page a capture was cut from, and where it sat on it.
+
+    A cut between two systems can fall in the wrong place, and the band the
+    import saved then holds half a system. The page is what the editing
+    dialog needs to take such a cut back; it lives only as long as the
+    session, so nothing of this is written to a project.
+    """
+
+    page: Shot
+    region: tuple[int, int, int, int]
+
+
 def normalize_move(src: int, dst: int) -> int:
     """Qt reports a drop index counted before removal; convert it to a list index."""
     return dst - 1 if dst > src else dst

@@ -7,6 +7,8 @@ file on disk: both are coordinates the export paints with.
 
 from __future__ import annotations
 
+import logging
+
 from PySide6.QtCore import QPoint, QRect, QSize, Qt, Signal
 from PySide6.QtGui import QColor, QGuiApplication, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import (
@@ -19,8 +21,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from .model import Shot
+from .model import PageSource, Shot
 from .theme import LIGHT, Palette
+
+log = logging.getLogger(__name__)
 
 DIM = QColor(0, 0, 0, 120)
 WHITE = QColor(255, 255, 255)
@@ -182,6 +186,20 @@ class _CropCanvas(QWidget):
     def reset(self) -> None:
         """Back to the whole image. The erasures are a separate decision."""
         self._crop = None
+        self.update()
+
+    def show_image(self, pixmap: QPixmap, crop: tuple[int, int, int, int]) -> None:
+        """A different image under the same dialog, with a crop to start on.
+
+        The erasures do not come along: they are rectangles in the pixels of
+        the image that is being left behind.
+        """
+        self._pixmap = pixmap
+        self._crop = crop
+        self._erasures = []
+        self._start = self._now = None
+        self._drag = None
+        self.erasures_changed.emit()
         self.update()
 
     def undo_erase(self) -> None:
@@ -357,9 +375,12 @@ class CropDialog(QDialog):
         shot: Shot,
         parent: QWidget | None = None,
         palette: Palette = LIGHT,
+        source: PageSource | None = None,
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle(self.tr("Edit"))
+        self._shot = shot
+        self._source = source
         self._canvas = _CropCanvas(
             QPixmap(str(shot.path)), shot.crop, shot.erasures, palette
         )
@@ -386,6 +407,15 @@ class CropDialog(QDialog):
         reset_button.setObjectName("Quiet")
         reset_button.setToolTip(self.tr("Discard the crop and use the whole image"))
         reset_button.clicked.connect(self.reset)
+        self.page_button = QPushButton(self.tr("Whole page"))
+        self.page_button.setObjectName("Quiet")
+        self.page_button.setEnabled(source is not None)
+        self.page_button.setToolTip(
+            self.tr("Show the whole scanned page, to take in a system cut apart")
+            if source is not None
+            else self.tr("The scanned page is kept only while the session lasts")
+        )
+        self.page_button.clicked.connect(self.show_page)
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         buttons.button(QDialogButtonBox.Ok).setText(self.tr("Apply"))
         buttons.button(QDialogButtonBox.Cancel).setText(self.tr("Cancel"))
@@ -400,6 +430,7 @@ class CropDialog(QDialog):
         tools.addStretch(1)
         row = QHBoxLayout()
         row.addWidget(reset_button)
+        row.addWidget(self.page_button)
         row.addStretch(1)
         row.addWidget(buttons)
         layout = QVBoxLayout(self)
@@ -439,8 +470,29 @@ class CropDialog(QDialog):
         self._canvas.set_mode(mode)
         self._update_actions()
 
+    @property
+    def shot(self) -> Shot:
+        """The capture the crop and the erasures belong to."""
+        return self._shot
+
     def reset(self) -> None:
         self._canvas.reset()
+
+    def show_page(self) -> None:
+        """Swap the band for the page it was cut from. Cancelling goes back."""
+        if self._source is None:
+            return
+        pixmap = QPixmap(str(self._source.page.path))
+        if pixmap.isNull():  # the session folder was cleared under us
+            log.info("the scanned page is gone: %s", self._source.page.path)
+            self._source = None
+            self.page_button.setEnabled(False)
+            return
+        self._canvas.show_image(pixmap, self._source.region)
+        self._shot = self._source.page
+        self._source = None
+        self.page_button.setEnabled(False)
+        self._update_actions()
 
     def undo_erase(self) -> None:
         self._canvas.undo_erase()

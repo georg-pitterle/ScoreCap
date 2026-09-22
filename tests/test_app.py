@@ -150,8 +150,9 @@ def test_double_clicking_a_shot_opens_the_edit_dialog_for_it(tmp_path, qapp, mon
     opened = []
 
     class FakeDialog:
-        def __init__(self, shot, parent, palette):
+        def __init__(self, shot, parent, palette, source=None):
             opened.append(shot)
+            self.shot = shot
             self.crop = (0, 0, 500, 250)
             self.erasures = ((10, 10, 40, 40),)
 
@@ -255,7 +256,8 @@ def page_with_a_number(tmp_path: Path) -> Shot:
 
 def _dialog_returning(crop, erasures):
     class FakeDialog:
-        def __init__(self, shot, parent, palette):
+        def __init__(self, shot, parent, palette, source=None):
+            self.shot = shot
             self.crop = shot.crop if crop == "unchanged" else crop
             self.erasures = erasures
 

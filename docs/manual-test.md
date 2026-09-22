@@ -145,6 +145,13 @@ Partitur ist geöffnet.
    schließen.
    Erwartet: schließt nach höchstens einer Seite, keine Fehlermeldung, `%TEMP%`
    aufgeräumt.
+9. **Falscher Systemschnitt.** `assets/test_music_xml/Earth Song.pdf`
+   importieren; auf Seite 1 zerfällt das erste System in Sopran/Alt und
+   Tenor/Bass. Erste Aufnahme *Bearbeiten*, *Ganze Seite*, auf *Zuschneiden*
+   schalten, Unterkante über Tenor und Bass ziehen, übernehmen, die zweite
+   Aufnahme löschen.
+   Erwartet: die Vorschau zeigt das System vollständig und in einem Stück.
+   Danach dieselbe Aufnahme erneut bearbeiten: *Ganze Seite* ist grau.
 
 ## Sprache
 

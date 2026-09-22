@@ -53,7 +53,13 @@ def test_the_dialog_speaks_german(tmp_path, qapp, german):
     Image.new("RGB", (200, 100), (0, 0, 0)).save(path)
     dialog = CropDialog(Shot(path=path, width=200, height=100))
     labels = {b.text() for b in dialog.findChildren(QPushButton)}
-    assert {"Abbrechen", "Übernehmen", "Zuschneiden", "Radierer"} <= labels
+    assert {
+        "Abbrechen",
+        "Übernehmen",
+        "Zuschneiden",
+        "Radierer",
+        "Ganze Seite",
+    } <= labels
     assert not any(label in {"Cancel", "OK"} for label in labels)
 
 
@@ -224,3 +230,92 @@ def test_the_canvas_draws_the_erasures_white(tmp_path, qapp):
     image = canvas.grab().toImage()
     middle = canvas._box_rect(canvas._display(), dialog.erasures[0]).center()
     assert image.pixelColor(middle).name() == "#ffffff"
+
+
+# --- going back to the whole page -------------------------------------------
+
+
+def system_and_page(tmp_path):
+    """A band the import saved, and the page it was cut from."""
+    from scorecap.model import PageSource
+
+    whole = Image.new("L", (200, 400), 255)
+    page_path = tmp_path / "page.png"
+    whole.save(page_path)
+    band_path = tmp_path / "band.png"
+    whole.crop((0, 0, 200, 100)).save(band_path)
+    band = Shot(
+        path=band_path,
+        width=200,
+        height=100,
+        crop=(10, 10, 190, 90),
+        scan=True,
+        erasures=((20, 20, 40, 40),),
+    )
+    source = PageSource(
+        page=Shot(path=page_path, width=200, height=400, scan=True),
+        region=(10, 10, 190, 90),
+    )
+    return band, source
+
+
+def test_a_capture_without_a_page_stays_on_its_own_image(tmp_path, qapp):
+    from scorecap.cropdialog import CropDialog
+
+    band, _ = system_and_page(tmp_path)
+    dialog = CropDialog(band)
+    assert not dialog.page_button.isEnabled()
+    dialog.show_page()
+    assert dialog.shot.path == band.path
+    assert dialog.crop == (10, 10, 190, 90)
+
+
+def test_the_page_opens_on_the_system_that_was_cut_from_it(tmp_path, qapp):
+    from scorecap.cropdialog import CropDialog
+
+    band, source = system_and_page(tmp_path)
+    dialog = CropDialog(band, source=source)
+    assert dialog.page_button.isEnabled()
+    dialog.show_page()
+    assert dialog.shot.path == source.page.path
+    assert dialog.crop == source.region
+    assert not dialog.page_button.isEnabled()  # one way; cancelling goes back
+
+
+def test_the_erasures_of_the_band_do_not_follow_onto_the_page(tmp_path, qapp):
+    """They sit in the band's pixels, and the band was straightened alone."""
+    from scorecap.cropdialog import CropDialog
+
+    band, source = system_and_page(tmp_path)
+    dialog = CropDialog(band, source=source)
+    dialog.show_page()
+    assert dialog.erasures == ()
+
+
+def test_on_the_page_the_crop_can_take_in_what_lies_below(tmp_path, qapp):
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+
+    from scorecap.cropdialog import CropDialog
+
+    band, source = system_and_page(tmp_path)
+    dialog = CropDialog(band, source=source)
+    dialog.show_page()
+    dialog.set_mode("crop")
+    canvas = dialog._canvas
+    canvas.resize(480, 960)  # 2.4 widget pixels per image pixel
+    QTest.mousePress(canvas, Qt.LeftButton, pos=QPoint(240, 216))  # bottom edge
+    QTest.mouseMove(canvas, QPoint(240, 720))
+    QTest.mouseRelease(canvas, Qt.LeftButton, pos=QPoint(240, 720))
+    assert dialog.crop == (10, 10, 190, 300)
+
+
+def test_a_vanished_page_takes_the_way_back_with_it(tmp_path, qapp):
+    from scorecap.cropdialog import CropDialog
+
+    band, source = system_and_page(tmp_path)
+    source.page.path.unlink()
+    dialog = CropDialog(band, source=source)
+    dialog.show_page()
+    assert dialog.shot.path == band.path
+    assert not dialog.page_button.isEnabled()

@@ -39,7 +39,7 @@ from .cropdialog import CropDialog
 from .hotkey import HotkeyFilter
 from .layout import Page, paginate, placement_at
 from .optimize import OptimizeResult, optimize_pdf
-from .model import Document, Shot, normalize_move
+from .model import Document, PageSource, Shot, normalize_move
 from .preview import PreviewWidget
 from .project import SUFFIX, load_project, save_project
 from .projectui import ask_save_changes, project_filter
@@ -137,6 +137,9 @@ class MainWindow(QMainWindow):
         self._pages: list[Page] = []
         self._usable_rows: list[int] = []
         self._temp_dir = Path(tempfile.mkdtemp(prefix="scorecap-"))
+        # Which page each imported system was cut from. Not saved: a project
+        # keeps captures, not the scans behind them.
+        self._scan_sources: dict[Path, PageSource] = {}
         self._pending_replace: int | None = None
         self._scan_task: ScanImport | None = None
         self._capturing = False
@@ -644,6 +647,7 @@ class MainWindow(QMainWindow):
     def _on_scans_imported(self, result: ImportResult) -> None:
         self._scan_task = None
         self.scan_button.setEnabled(True)
+        self._scan_sources.update(result.sources)
         if result.shots:
             self.document.extend(result.shots)
             self.rebuild()
@@ -802,16 +806,24 @@ class MainWindow(QMainWindow):
         shot = self.document.shots[index]
         if not shot.path.exists():
             return  # nothing to show; the list already says the file is gone
-        dialog = CropDialog(shot, self, self.palette_tokens)
+        dialog = CropDialog(
+            shot, self, self.palette_tokens, self._scan_sources.get(shot.path)
+        )
         if not dialog.exec():
             return
+        base = dialog.shot
         crop = dialog.crop
-        if dialog.erasures != shot.erasures:
+        if dialog.erasures != base.erasures:
             # Fresh white at an edge is white margin; let the crop close in.
             crop = crop_after_erasing(
-                replace(shot, crop=crop, erasures=dialog.erasures), self.settings
+                replace(base, crop=crop, erasures=dialog.erasures), self.settings
             )
-        self.document.set_edits(index, crop, dialog.erasures)
+        if base.path == shot.path:
+            self.document.set_edits(index, crop, dialog.erasures)
+        else:
+            self.document.replace_shot(
+                index, replace(base, crop=crop, erasures=dialog.erasures)
+            )
         self.rebuild()
 
     def delete_selected(self) -> None:
@@ -969,6 +981,7 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, self.tr("Opening failed"), str(error))
             return
         self.document.replace_all(shots)
+        self._scan_sources.clear()
         self._project_path = path
         self._saved_revision = self.document.revision
         self._remember_folder("project", path)

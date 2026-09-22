@@ -40,6 +40,18 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Whole page</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Show the whole scanned page, to take in a system cut apart</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The scanned page is kept only while the session lasts</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Apply</source>
         <translation type="unfinished"></translation>
     </message>

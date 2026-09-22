@@ -46,6 +46,26 @@ Aufnahme; käme ein Überstand näher als 3 mm an die Blattkante, gilt das für
 diese Seite. Stimmnamen vor dem ersten System sind dafür meist zu breit — es
 bleibt dann eingerückt, wie im Notensatz. Abschaltbar in den Einstellungen.
 
+## Ein falscher Systemschnitt
+
+Geschnitten wird zwischen zwei Notenzeilen, die keine Taktlinie verbindet. Ist
+diese Taktlinie im Scan unterbrochen, fällt ein vierstimmiges System in zwei
+Hälften, und die Aufnahme hält nur Sopran und Alt.
+
+Der Import hebt deshalb die gereinigte, geradegestellte Seite als eigenes Bild
+auf und merkt sich zu jeder Aufnahme, wo auf dieser Seite ihr System stand. Im
+Bearbeiten-Dialog führt **Ganze Seite** dorthin zurück: der Zuschnitt läuft dann
+über die Seite und kann das abgetrennte Nachbarsystem wieder einsammeln; die
+überzählige Aufnahme löscht der Nutzer.
+
+Die Radierungen der Aufnahme bleiben dabei zurück — sie sitzen in den Pixeln des
+Bandes, das für sich noch einmal geradegestellt wurde, und träfen auf der Seite
+daneben. Rückgängig holt beides zurück.
+
+Die Seite lebt nur, solange die Sitzung läuft: im Projekt stehen Aufnahmen,
+nicht die Scans dahinter. Nach dem Öffnen eines gespeicherten Projekts ist der
+Knopf grau.
+
 ## Dateigröße
 
 Aufnahmen landen in Graustufen und verlustfrei komprimiert im PDF: neun Seiten

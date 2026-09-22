@@ -40,6 +40,18 @@
         <translation>Zuschnitt verwerfen und das ganze Bild verwenden</translation>
     </message>
     <message>
+        <source>Whole page</source>
+        <translation>Ganze Seite</translation>
+    </message>
+    <message>
+        <source>Show the whole scanned page, to take in a system cut apart</source>
+        <translation>Die ganze gescannte Seite zeigen, um ein zerschnittenes System wieder einzufangen</translation>
+    </message>
+    <message>
+        <source>The scanned page is kept only while the session lasts</source>
+        <translation>Die gescannte Seite bleibt nur, solange die Sitzung läuft</translation>
+    </message>
+    <message>
         <source>Apply</source>
         <translation>Übernehmen</translation>
     </message>

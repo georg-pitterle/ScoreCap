@@ -21,7 +21,7 @@ from __future__ import annotations
 import math
 import statistics
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Iterator, Sequence
 
@@ -30,7 +30,7 @@ from PySide6.QtCore import QCoreApplication
 from PIL import Image, ImageDraw, ImageFilter, ImageMath, ImageOps, ImageSequence
 
 from .ink import DARK, Line, binary, columns, rows, staff_lines
-from .model import Shot
+from .model import PageSource, Shot
 from .trim import trim_box, trim_within
 
 SCAN_DPI = 300
@@ -65,6 +65,8 @@ class System:
 class PageResult:
     shots: list[Shot]
     found_staves: bool
+    # Where each shot came from, so a cut between systems can be taken back.
+    sources: dict[Path, PageSource] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -76,6 +78,7 @@ class ImportResult:
     whole: list[str]    # no staves found - kept as one capture
     blank: list[str]    # nothing on it - skipped
     errors: list[str]
+    sources: dict[Path, PageSource] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -492,7 +495,11 @@ def process_page(image: Image.Image, target_dir: Path) -> PageResult:
             found_staves=False,
         )
 
+    # The page needs no cleaning of its own: _whitened works pixel by pixel,
+    # so a band's pixels on the page are the band's pixels.
+    whole_page = _save(_whitened(grey), (0, 0, grey.width, grey.height), target_dir)
     shots = []
+    sources = {}
     for system in systems:
         band_left, band_top = system.band[:2]
         band = grey.crop(system.band)
@@ -515,8 +522,10 @@ def process_page(image: Image.Image, target_dir: Path) -> PageResult:
                 min(band.height, content[3] + shift),
             )
         finished = _whitened(band)
-        shots.append(_save(finished, _trimmed(finished, content, padding), target_dir))
-    return PageResult(shots=shots, found_staves=True)
+        shot = _save(finished, _trimmed(finished, content, padding), target_dir)
+        shots.append(shot)
+        sources[shot.path] = PageSource(page=whole_page, region=system.content)
+    return PageResult(shots=shots, found_staves=True, sources=sources)
 
 
 def import_scans(
@@ -532,11 +541,12 @@ def import_scans(
     whole: list[str] = []
     blank: list[str] = []
     errors: list[str] = []
+    sources: dict[Path, PageSource] = {}
     for path in paths:
         try:
             for number, image in enumerate(load_pages(path), start=1):
                 if cancelled():
-                    return ImportResult(shots, pages, whole, blank, errors)
+                    return ImportResult(shots, pages, whole, blank, errors, sources)
                 label = QCoreApplication.translate("scan", "{name}, page {number}").format(
                     name=path.name, number=number
                 )
@@ -544,6 +554,7 @@ def import_scans(
                 result = process_page(image, target_dir)
                 pages += 1
                 shots.extend(result.shots)
+                sources.update(result.sources)
                 if not result.shots:
                     blank.append(label)
                 elif not result.found_staves:
@@ -552,4 +563,4 @@ def import_scans(
             errors.append(str(error))
         except (OSError, Image.DecompressionBombError) as error:
             errors.append(f"{path.name}: {error}")
-    return ImportResult(shots, pages, whole, blank, errors)
+    return ImportResult(shots, pages, whole, blank, errors, sources)

@@ -271,6 +271,37 @@ def test_process_page_makes_one_straight_shot_per_system(tmp_path):
         assert horizontal_line_sharpness(system) >= 5 * staves
 
 
+def test_every_system_can_be_found_again_on_the_page_it_came_from(tmp_path):
+    image, _ = page([1, 2, 1], lyrics=True)
+    scan = shadowed(image).rotate(1.2, Image.BICUBIC, fillcolor=200)
+    result = process_page(scan, tmp_path)
+    for number, shot in enumerate(result.shots):
+        source = result.sources[shot.path]
+        with Image.open(source.page.path) as whole:
+            assert whole.size == (source.page.width, source.page.height)
+            system = whole.crop(source.region)
+        staves = 2 if number == 1 else 1
+        assert horizontal_line_sharpness(system) >= 5 * staves
+
+
+def test_the_page_reaches_past_the_system_to_its_neighbour(tmp_path):
+    """The point of keeping it: a cut that fell wrong can be taken back."""
+    image, _ = page([1, 1])
+    result = process_page(image, tmp_path)
+    first, second = (result.sources[shot.path] for shot in result.shots)
+    assert first.page.path == second.page.path
+    with Image.open(first.page.path) as whole:
+        both = whole.crop((0, first.region[1], whole.width, second.region[3]))
+    assert horizontal_line_sharpness(both) >= 10
+
+
+def test_a_page_without_staves_has_nothing_to_go_back_to(tmp_path):
+    image = Image.new("L", (WIDTH, HEIGHT), 255)
+    ImageDraw.Draw(image).rectangle([100, 100, 800, 200], fill=0)
+    result = process_page(image, tmp_path)
+    assert result.sources == {}
+
+
 def test_process_page_keeps_a_page_without_staves_whole(tmp_path):
     image = Image.new("L", (WIDTH, HEIGHT), 255)
     ImageDraw.Draw(image).rectangle([100, 100, 800, 200], fill=0)
@@ -341,6 +372,14 @@ def test_import_scans_collects_shots_and_reports_odd_pages(tmp_path):
     assert result.blank == ["scan.tif, page 3"]
     assert len(result.errors) == 1 and "broken.png" in result.errors[0]
     assert messages and "scan.tif" in messages[0]
+
+
+def test_import_scans_remembers_the_page_behind_every_system(tmp_path):
+    image, _ = page([1, 1])
+    path = tmp_path / "scan.png"
+    image.save(path)
+    result = import_scans([path], tmp_path / "out")
+    assert {shot.path for shot in result.shots} == set(result.sources)
 
 
 def test_import_scans_stops_when_cancelled(tmp_path):
