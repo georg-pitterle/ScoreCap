@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0](https://github.com/georg-pitterle/ScoreCap/compare/v0.8.0...v0.9.0) (2026-09-23)
+
+
+### Features
+
+* export a score as MusicXML for practising a voice ([acc13f4](https://github.com/georg-pitterle/ScoreCap/commit/acc13f4c7eb52c0cd2ba417973f9f5472ed0bbc0))
+
 ## [0.8.0](https://github.com/georg-pitterle/ScoreCap/compare/v0.7.0...v0.8.0) (2026-09-22)
 
 
