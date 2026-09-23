@@ -152,6 +152,11 @@ Partitur ist geöffnet.
    Aufnahme löschen.
    Erwartet: die Vorschau zeigt das System vollständig und in einem Stück.
    Danach dieselbe Aufnahme erneut bearbeiten: *Ganze Seite* ist grau.
+10. **MusicXML.** Dasselbe Heft mit geradem Schnitt, dann *Als MusicXML
+    exportieren …*, Datei in MuseScore öffnen.
+    Erwartet: vier Stimmen, S/A/T/B benannt, der Tenor klingt in seiner Lage
+    und nicht eine Oktave zu hoch. Ohne installiertes Audiveris erscheint
+    stattdessen ein Hinweis mit Link, und es entsteht keine Datei.
 
 ## Sprache
 

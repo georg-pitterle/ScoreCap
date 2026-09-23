@@ -16,6 +16,7 @@ from typing import Sequence
 
 from PySide6.QtCore import QCoreApplication, QObject, QRunnable, Signal
 
+from . import omr
 from .scan import ImportResult, import_scans
 from .updater import PendingUpdate, UpdateService
 
@@ -31,6 +32,12 @@ class UpdateSignals(QObject):
 class ScanSignals(QObject):
     progress = Signal(str)
     done = Signal(object)
+    finished = Signal()
+
+
+class MusicXmlSignals(QObject):
+    progress = Signal(int, int)   # the page reached, and how many there are
+    done = Signal(object)   # the written Path, or the Exception that stopped it
     finished = Signal()
 
 
@@ -160,3 +167,50 @@ class ScanImport(BackgroundTask):
         self.stopped.set()
         log.info("scan import finished: %d shot(s)", len(result.shots))
         emit(self.signals.done, result)
+
+
+class MusicXmlExport(BackgroundTask):
+    """Hands a rendered score to Audiveris without freezing the window."""
+
+    def __init__(
+        self,
+        source: Path,
+        target: Path,
+        work_dir: Path,
+        signals: MusicXmlSignals,
+        run=omr.run_audiveris,
+    ) -> None:
+        super().__init__(signals)
+        self._source = source
+        self._target = target
+        self._work_dir = work_dir
+        self._run = run
+        self._cancelled = threading.Event()
+
+    def cancel(self) -> None:
+        self._cancelled.set()
+
+    def _work(self) -> None:
+        try:
+            written = omr.transcribe(
+                self._source,
+                self._target,
+                self._work_dir,
+                run=self._run,
+                cancelled=self._cancelled.is_set,
+                progress=lambda done, total: emit(
+                    self.signals.progress, done, total
+                ),
+            )
+        except (
+            omr.AudiverisMissing,
+            omr.NothingFound,
+            omr.Cancelled,
+            OSError,
+        ) as error:
+            emit(self.signals.done, error)
+            return
+        emit(self.signals.done, written)
+
+    def _failed(self) -> None:
+        emit(self.signals.done, RuntimeError("the transcription crashed"))

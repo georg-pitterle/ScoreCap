@@ -155,6 +155,14 @@ Press {hotkey}, then drag out the area.</source>
         <translation>Aufnahmen</translation>
     </message>
     <message>
+        <source>Export as MusicXML …</source>
+        <translation>Als MusicXML exportieren …</translation>
+    </message>
+    <message>
+        <source>Transcribe the score with Audiveris, for playing it back elsewhere</source>
+        <translation>Die Noten von Audiveris erkennen lassen, um sie anderswo abzuspielen</translation>
+    </message>
+    <message>
         <source>No capture yet</source>
         <translation>Noch keine Aufnahme</translation>
     </message>
@@ -314,6 +322,10 @@ Press {hotkey}, then drag out the area.</source>
         </translation>
     </message>
     <message>
+        <source>Transcribing with Audiveris — this takes a while …</source>
+        <translation>Wird mit Audiveris übertragen — das dauert …</translation>
+    </message>
+    <message>
         <source>Unsaved captures</source>
         <translation>Ungespeicherte Aufnahmen</translation>
     </message>
@@ -364,6 +376,42 @@ Press {hotkey}, then drag out the area.</source>
     <message>
         <source>score</source>
         <translation>noten</translation>
+    </message>
+    <message>
+        <source>Save as MusicXML</source>
+        <translation>Als MusicXML speichern</translation>
+    </message>
+    <message>
+        <source>MusicXML (*.musicxml)</source>
+        <translation>MusicXML (*.musicxml)</translation>
+    </message>
+    <message>
+        <source>Reading page {page} of {total} with Audiveris …</source>
+        <translation>Audiveris liest Seite {page} von {total} …</translation>
+    </message>
+    <message>
+        <source>Reading page {page} with Audiveris …</source>
+        <translation>Audiveris liest Seite {page} …</translation>
+    </message>
+    <message>
+        <source>Audiveris is needed for this</source>
+        <translation>Dafür wird Audiveris gebraucht</translation>
+    </message>
+    <message>
+        <source>ScoreCap has the pages; reading the notes off them is done by Audiveris, a separate free program. Install it from {url} and try again.</source>
+        <translation>ScoreCap hat die Seiten; die Noten daraus liest Audiveris, ein eigenes freies Programm. Von {url} installieren und es noch einmal versuchen.</translation>
+    </message>
+    <message>
+        <source>Transcription cancelled</source>
+        <translation>Übertragung abgebrochen</translation>
+    </message>
+    <message>
+        <source>Transcription failed</source>
+        <translation>Übertragung fehlgeschlagen</translation>
+    </message>
+    <message>
+        <source>Transcribed: {name}</source>
+        <translation>Übertragen: {name}</translation>
     </message>
     <message>
         <source>Save as PDF</source>

@@ -20,6 +20,7 @@
 | `theme.py`, `icons.py` | Farb- und Schrift-Tokens, Symbole |
 | `i18n.py`, `translations/` | Sprache wählen, Übersetzungen laden |
 | `optimize.py` | vorhandene PDFs verkleinern |
+| `omr.py` | Noten erkennen lassen und als MusicXML schreiben |
 | `project.py` | Projekte als `.scorecap` speichern und öffnen |
 | `updater.py` | Selbst-Update über die GitHub-Releases |
 | `app.py` | Hauptfenster, verdrahtet alles |

@@ -33,7 +33,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from . import icons, pdf
+from . import icons, omr, pdf
 from .capture import SelectionOverlay, grab
 from .cropdialog import CropDialog
 from .hotkey import HotkeyFilter
@@ -49,6 +49,8 @@ from .settingsdialog import SettingsDialog, load_settings, save_settings
 from .shotlist import ShotList, row_data
 from .staff import staff_extent_of
 from .tasks import (
+    MusicXmlExport,
+    MusicXmlSignals,
     BackgroundTask,
     ScanImport,
     ScanSignals,
@@ -142,6 +144,7 @@ class MainWindow(QMainWindow):
         self._scan_sources: dict[Path, PageSource] = {}
         self._pending_replace: int | None = None
         self._scan_task: ScanImport | None = None
+        self._musicxml_task: MusicXmlExport | None = None
         self._capturing = False
         self._project_path: Path | None = None
         self._saved_revision = self.document.revision
@@ -229,6 +232,15 @@ class MainWindow(QMainWindow):
             self.tr("Shrink an existing PDF; the original stays unchanged")
         )
         self.shrink_button.clicked.connect(self.shrink_pdf)
+        self.musicxml_button = self._button(
+            self.tr("Export as MusicXML …"), icons.MUSICXML
+        )
+        self.musicxml_button.setToolTip(
+            self.tr(
+                "Transcribe the score with Audiveris, for playing it back elsewhere"
+            )
+        )
+        self.musicxml_button.clicked.connect(self.export_musicxml)
 
         toolbar = QWidget()
         toolbar.setObjectName("Toolbar")
@@ -245,6 +257,7 @@ class MainWindow(QMainWindow):
         bar.addWidget(self.save_button)
         bar.addSpacing(8)
         bar.addWidget(self.shrink_button)
+        bar.addWidget(self.musicxml_button)
         bar.addWidget(self.settings_button)
 
         self.shot_list = ShotList(self.palette_tokens)
@@ -473,6 +486,7 @@ class MainWindow(QMainWindow):
         self._pdf_bytes = pdf.build(ready.shots, pages, self.settings)
         self.preview.set_pdf(self._pdf_bytes)
         self.export_button.setEnabled(bool(pages))
+        self.musicxml_button.setEnabled(bool(pages) and self._musicxml_task is None)
         self._refresh_list(shots, set(ready.missing))
         text = self.tr("{captures}, {pages}").format(
             captures=self.tr("%n capture(s)", "", len(shots)),
@@ -987,6 +1001,97 @@ class MainWindow(QMainWindow):
         self._remember_folder("project", path)
         self.rebuild()
         self.status.setText(self.tr("Opened: {name}").format(name=path.name))
+
+    def musicxml_source(self) -> Path:
+        """The score as Audiveris reads it best: grey, and without a footer.
+
+        Grey beat black and white in every voice that was measured, and the
+        footer sits where lyrics otherwise are. The print settings belong to
+        the printer, not to the transcription.
+        """
+        settings = replace(self.settings, scan_mode="grey", footer_enabled=False)
+        ready = usable_shots(self.document.shots)
+        spans = (
+            [staff_extent_of(s) for s in ready.shots]
+            if settings.align_staff_ends
+            else None
+        )
+        pages = paginate([s.effective_size for s in ready.shots], settings, spans)
+        source = self._temp_dir / "for-audiveris.pdf"
+        source.write_bytes(pdf.build(ready.shots, pages, settings))
+        return source
+
+    @property
+    def is_transcribing(self) -> bool:
+        return self._musicxml_task is not None
+
+    def export_musicxml_to(self, path: Path, run=omr.run_audiveris) -> None:
+        """Start the transcription; the result arrives in _on_musicxml_done."""
+        if self._musicxml_task is not None:
+            return
+        signals = MusicXmlSignals(self)
+        signals.progress.connect(self._on_musicxml_progress)
+        signals.done.connect(self._on_musicxml_done)
+        self._musicxml_task = self._track(
+            MusicXmlExport(
+                self.musicxml_source(),
+                path,
+                self._temp_dir / "audiveris",
+                signals,
+                run=run,
+            )
+        )
+        self.musicxml_button.setEnabled(False)
+        self.status.setText(
+            self.tr("Transcribing with Audiveris — this takes a while …")
+        )
+        QThreadPool.globalInstance().start(self._musicxml_task)
+
+    def export_musicxml(self) -> None:
+        stem = self._project_path.stem if self._project_path else self.tr("score")
+        folder = self._last_folder("musicxml") or (
+            str(self._project_path.parent) if self._project_path else ""
+        )
+        name, _ = QFileDialog.getSaveFileName(
+            self,
+            self.tr("Save as MusicXML"),
+            str(Path(folder) / f"{stem}.musicxml"),
+            self.tr("MusicXML (*.musicxml)"),
+        )
+        if name:
+            self._remember_folder("musicxml", Path(name))
+            self.export_musicxml_to(Path(name))
+
+    def _on_musicxml_progress(self, page: int, total: int) -> None:
+        """Audiveris reached a new page. Before it says how many there are,
+        the count is 0 and only the page number is worth showing."""
+        if total:
+            text = self.tr("Reading page {page} of {total} with Audiveris …")
+        else:
+            text = self.tr("Reading page {page} with Audiveris …")
+        self.status.setText(text.format(page=page, total=total))
+
+    def _on_musicxml_done(self, outcome) -> None:
+        self._musicxml_task = None
+        self.musicxml_button.setEnabled(True)
+        if isinstance(outcome, omr.AudiverisMissing):
+            QMessageBox.information(
+                self,
+                self.tr("Audiveris is needed for this"),
+                self.tr(
+                    "ScoreCap has the pages; reading the notes off them is done by "
+                    "Audiveris, a separate free program. Install it from {url} and "
+                    "try again."
+                ).format(url=omr.DOWNLOAD_URL),
+            )
+            return
+        if isinstance(outcome, omr.Cancelled):
+            self.status.setText(self.tr("Transcription cancelled"))
+            return
+        if isinstance(outcome, Exception):
+            QMessageBox.critical(self, self.tr("Transcription failed"), str(outcome))
+            return
+        self.status.setText(self.tr("Transcribed: {name}").format(name=outcome.name))
 
     def export_to(self, path: Path) -> None:
         path.write_bytes(self._pdf_bytes)

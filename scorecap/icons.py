@@ -25,6 +25,7 @@ EXPORT = "\ue749"       # printer
 OPEN = "\ue838"         # open folder
 SAVE = "\ue74e"         # floppy disk
 SHRINK = "\ue73f"       # arrows pointing inward
+MUSICXML = "\ue8d6"     # quarter note
 UNDO = "\ue7a7"
 ZOOM_FIT = "\ue9a6"
 ZOOM_IN = "\ue8a3"

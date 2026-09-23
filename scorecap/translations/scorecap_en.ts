@@ -153,6 +153,14 @@ Press {hotkey}, then drag out the area.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Export as MusicXML …</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Transcribe the score with Audiveris, for playing it back elsewhere</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>No capture yet</source>
         <translation type="unfinished"></translation>
     </message>
@@ -312,6 +320,10 @@ Press {hotkey}, then drag out the area.</source>
         </translation>
     </message>
     <message>
+        <source>Transcribing with Audiveris — this takes a while …</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Unsaved captures</source>
         <translation type="unfinished"></translation>
     </message>
@@ -361,6 +373,42 @@ Press {hotkey}, then drag out the area.</source>
     </message>
     <message>
         <source>score</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Save as MusicXML</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>MusicXML (*.musicxml)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Reading page {page} of {total} with Audiveris …</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Reading page {page} with Audiveris …</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Audiveris is needed for this</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>ScoreCap has the pages; reading the notes off them is done by Audiveris, a separate free program. Install it from {url} and try again.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Transcription cancelled</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Transcription failed</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Transcribed: {name}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

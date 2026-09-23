@@ -11,3 +11,6 @@ Releases/
 selftest.txt
 # Test material for the OMR experiment: not ours to redistribute.
 assets/test_music_xml/
+
+# The OMR measuring harness is scratch work.
+lab/

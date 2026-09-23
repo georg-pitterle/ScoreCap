@@ -108,6 +108,38 @@ Bildschirmaufnahmen bleiben immer in Graustufen. Gebogene
 Linien einer stark gewölbten Buchseite werden nicht entzerrt; flach auflegen
 hilft.
 
+## Als MusicXML exportieren
+
+Wer eine Stimme zum Üben hören will, braucht sie als Datei: *Als MusicXML
+exportieren …* liest die Noten aus dem Heft und schreibt sie als
+`.musicxml`, das MuseScore und die üblichen Tablet-Apps öffnen und abspielen.
+
+Die Erkennung übernimmt [Audiveris](https://github.com/Audiveris/audiveris/releases),
+ein eigenes freies Programm; ScoreCap liefert es nicht mit. Fehlt es, sagt
+ScoreCap beim Druck auf den Knopf, was zu tun ist.
+
+Gemessen wurden 85 bis 100 % der Töne und Notenwerte je Stimme — genug zum
+Üben, nicht genug zum blinden Vertrauen. Gerechnet wird eine Weile — rund
+fünfzehn Sekunden je Seite —; die Statuszeile zählt die Seiten mit, und das
+Fenster bleibt bedienbar. Mehrere Stücke in einem Heft werden eine
+durchlaufende Partitur.
+
+**In der Datei steht nur, was klingt.** Tonhöhen, Notenwerte, Pausen,
+Haltebögen, Triolen, Wiederholungen und Tempo — und sonst nichts. Liedtext,
+Akkordsymbole, Dynamik, Artikulation, Halsrichtungen und Seitenumbrüche bleiben
+draußen: sie tragen zum Klang nichts bei, und die Erkennung hat sie am
+häufigsten falsch. Bei `Earth Song` halbiert das die Datei von 472 auf 225 KB,
+ohne einen einzigen Ton zu ändern. Wer die Noten lesen will, liest sie im
+PDF-Export.
+
+**Vorher die Systemschnitte prüfen.** Audiveris legt die Zahl der Stimmen am
+ersten System fest. Ist dort ein vierstimmiges System in zwei Hälften
+zerschnitten, bekommt die ganze Datei zwei Stimmen statt vier, und die Noten
+landen in den falschen. Ein solcher Schnitt ist im Bearbeiten-Dialog mit
+*Ganze Seite* zu richten; danach stimmt der Export. An `Earth Song` gemessen:
+99, 100, 100 und 83 % mit geradem Schnitt, gegen zwei unbrauchbare Stimmen
+ohne.
+
 ## Oberfläche
 
 Die Palette kommt aus dem Notendruck: ein einziger Akzent im tiefen Ultramarin
