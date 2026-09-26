@@ -1,6 +1,8 @@
 [project]
 name = "scorecap"
-version = "0.8.0"
+# The version lives in scorecap/_version.py only, so the release PR touches
+# no file that CI reacts to (see paths-ignore in .github/workflows/ci.yml).
+dynamic = ["version"]
 description = "Capture screen regions and tile them onto A4 pages as PDF"
 requires-python = ">=3.11"
 dependencies = [
@@ -21,6 +23,9 @@ scorecap = "scorecap.cli:main"
 [build-system]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools.dynamic]
+version = { attr = "scorecap._version.__version__" }
 
 [tool.setuptools.packages.find]
 include = ["scorecap*"]

@@ -20,11 +20,13 @@ angehakt sein. GitHub verbietet das standardmäßig, und der Workflow scheitert
 sonst mit „GitHub Actions is not permitted to create or approve pull requests" —
 unabhängig davon, dass er `pull-requests: write` anfordert.
 
-Auf dem Release-PR selbst laufen bewusst keine Tests: er enthält nur
-Versionssprung und Changelog, und der Release-Workflow testet ohnehin erneut,
-bevor er packt. GitHub zeigt dort trotzdem „workflow awaiting approval", weil es
-Läufe aus Bot-PRs vor jeder Job-Bedingung zurückhält. Das blockiert nichts — der
-PR lässt sich ohne Freigabe mergen.
+Auf dem Release-PR selbst startet CI gar nicht erst: er ändert nur Changelog,
+Manifest und `scorecap/_version.py`, und genau diese Dateien stehen in
+`paths-ignore` von `ci.yml`. Der Release-Workflow testet ohnehin erneut, bevor er
+packt. Der Filter muss am Auslöser sitzen: Läufe aus Bot-PRs hält GitHub vor
+jeder Job-Bedingung zur Freigabe zurück („workflow awaiting approval"). Damit der
+PR in diesen drei Dateien bleibt, steht die Version nicht in `pyproject.toml`,
+sondern wird dort dynamisch aus `_version.py` gelesen.
 
 Das Release entsteht zunächst als **Entwurf** und wird erst veröffentlicht,
 wenn Setup, Pakete und Update-Feed angehängt sind. Sonst wäre es für die Minuten

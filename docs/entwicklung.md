@@ -28,8 +28,8 @@ der Suite — sie halten die Tests an der Bauweise fest, statt an dem, was
 herauskommt.
 
 `tests/test_release_guards.py` ist die Ausnahme: dort stehen die Prüfungen auf
-Dateien statt auf Verhalten — ob `pyproject.toml` und `scorecap/_version.py`
-dieselbe Version nennen und ob die Übersetzungen vollständig und aktuell sind.
+Dateien statt auf Verhalten — ob die Version nur in `scorecap/_version.py` steht
+(`pyproject.toml` liest sie dynamisch) und ob die Übersetzungen vollständig und aktuell sind.
 Beides ginge sonst still bis zum Nutzer durch.
 
 Der manuelle Abnahmetest steht in [manual-test.md](manual-test.md), Spec und

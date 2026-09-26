@@ -1,7 +1,7 @@
 """Checks on files rather than on behaviour.
 
 Everything else in this folder asks what the app does. These four ask whether
-the repository is fit to be released: a version that drifted apart, a text
+the repository is fit to be released: a version declared twice, a text
 without a German translation or a stale `.qm` all reach the user silently,
 and none of them can be caught by running the app.
 """
@@ -30,12 +30,15 @@ def _messages(ts: Path) -> list[tuple[str, str, ET.Element]]:
     ]
 
 
-def test_pyproject_and_module_agree():
+def test_the_version_is_declared_in_the_module_only():
+    """A version back in pyproject.toml would drift, and would put the release
+    PR outside CI's paths-ignore - bringing back the approval prompt."""
     declared = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
-    assert declared["project"]["version"] == __version__, (
-        "pyproject.toml and scorecap/_version.py drifted apart; "
-        "release-please must update both"
-    )
+    assert "version" not in declared["project"]
+    assert "version" in declared["project"]["dynamic"]
+    source = declared["tool"]["setuptools"]["dynamic"]["version"]["attr"]
+    assert source == "scorecap._version.__version__"
+    assert re.fullmatch(r"\d+\.\d+\.\d+(-[\w.]+)?", __version__)
 
 
 @pytest.mark.parametrize("language", ["de", "en"])

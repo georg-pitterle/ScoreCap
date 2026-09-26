@@ -4,23 +4,19 @@ on:
   push:
     branches: [main]
   pull_request:
+    # The release PR only touches these files. Without the filter CI starts on
+    # it and GitHub holds the run ("This workflow is awaiting approval from a
+    # maintainer"), because github-actions[bot] opened the PR. A job condition
+    # does not help - the hold comes before it is evaluated; only a filter on
+    # the trigger keeps the run from existing. The release workflow runs the
+    # suite again before it packages anything.
+    paths-ignore:
+      - CHANGELOG.md
+      - .release-please-manifest.json
+      - scorecap/_version.py
 
 jobs:
   test:
-    # Skip the release PR. It only carries a version bump and the changelog,
-    # and the release workflow runs the suite again before it packages
-    # anything.
-    #
-    # This does not remove GitHub's approval prompt on that PR: runs triggered
-    # by github-actions[bot] are held before job conditions are evaluated. The
-    # prompt blocks nothing - the PR merges without approving it.
-    #
-    # Keyed on the pull request author, never on the branch name: anyone can
-    # name a branch 'release-please--...' and would otherwise get a pull
-    # request that silently runs no tests at all.
-    if: >-
-      github.event_name != 'pull_request' ||
-      github.event.pull_request.user.login != 'github-actions[bot]'
     # Windows, because hotkey.py talks to the Win32 API and the Qt tests need
     # the same platform the app ships on.
     runs-on: windows-latest
