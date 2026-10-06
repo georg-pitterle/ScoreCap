@@ -62,7 +62,18 @@ zweite teilt die Arbeit:
    Übe-Dateien in MuseScore.
 
 Claude läuft als `claude -p` mit dem eigenen Konto: ein Team-Plan ohne
-API-Zugang reicht. Es darf nur Bilder lesen (`--allowedTools Read`); Korrekturen
-setzen die Sitzung mit `--resume` fort, statt alle Bilder neu zu lesen. Ein
-zweites Backend über einen API-Schlüssel braucht nur die Methode
-`ask(prompt, folder, session)` von `reader.Backend`.
+API-Zugang reicht. Es darf nur Bilder lesen (`--allowedTools Read`), und die
+Einstellungen, Plugins und Hooks des Nutzers bleiben draußen
+(`--setting-sources ""`) — sie liefen sonst bei jeder Lesung mit und kosteten
+Kontingent. Korrekturen setzen die Sitzung mit `--resume` fort, statt alle
+Bilder neu zu lesen.
+
+Die Antwort kommt als `stream-json`, Zeile für Zeile: Jedes geöffnete
+Systembild füllt den Fortschrittsbalken, und am Ende stehen Tokens, der Preis
+zu API-Tarifen und — aus dem `rate_limit_event` — wie viel vom Fünf-Stunden-
+und vom Wochenkontingent des Abos verbraucht ist. Das Log nennt jeden Aufruf
+mit Arbeitsordner, jede Antwort mit Dauer und Verbrauch und am Ende die
+gelesene Notation.
+
+Ein zweites Backend über einen API-Schlüssel braucht nur die Methode `ask` von
+`reader.Backend`.

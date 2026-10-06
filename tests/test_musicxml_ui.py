@@ -101,13 +101,16 @@ def test_before_the_page_count_is_known_only_the_page_is_named(window, tmp_path)
 class RecordedClaude:
     """A reader that answers with notation it was given, never a live call."""
 
-    def __init__(self, text: str) -> None:
+    def __init__(self, text: str, usage=None) -> None:
         self.text = text
+        self.usage = usage
 
-    def ask(self, prompt, folder, session):
-        from scorecap.reader import Reply
+    def ask(self, prompt, folder, session, looked=None, cancelled=lambda: False):
+        from scorecap.reader import Reply, Usage
 
-        return Reply(self.text, "s1")
+        if looked:
+            looked("system-01.png")
+        return Reply(self.text, "s1", self.usage or Usage())
 
 
 TWO_BASSES = """```
@@ -153,7 +156,54 @@ def test_without_claude_code_the_window_explains_instead_of_failing(
     assert not target.exists()
 
 
+def reached(attempt=1, looked=0, systems=4):
+    from scorecap.reader import Progress
+
+    return Progress(attempt, 4, looked, systems)
+
+
 def test_the_status_line_says_when_claude_mends_its_own_reading(window):
-    window._on_claude_progress(2, 4)
+    window._on_claude_progress(reached(attempt=2, looked=4))
 
     assert "1 of 3" in window.status.text()
+
+
+def test_the_bar_fills_as_claude_opens_one_system_after_the_other(window):
+    window._on_claude_progress(reached(looked=1))
+
+    assert "system 2 of 4" in window.status.text()
+    assert not window.progress_bar.isHidden()
+    assert (window.progress_bar.value(), window.progress_bar.maximum()) == (1, 4)
+
+
+def test_once_every_system_is_read_the_bar_only_runs(window):
+    window._on_claude_progress(reached(looked=4))
+
+    assert window.progress_bar.maximum() == 0
+
+
+def test_after_reading_the_status_line_says_what_it_used_of_the_plan(
+    window, tmp_path, qtbot
+):
+    from scorecap.reader import Usage
+
+    used = Usage(tokens_in=182_400, tokens_out=3_000, cost_usd=1.84,
+                 five_hour=0.12, seven_day=0.31)
+    target = tmp_path / "Evening.musicxml"
+
+    window.export_musicxml_with_claude_to(
+        target, backend=RecordedClaude(TWO_BASSES, used)
+    )
+    qtbot.waitUntil(lambda: not window.is_transcribing, timeout=30_000)
+
+    assert "182 k tokens" in window.status.text()
+    assert "12 % of five hours, 31 % of the week" in window.status.text()
+    assert window.progress_bar.isHidden()
+
+
+def test_without_the_plan_s_limits_the_price_at_api_rates_is_named(window):
+    from scorecap.reader import Usage
+
+    text = window.usage_text(Usage(tokens_in=40_000, cost_usd=0.5))
+
+    assert "0.50 US$" in text

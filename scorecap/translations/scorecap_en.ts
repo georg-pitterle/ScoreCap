@@ -344,7 +344,23 @@ Press {hotkey}, then drag out the area.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Claude is reading the score — this takes a few minutes …</source>
+        <source>Claude is reading system {number} of {total} …</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Claude is writing the notation down …</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>{thousands} k tokens</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>plan used: {hours} % of five hours, {week} % of the week</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>about {cost} US$ at API prices</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

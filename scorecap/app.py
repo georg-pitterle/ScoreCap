@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMenu,
     QMessageBox,
+    QProgressBar,
     QPushButton,
     QSplitter,
     QStackedWidget,
@@ -70,6 +71,7 @@ REBUILD_DELAY_MS = 150
 SAVE_AS_KEY = "F12"
 SCAN_CLOSE_WAIT_S = 10.0
 TOAST_MS = 900
+PROGRESS_WIDTH_PX = 160
 TOAST_MARGIN_PX = 8
 TOAST_OFFSET_PX = 12
 ZOOM_STEP = 1.25
@@ -148,6 +150,8 @@ class MainWindow(QMainWindow):
         self._pending_replace: int | None = None
         self._scan_task: ScanImport | None = None
         self._musicxml_task: MusicXmlExport | ClaudeExport | None = None
+        # What Claude's reading has used so far; None while Audiveris reads.
+        self._claude_usage: reader.Usage | None = None
         self._capturing = False
         self._project_path: Path | None = None
         self._saved_revision = self.document.revision
@@ -320,6 +324,10 @@ class MainWindow(QMainWindow):
 
         self.status = QLabel(self.tr("No capture yet"))
         self.status.setObjectName("StatusText")
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setTextVisible(False)
+        self.progress_bar.setFixedWidth(PROGRESS_WIDTH_PX)
+        self.progress_bar.hide()
         self.update_label = QLabel()
         self.update_label.setObjectName("StatusText")
         self.update_label.hide()
@@ -335,6 +343,7 @@ class MainWindow(QMainWindow):
         status_layout = QHBoxLayout(status_bar)
         status_layout.setContentsMargins(12, 8, 12, 8)
         status_layout.addWidget(self.status, 1)
+        status_layout.addWidget(self.progress_bar)
         status_layout.addWidget(self.update_label)
         status_layout.addWidget(self.update_button)
         status_layout.addWidget(self.export_button)
@@ -1060,6 +1069,8 @@ class MainWindow(QMainWindow):
             )
         )
         self.musicxml_button.setEnabled(False)
+        self._claude_usage = None
+        self._show_progress(0, 0)
         self.status.setText(
             self.tr("Transcribing with Audiveris — this takes a while …")
         )
@@ -1080,7 +1091,7 @@ class MainWindow(QMainWindow):
         if self._musicxml_task is not None:
             return
         signals = MusicXmlSignals(self)
-        signals.progress.connect(self._on_claude_progress)
+        signals.reading.connect(self._on_claude_progress)
         signals.done.connect(self._on_musicxml_done)
         self._musicxml_task = self._track(
             ClaudeExport(
@@ -1092,21 +1103,60 @@ class MainWindow(QMainWindow):
             )
         )
         self.musicxml_button.setEnabled(False)
+        self._claude_usage = reader.Usage()
+        self._show_progress(0, 0)
         self.status.setText(self.tr("Claude is reading the score …"))
         QThreadPool.globalInstance().start(self._musicxml_task)
 
-    def _on_claude_progress(self, attempt: int, total: int) -> None:
-        """A reading went out; after the first, Claude mends its own."""
-        if attempt <= 1:
-            text = self.tr(
-                "Claude is reading the score — this takes a few minutes …"
-            )
-        else:
+    def _show_progress(self, value: int, maximum: int) -> None:
+        """Fill the bar to value of maximum; with no maximum it only runs."""
+        self.progress_bar.setRange(0, maximum)
+        self.progress_bar.setValue(value)
+        self.progress_bar.show()
+
+    def _on_claude_progress(self, reached: reader.Progress) -> None:
+        """Claude opened another system, answered, or went back to mend.
+
+        Opening the systems is the part that can be counted; writing the
+        notation down and correcting it can only be waited for.
+        """
+        self._claude_usage = reached.usage
+        if reached.attempt > 1:
+            self._show_progress(0, 0)
             text = self.tr(
                 "Claude is correcting bars that did not add up "
                 "({attempt} of {total}) …"
+            ).format(attempt=reached.attempt - 1, total=reached.attempts - 1)
+        elif reached.looked < reached.systems:
+            self._show_progress(reached.looked, reached.systems)
+            text = self.tr("Claude is reading system {number} of {total} …").format(
+                number=reached.looked + 1, total=reached.systems
             )
-        self.status.setText(text.format(attempt=attempt - 1, total=total - 1))
+        else:
+            self._show_progress(0, 0)
+            text = self.tr("Claude is writing the notation down …")
+        self.status.setText(text)
+
+    def usage_text(self, usage: reader.Usage) -> str:
+        """What a reading used, as the status line says it.
+
+        On a subscription the tokens are not billed one by one, so the
+        plan's limits come first; the API price is for those without one.
+        """
+        tokens = self.tr("{thousands} k tokens").format(
+            thousands=QLocale().toString(round(usage.tokens_in / 1000))
+        )
+        if usage.five_hour is not None and usage.seven_day is not None:
+            plan = self.tr(
+                "plan used: {hours} % of five hours, {week} % of the week"
+            ).format(
+                hours=round(usage.five_hour * 100), week=round(usage.seven_day * 100)
+            )
+            return f"{tokens}, {plan}"
+        price = self.tr("about {cost} US$ at API prices").format(
+            cost=QLocale().toString(usage.cost_usd, "f", 2)
+        )
+        return f"{tokens}, {price}"
 
     def export_musicxml(self, reader_name: str = "audiveris") -> None:
         stem = self._project_path.stem if self._project_path else self.tr("score")
@@ -1131,6 +1181,7 @@ class MainWindow(QMainWindow):
         the count is 0 and only the page number is worth showing."""
         if total:
             text = self.tr("Reading page {page} of {total} with Audiveris …")
+            self._show_progress(page - 1, total)
         else:
             text = self.tr("Reading page {page} with Audiveris …")
         self.status.setText(text.format(page=page, total=total))
@@ -1138,6 +1189,8 @@ class MainWindow(QMainWindow):
     def _on_musicxml_done(self, outcome) -> None:
         self._musicxml_task = None
         self.musicxml_button.setEnabled(True)
+        self.progress_bar.hide()
+        usage, self._claude_usage = self._claude_usage, None
         if isinstance(outcome, omr.AudiverisMissing):
             QMessageBox.information(
                 self,
@@ -1176,7 +1229,10 @@ class MainWindow(QMainWindow):
         if isinstance(outcome, Exception):
             QMessageBox.critical(self, self.tr("Transcription failed"), str(outcome))
             return
-        self.status.setText(self.tr("Transcribed: {name}").format(name=outcome.name))
+        text = self.tr("Transcribed: {name}").format(name=outcome.name)
+        if usage is not None:
+            text = f"{text} · {self.usage_text(usage)}"
+        self.status.setText(text)
 
     def export_to(self, path: Path) -> None:
         path.write_bytes(self._pdf_bytes)

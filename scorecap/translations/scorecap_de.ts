@@ -346,8 +346,24 @@ Press {hotkey}, then drag out the area.</source>
         <translation>Claude liest die Partitur …</translation>
     </message>
     <message>
-        <source>Claude is reading the score — this takes a few minutes …</source>
-        <translation>Claude liest die Partitur – das dauert ein paar Minuten …</translation>
+        <source>Claude is reading system {number} of {total} …</source>
+        <translation>Claude liest System {number} von {total} …</translation>
+    </message>
+    <message>
+        <source>Claude is writing the notation down …</source>
+        <translation>Claude schreibt die Noten auf …</translation>
+    </message>
+    <message>
+        <source>{thousands} k tokens</source>
+        <translation>{thousands} k Tokens</translation>
+    </message>
+    <message>
+        <source>plan used: {hours} % of five hours, {week} % of the week</source>
+        <translation>vom Abo verbraucht: {hours} % der fünf Stunden, {week} % der Woche</translation>
+    </message>
+    <message>
+        <source>about {cost} US$ at API prices</source>
+        <translation>etwa {cost} US$ zu API-Preisen</translation>
     </message>
     <message>
         <source>Claude is correcting bars that did not add up ({attempt} of {total}) …</source>

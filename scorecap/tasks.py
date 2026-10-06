@@ -37,7 +37,8 @@ class ScanSignals(QObject):
 
 
 class MusicXmlSignals(QObject):
-    progress = Signal(int, int)   # the page or reading reached, and how many
+    progress = Signal(int, int)   # the page reached, and how many there are
+    reading = Signal(object)   # a reader.Progress: how far Claude has got
     done = Signal(object)   # the written Path, or the Exception that stopped it
     finished = Signal()
 
@@ -240,14 +241,12 @@ class ClaudeExport(BackgroundTask):
 
     def _work(self) -> None:
         try:
-            written = reader.transcribe(
+            written, _ = reader.transcribe(
                 self._systems,
                 self._target,
                 self._work_dir,
                 backend=self._backend,
-                progress=lambda done, total: emit(
-                    self.signals.progress, done, total
-                ),
+                progress=lambda reached: emit(self.signals.reading, reached),
                 cancelled=self._cancelled.is_set,
             )
         except (

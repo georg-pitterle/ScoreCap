@@ -153,7 +153,10 @@ exportieren.
 
 Dafür muss [Claude Code](https://claude.com/claude-code) installiert und einmal
 angemeldet sein (`claude` im Terminal starten). Ein Claude-Abo genügt, ein
-API-Schlüssel ist nicht nötig. Eine Partitur zu lesen dauert einige Minuten.
+API-Schlüssel ist nicht nötig. Eine Partitur zu lesen dauert einige Minuten;
+der Balken in der Statuszeile füllt sich mit jedem System, das Claude öffnet.
+Danach steht dort, was die Lesung gekostet hat: Tokens und wie viel vom
+Fünf-Stunden- und Wochenkontingent des Abos verbraucht ist.
 
 ## Oberfläche
 
