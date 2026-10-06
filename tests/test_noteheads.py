@@ -45,6 +45,9 @@ def system() -> Image.Image:
     draw_head(draw, 120, 0, lower)
     draw_head(draw, 120, 2, lower)
     draw_head(draw, 420, 4, lower)
+    # A crescendo hairpin over the second bar, its narrow end closed.
+    draw.line((330, 50, 470, 40), fill=0, width=2)
+    draw.line((330, 50, 470, 60), fill=0, width=2)
     return image
 
 
@@ -64,6 +67,12 @@ def test_an_open_head_is_told_from_a_filled_one(staves):
     upper = staves[0]
 
     assert [head.hollow for head in upper.heads] == [False, False, True]
+
+
+def test_a_hairpin_is_not_taken_for_a_note(staves):
+    upper = staves[0]
+
+    assert len(upper.bars()[1]) == 1
 
 
 def test_a_tenor_staff_reads_an_octave_below_the_treble(staves):

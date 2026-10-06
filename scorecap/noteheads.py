@@ -17,7 +17,10 @@ log = logging.getLogger(__name__)
 LINE_SPAN = 0.5         # a staff line runs across at least half the system
 HEAD_SIZE = 0.28        # radius of the opening that keeps heads, in spaces
 HOLE_SIZE = 0.6         # a hollow head's hole closes under this, in spaces
-HOLLOW_BELOW = 0.6      # a head's core inked less than this is open
+HOLE_AREA = 0.08        # an open head encloses at least this, in spaces²
+STEM_REACH = 0.8        # a stem sits this close to its head's centre, in spaces
+CLEF_WIDTH = 3          # spaces from the staff's start that a clef fills
+WORK_SPACE = 12         # pixels between staff lines while looking for heads
 BARLINE_COVER = 0.97    # a barline inks its column across the whole staff
 STEPS = "CDEFGAB"
 # The note on the bottom line of each clef, counted in diatonic steps from C0.
@@ -137,27 +140,88 @@ def _blobs(ink: Image.Image) -> list[tuple[int, int, int, int]]:
     return [tuple(box) for label, box in boxes.items() if root(label) == label]
 
 
-def _ink_share(ink: Image.Image, box: tuple[int, int, int, int]) -> float:
+def _enclosed(ink: Image.Image, box: tuple[int, int, int, int]) -> int:
+    """How many paper pixels inside `box` the ink closes in on every side."""
     left, top, right, bottom = box
-    if right <= left or bottom <= top:
-        return 1.0
-    return sum(columns(ink.crop(box))) / (255 * (right - left))
+    crop = ink.crop((left - 1, top - 1, right + 1, bottom + 1))
+    width, height = crop.size
+    paper = {
+        (x, y)
+        for y in range(height)
+        for x in range(width)
+        if not crop.getpixel((x, y))
+    }
+    reached = {(x, y) for x, y in paper if x in (0, width - 1) or y in (0, height - 1)}
+    frontier = list(reached)
+    while frontier:
+        x, y = frontier.pop()
+        for near in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+            if near in paper and near not in reached:
+                reached.add(near)
+                frontier.append(near)
+    return len(paper) - len(reached)
+
+
+def _opened(ink: Image.Image, size: int) -> Image.Image:
+    return ink.filter(ImageFilter.MinFilter(size)).filter(ImageFilter.MaxFilter(size))
+
+
+def _closed(ink: Image.Image, size: int) -> Image.Image:
+    return ink.filter(ImageFilter.MaxFilter(size)).filter(ImageFilter.MinFilter(size))
+
+
+def _grown(box, by: int, size: tuple[int, int]) -> tuple[int, int, int, int]:
+    left, top, right, bottom = box
+    return (
+        max(1, left - by),
+        max(1, top - by),
+        min(size[0] - 1, right + by),
+        min(size[1] - 1, bottom + by),
+    )
+
+
+def _overlaps(box, others) -> bool:
+    return any(
+        box[0] < other[2]
+        and other[0] < box[2]
+        and box[1] < other[3]
+        and other[1] < box[3]
+        for other in others
+    )
+
+
+def _head_boxes(
+    ink: Image.Image, clean: Image.Image, space: float
+) -> list[tuple[tuple, bool]]:
+    """Patches shaped like a notehead, and whether each is open.
+
+    Filled heads are what survives an opening: stems, beams, staff lines and
+    the thin marks around a head do not. An open head is a ring too thin for
+    that, so it is looked for once more with its hole closed - and kept only
+    if the hole is really there, or every hairpin would pass for a half note.
+    The hole is looked for with the staff lines still in: a ring that sits
+    on a line merges with it, and taking the line out tears the ring open.
+    """
+    kernel = _odd(2 * HEAD_SIZE * space)
+    filled = _blobs(_opened(clean, kernel))
+    # The opening rounds the head's corners off, so its box sits inside the
+    # ring; grown by half the kernel it holds the whole ring again.
+    reach = kernel // 2 + 1
+    rings = [
+        box
+        for box in _blobs(_opened(_closed(clean, _odd(HOLE_SIZE * space)), kernel))
+        if not _overlaps(box, filled)
+        and HOLE_AREA <= _enclosed(ink, _grown(box, reach, ink.size)) / space**2 < 1
+    ]
+    return [(box, False) for box in filled] + [(box, True) for box in rings]
 
 
 def _heads(
-    clean: Image.Image, staves: Sequence[Staff], space: float
+    ink: Image.Image, clean: Image.Image, staves: Sequence[Staff], space: float
 ) -> list[list[Head]]:
     """Every head on the system, sorted to the staff it sits nearest."""
-    hole = _odd(HOLE_SIZE * space)
-    closed = clean.filter(ImageFilter.MaxFilter(hole)).filter(
-        ImageFilter.MinFilter(hole)
-    )
-    kernel = _odd(2 * HEAD_SIZE * space)
-    heads_only = closed.filter(ImageFilter.MinFilter(kernel)).filter(
-        ImageFilter.MaxFilter(kernel)
-    )
     found: list[list[Head]] = [[] for _ in staves]
-    for left, top, right, bottom in _blobs(heads_only):
+    for (left, top, right, bottom), hollow in _head_boxes(ink, clean, space):
         height, width = bottom - top, right - left
         if not 0.6 * space < height < 2.6 * space:
             continue
@@ -171,19 +235,14 @@ def _heads(
         staff = staves[nearest]
         if abs(middle - (staff.top + staff.bottom) / 2) > 4 * space:
             continue
-        core = (
-            left + width // 4,
-            top + height // 4,
-            right - width // 4,
-            bottom - height // 4,
-        )
-        hollow = _ink_share(clean, core) < HOLLOW_BELOW
-        # Two heads a second apart stack into one tall patch.
-        centres = (
+        # Two heads a second apart stack into one tall patch. Side by side
+        # they make a wide one, and are left out: a closed hairpin looks the
+        # same, and the reader sees the pair in the image anyway.
+        rows = (
             [top + space / 2, bottom - space / 2] if height > 1.4 * space else [middle]
         )
         bottom_line = staff.lines[-1].centre
-        for y in centres:
+        for y in rows:
             step = round((bottom_line - y) / (space / 2))
             found[nearest].append(Head((left + right) // 2, step, hollow))
     for heads in found:
@@ -192,15 +251,16 @@ def _heads(
 
 
 def _barlines(
-    ink: Image.Image, staff: Staff, heads: Sequence[Head]
+    ink: Image.Image, top: int, bottom: int, left: int, space: float,
+    heads: Sequence[Head],
 ) -> tuple[int, ...]:
-    """Columns inked from the top line to the bottom one, away from any head.
+    """Columns inked from the top line to the bottom one, but not stems.
 
-    A stem may span the staff too, but it always has its head beside it. The
+    The stem of a chord or of a note on ledger lines spans the staff as well,
+    but it sits on the side of its head; a barline keeps further away. The
     line at the very start of the staff opens the system and divides nothing.
     """
-    space = staff.space
-    profile = columns(ink.crop((0, staff.top, ink.width, staff.bottom + 1)))
+    profile = columns(ink.crop((0, top, ink.width, bottom + 1)))
     lines: list[int] = []
     run: list[int] = []
     for x, level in enumerate([*profile, 0]):
@@ -210,35 +270,66 @@ def _barlines(
         if run:
             centre = (run[0] + run[-1]) // 2
             run = []
-            if centre <= staff.left + space:
+            if centre <= left + space:
                 continue
-            if any(abs(centre - head.x) < space * 1.2 for head in heads):
+            if any(abs(centre - head.x) < STEM_REACH * space for head in heads):
                 continue
             lines.append(centre)
     return tuple(lines)
 
 
 def read_staves(image: Image.Image) -> list[StaffReading]:
-    """The staves of one system, top to bottom, with heads and barlines."""
-    ink = binary(image.convert("L"))
-    grown = ink.filter(ImageFilter.MaxFilter(3))  # sagging lines join up again
-    staves = staves_of(staff_lines(grown, LINE_SPAN))
-    if not staves:
+    """The staves of one system, top to bottom, with heads and barlines.
+
+    The work is done on a copy scaled to WORK_SPACE pixels between lines:
+    the filters cost the square of their size, and a head is no clearer at
+    300 dpi than at a third of it. Positions come back in the image's own
+    pixels.
+    """
+    grey = image.convert("L")
+    full_ink = binary(grey)
+    full_staves = _staves(full_ink)
+    if not full_staves:
         return []
+    space = sum(staff.space for staff in full_staves) / len(full_staves)
+    scale = min(1.0, WORK_SPACE / space)
+    if scale < 1.0:
+        size = (round(grey.width * scale), round(grey.height * scale))
+        grey = grey.resize(size, Image.BOX)
+    ink = binary(grey)
+    staves = _staves(ink)
+    if len(staves) != len(full_staves):
+        log.info("staves lost in scaling down; reading at full size")
+        ink, staves, scale = full_ink, full_staves, 1.0
     space = sum(staff.space for staff in staves) / len(staves)
     clean = ink.copy()
     for staff in staves:
         _without_staff_lines(clean, staff)
-    heads = _heads(clean, staves, space)
-    return [
-        StaffReading(
-            top=staff.top,
-            space=staff.space,
-            heads=tuple(found),
-            barlines=_barlines(ink, staff, found),
+    readings = []
+    heads = _heads(ink, clean, staves, space)
+    for staff, full, found in zip(staves, full_staves, heads):
+        # A clef curls below the staff right at its start; no note sits there.
+        heads = tuple(
+            Head(round(head.x / scale), head.step, head.hollow)
+            for head in found
+            if head.x > staff.left + CLEF_WIDTH * staff.space
         )
-        for staff, found in zip(staves, heads)
-    ]
+        readings.append(
+            StaffReading(
+                top=full.top,
+                space=full.space,
+                heads=heads,
+                barlines=_barlines(
+                    full_ink, full.top, full.bottom, full.left, full.space, heads
+                ),
+            )
+        )
+    return readings
+
+
+def _staves(ink: Image.Image) -> list[Staff]:
+    grown = ink.filter(ImageFilter.MaxFilter(3))  # sagging lines join up again
+    return staves_of(staff_lines(grown, LINE_SPAN))
 
 
 def candidates(reading: StaffReading, clef: str) -> list[list[str]]:
