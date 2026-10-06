@@ -207,3 +207,79 @@ def test_without_the_plan_s_limits_the_price_at_api_rates_is_named(window):
     text = window.usage_text(Usage(tokens_in=40_000, cost_usd=0.5))
 
     assert "0.50 US$" in text
+
+
+
+class LimitedClaude:
+    """A reader the usage limit stops once; afterwards it answers."""
+
+    def __init__(self) -> None:
+        self.sessions = []
+
+    def ask(self, prompt, folder, session, looked=None, cancelled=lambda: False):
+        from datetime import datetime
+
+        from scorecap.reader import LimitReached, Reply
+
+        self.sessions.append(session)
+        if len(self.sessions) == 1:
+            raise LimitReached("limit", "s-stopped", datetime(2026, 10, 6, 22, 10))
+        return Reply(TWO_BASSES, session)
+
+
+def test_the_usage_limit_is_explained_with_the_time_it_ends(
+    window, tmp_path, qtbot, monkeypatch
+):
+    shown = []
+    monkeypatch.setattr(
+        "scorecap.app.QMessageBox.information", lambda *args: shown.append(args[2])
+    )
+
+    window.export_musicxml_with_claude_to(
+        tmp_path / "Evening.musicxml", backend=LimitedClaude()
+    )
+    qtbot.waitUntil(lambda: not window.is_transcribing, timeout=30_000)
+
+    assert shown and "10:10" in shown[0]
+
+
+def test_after_the_limit_the_next_export_carries_on_where_it_stopped(
+    window, tmp_path, qtbot, monkeypatch
+):
+    monkeypatch.setattr("scorecap.app.QMessageBox.information", lambda *args: None)
+    monkeypatch.setattr(window, "ask_resume", lambda: True)
+    claude = LimitedClaude()
+    target = tmp_path / "Evening.musicxml"
+
+    for _ in range(2):
+        window.export_musicxml_with_claude_to(target, backend=claude)
+        qtbot.waitUntil(lambda: not window.is_transcribing, timeout=30_000)
+
+    assert claude.sessions == [None, "s-stopped"]
+    assert target.exists()
+
+
+def test_declining_to_carry_on_or_start_over_starts_nothing(
+    window, tmp_path, qtbot, monkeypatch
+):
+    monkeypatch.setattr("scorecap.app.QMessageBox.information", lambda *args: None)
+    claude = LimitedClaude()
+    window.export_musicxml_with_claude_to(tmp_path / "Evening.musicxml", backend=claude)
+    qtbot.waitUntil(lambda: not window.is_transcribing, timeout=30_000)
+    monkeypatch.setattr(window, "ask_resume", lambda: None)
+
+    window.export_musicxml_with_claude_to(tmp_path / "Evening.musicxml", backend=claude)
+
+    assert not window.is_transcribing
+    assert claude.sessions == [None]
+
+
+def test_the_status_line_says_how_often_claude_had_to_magnify(window):
+    from scorecap.reader import Progress
+
+    reached = Progress(
+        1, 4, 3, 3, zoomed=("system-01-zoom-1.png", "system-01-zoom-2.png",
+                             "system-03-zoom-1.png")
+    )
+
+    assert window.zoom_text(reached) == "3 magnified pieces in 2 of 3 systems"

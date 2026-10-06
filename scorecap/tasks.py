@@ -228,8 +228,10 @@ class ClaudeExport(BackgroundTask):
         work_dir: Path,
         signals: MusicXmlSignals,
         backend: reader.Backend | None = None,
+        resume: bool = False,
     ) -> None:
         super().__init__(signals)
+        self._resume = resume
         self._systems = list(systems)
         self._target = target
         self._work_dir = work_dir
@@ -248,11 +250,13 @@ class ClaudeExport(BackgroundTask):
                 backend=self._backend,
                 progress=lambda reached: emit(self.signals.reading, reached),
                 cancelled=self._cancelled.is_set,
+                resume=self._resume,
             )
         except (
             reader.ClaudeMissing,
             reader.ClaudeLoggedOut,
             reader.ReadingFailed,
+            reader.LimitReached,
             omr.Cancelled,
             OSError,
         ) as error:

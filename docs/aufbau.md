@@ -62,8 +62,10 @@ zweite teilt die Arbeit:
    Übe-Dateien in MuseScore.
 
 Claude läuft als `claude -p` mit dem eigenen Konto: ein Team-Plan ohne
-API-Zugang reicht. Es darf nur Bilder lesen (`--allowedTools Read`), und die
-Einstellungen, Plugins und Hooks des Nutzers bleiben draußen
+API-Zugang reicht. Es darf nur Bilder lesen: `--tools Read` nimmt ihm jedes
+andere Werkzeug, denn `--allowedTools Read` allein erspart Read nur die
+Rückfrage und überlässt Bash den Einstellungen des Nutzers. Die Einstellungen,
+Plugins und Hooks des Nutzers bleiben draußen
 (`--setting-sources ""`) — sie liefen sonst bei jeder Lesung mit und kosteten
 Kontingent. Korrekturen setzen die Sitzung mit `--resume` fort, statt alle
 Bilder neu zu lesen.
@@ -74,6 +76,22 @@ zu API-Tarifen und — aus dem `rate_limit_event` — wie viel vom Fünf-Stunden
 und vom Wochenkontingent des Abos verbraucht ist. Das Log nennt jeden Aufruf
 mit Arbeitsordner, jede Antwort mit Dauer und Verbrauch und am Ende die
 gelesene Notation.
+
+Jedes System liegt zusätzlich in vergrößerten, überlappenden Stücken im
+Ordner (`system-07-zoom-2.png`, `reader.magnified`). Claude sieht ein Bild nur
+bis 1568 Pixel Kantenlänge unverkleinert; ein breites System verliert darüber
+Vorzeichen und Punkte. Die Stücke öffnet Claude nur, wo es unsicher ist, und
+jedes geöffnete wird gezählt: Die Statuszeile nennt am Ende, wie viele Stücke
+in wie vielen Systemen nötig waren, das Log nennt sie einzeln. Viele heißen:
+Die Aufnahmen sind zu klein für eine sichere Lesung.
+
+Gelesen wird in einem festen Ordner je Aufnahmen-Satz,
+`%LOCALAPPDATA%\ScoreCap\claude\<Prüfsumme der Bilder>`, nicht im
+Temp-Ordner der Sitzung. Stoppt das Nutzungslimit eine Lesung, merkt sich
+`paused.json` dort Sitzung und Runde; `--resume` funktioniert nur aus dem
+Ordner, in dem die Sitzung begann. Der nächste Export mit Claude derselben
+Aufnahmen fragt, ob er dort weitermacht oder neu anfängt. Nach einer fertigen
+Lesung wird der Ordner gelöscht.
 
 Ein zweites Backend über einen API-Schlüssel braucht nur die Methode `ask` von
 `reader.Backend`.

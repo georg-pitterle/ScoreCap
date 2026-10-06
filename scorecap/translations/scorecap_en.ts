@@ -340,7 +340,46 @@ Press {hotkey}, then drag out the area.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Claude carries on where it stopped …</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Claude is reading the score …</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Carry on reading?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Claude&apos;s usage limit stopped an earlier reading of these captures. Carry on where it stopped, or start over?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Carrying on is quicker, but Claude first takes in everything it read before - that counts towards the plan as well.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Carry on</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Start over</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>no system needed magnifying</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message numerus="yes">
+        <source>%n magnified piece(s)</source>
+        <translation>
+            <numerusform>%n magnified piece</numerusform>
+            <numerusform>%n magnified pieces</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source> in {systems} of {total} systems</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -457,6 +496,26 @@ Press {hotkey}, then drag out the area.</source>
     </message>
     <message>
         <source>Open a terminal, run claude and sign in with your Claude account, then try again.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>until {time}</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>for now</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Claude&apos;s usage limit is reached</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The plan&apos;s usage limit is used up {when}. What Claude has read so far is kept: export with Claude again after that, and it can carry on where it stopped.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Reading paused at the usage limit</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

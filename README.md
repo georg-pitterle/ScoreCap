@@ -158,6 +158,16 @@ der Balken in der Statuszeile füllt sich mit jedem System, das Claude öffnet.
 Danach steht dort, was die Lesung gekostet hat: Tokens und wie viel vom
 Fünf-Stunden- und Wochenkontingent des Abos verbraucht ist.
 
+Wo ein Vorzeichen oder Punkt zu klein ist, darf Claude ein vergrößertes Stück
+des Systems öffnen. Die Statuszeile sagt am Ende, wie oft das nötig war —
+etwa „7 vergrößerte Stücke in 5 von 33 Systemen“. Ist die Zahl hoch, lohnt
+eine schärfere Aufnahme oder ein Scan mit höherer Auflösung.
+
+Geht das Nutzungslimit des Abos mitten im Lesen aus, sagt ScoreCap, bis wann
+es gilt, und behält, was Claude schon gelesen hat. Danach dieselben Aufnahmen
+noch einmal mit Claude exportieren: ScoreCap fragt, ob es dort weitermachen
+oder neu anfangen soll — auch nach einem Neustart.
+
 ## Oberfläche
 
 Die Palette kommt aus dem Notendruck: ein einziger Akzent im tiefen Ultramarin

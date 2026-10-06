@@ -1,6 +1,7 @@
 """Reading a score through Claude Code, against recorded replies only."""
 
 import json
+from datetime import datetime
 
 import pytest
 from PIL import Image
@@ -125,7 +126,7 @@ def test_claude_may_only_read_and_is_shown_the_hints(systems, tmp_path, installe
     reader.read(systems, "staff 1: E4/G2*", ClaudeCode(run), tmp_path)
 
     command, prompt = run.asked[0]
-    assert command[command.index("--allowedTools") + 1] == "Read"
+    assert command[command.index("--tools") + 1] == "Read"
     assert "staff 1: E4/G2*" in prompt
 
 
@@ -268,3 +269,131 @@ def test_a_cancelled_reading_ends_the_process(tmp_path, monkeypatch):
 
     with pytest.raises(omr.Cancelled):
         list(reader.run_claude(sleeper, "", tmp_path, lambda: True))
+
+
+# --- magnified pieces ---------------------------------------------------------
+
+
+def test_a_system_too_wide_to_be_seen_whole_is_offered_in_magnified_pieces():
+    wide = Image.new("L", (2400, 300), 255)
+
+    pieces = reader.magnified(wide)
+
+    assert len(pieces) >= 4
+    assert all(piece.width <= reader.SEEN_WHOLE for piece in pieces)
+    assert all(piece.height > wide.height for piece in pieces)
+
+
+def test_claude_is_told_which_pieces_it_may_magnify(systems, tmp_path, installed):
+    run = replying(GOOD)
+
+    reader.read(systems, "", ClaudeCode(run), tmp_path)
+
+    _, prompt = run.asked[0]
+    assert "system-01.png: system-01-zoom-1.png" in prompt
+    assert (tmp_path / "system-01-zoom-1.png").exists()
+
+
+def test_every_piece_claude_magnifies_is_counted(systems, tmp_path, installed):
+    seen = []
+    run = replying(
+        events=[
+            opened("system-01.png"),
+            opened("system-01-zoom-1.png"),
+            opened("system-01-zoom-1.png"),
+            result(GOOD),
+        ]
+    )
+
+    reader.read(
+        systems, "", ClaudeCode(run), tmp_path, progress=seen.append
+    )
+
+    assert seen[-1].zoomed == ("system-01-zoom-1.png",)
+    assert seen[-1].looked == 1
+
+
+# --- the usage limit ------------------------------------------------------------
+
+RESETS_AT = 1791317400
+STOPPED = [
+    opened("system-01.png"),
+    {
+        "type": "rate_limit_event",
+        "rate_limit_info": {
+            "status": "rejected",
+            "resetsAt": RESETS_AT,
+            "rateLimitType": "five_hour",
+        },
+    },
+    result("You've hit your session limit · resets 10:10pm (Europe/Berlin)", True),
+]
+
+
+def stop_at_limit(systems, folder):
+    with pytest.raises(reader.LimitReached) as caught:
+        reader.read(systems, "", ClaudeCode(replying(events=STOPPED)), folder)
+    return caught.value
+
+
+def test_the_usage_limit_says_when_the_plan_is_free_again(
+    systems, tmp_path, installed
+):
+    stopped = stop_at_limit(systems, tmp_path)
+
+    assert stopped.resets == datetime.fromtimestamp(RESETS_AT).astimezone()
+
+
+def test_a_reading_the_limit_stopped_carries_on_in_its_own_session(
+    systems, tmp_path, installed
+):
+    stop_at_limit(systems, tmp_path)
+    run = replying(GOOD)
+
+    text, _ = reader.read(systems, "", ClaudeCode(run), tmp_path, resume=True)
+
+    command, prompt = run.asked[0]
+    assert command[command.index("--resume") + 1] == SESSION
+    assert "Carry on where you stopped" in prompt
+    assert text.startswith("voice S: Soprano, G")
+
+
+def test_starting_over_forgets_the_reading_the_limit_stopped(
+    systems, tmp_path, installed
+):
+    stop_at_limit(systems, tmp_path)
+    run = replying(GOOD)
+
+    reader.read(systems, "", ClaudeCode(run), tmp_path)
+
+    command, _ = run.asked[0]
+    assert "--resume" not in command
+    assert reader.paused(tmp_path) is None
+
+
+def test_a_finished_reading_leaves_nothing_to_carry_on(
+    systems, tmp_path, installed
+):
+    work = tmp_path / "work"
+    stop_at_limit(systems, work)
+
+    reader.transcribe(
+        systems,
+        tmp_path / "Evening.musicxml",
+        work,
+        backend=ClaudeCode(replying(GOOD)),
+        resume=True,
+    )
+
+    assert reader.paused(work) is None
+
+
+def test_the_same_captures_are_read_in_the_same_folder_and_changed_ones_not(
+    tmp_path,
+):
+    first = [Image.new("L", (400, 120), 255)]
+    again = [Image.new("L", (400, 120), 255)]
+    changed = [Image.new("L", (400, 120), 0)]
+
+    assert reader.work_folder(tmp_path, first) == reader.work_folder(tmp_path, again)
+    assert reader.work_folder(tmp_path, first) != reader.work_folder(tmp_path, changed)

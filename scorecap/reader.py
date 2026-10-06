@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
+import math
 import os
+import re
 import shutil
 import subprocess
 import threading
 import time
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Callable, Iterator, Protocol, Sequence
 from xml.etree import ElementTree
@@ -26,6 +30,15 @@ MODEL = "opus"
 CORRECTIONS = 3         # rounds in which a reader may mend its own notation
 TIMEOUT_S = 1800        # a long score takes Opus many minutes to read
 WATCH_S = 0.5           # how often a running reader is checked on
+# Claude sees an image whole up to this long edge and scales a larger one
+# down - a wide system loses its accidentals and dots to that.
+SEEN_WHOLE = 1568
+PIECE_WIDTH = 700       # a magnified piece covers this much of the system
+PIECE_OVERLAP = 100     # so a note on a cut is whole in one of the pieces
+MAGNIFY_MOST = 2.0      # beyond this a piece shows blur, not detail
+PAUSE_FILE = "paused.json"
+
+_LIMIT = re.compile(r"hit your .{0,40}limit|usage limit", re.IGNORECASE)
 
 CANDIDATES = (
     Path.home() / ".local/bin/claude.exe",
@@ -59,8 +72,20 @@ or invent a head, so the image decides. Use it to get the pitches right:
 
 {hints}
 
+Each system is also there magnified, in pieces from left to right:
+
+{pieces}
+
+Open a piece where the system leaves you unsure - an accidental, a dot, a
+tie, a rest, a ledger line - and only there.
+
 Check that every voice fills every bar before you answer. Reply with the
 notation only, in one ``` block.
+"""
+
+RESUME = """You were stopped before you finished. Carry on where you stopped: read what
+you have not read yet, then reply with the complete notation for the whole
+score - every bar, every voice - in one ``` block.
 """
 
 CORRECTION = """\
@@ -83,6 +108,34 @@ class ClaudeLoggedOut(Exception):
 
 class ReadingFailed(Exception):
     """The reader gave up or answered with something that is no notation."""
+
+
+class LimitReached(Exception):
+    """The plan's usage limit stopped the reading; it can be taken up later.
+
+    `resets` is when the plan is free again, if Claude Code said so.
+    """
+
+    def __init__(
+        self, message: str, session: str | None, resets: datetime | None
+    ) -> None:
+        super().__init__(message)
+        self.session = session
+        self.resets = resets
+
+
+@dataclass(frozen=True)
+class Pause:
+    """A reading the usage limit stopped: its session, and the round it was in."""
+
+    session: str
+    attempt: int
+
+    def __post_init__(self) -> None:
+        if not self.session:
+            raise ValueError("a paused reading needs its session")
+        if self.attempt < 1:
+            raise ValueError("rounds count from 1")
 
 
 @dataclass(frozen=True)
@@ -130,6 +183,8 @@ class Progress:
     looked: int     # systems the reader has opened so far
     systems: int
     usage: Usage = Usage()
+    # Magnified pieces the reader needed: how much the systems alone hid.
+    zoomed: tuple[str, ...] = ()
 
 
 class Backend(Protocol):
@@ -241,6 +296,20 @@ def _opened(event: dict) -> list[str]:
     ]
 
 
+def _stop_at_limit(limits: dict, text: str, session: str | None) -> None:
+    """Raise LimitReached if the plan's limit, not the score, ended the reading.
+
+    Claude Code says so in its answer ("You've hit your session limit") or
+    in the limits it reports; a notation never reads like either.
+    """
+    rejected = limits.get("status") == "rejected"
+    if not rejected and not (_LIMIT.search(text) and "```" not in text):
+        return
+    resets_at = limits.get("resetsAt")
+    resets = datetime.fromtimestamp(resets_at).astimezone() if resets_at else None
+    raise LimitReached(text.strip() or "usage limit reached", session, resets)
+
+
 def _share(fraction: float | None) -> str:
     return "?" if fraction is None else f"{fraction:.0%}"
 
@@ -273,6 +342,11 @@ class ClaudeCode:
             "--output-format",
             "stream-json",
             "--verbose",
+            # --tools takes every other tool away; --allowedTools alone
+            # only spares Read the question and leaves Bash to the user's
+            # settings, where it may well be allowed.
+            "--tools",
+            "Read",
             "--allowedTools",
             "Read",
             "--model",
@@ -287,6 +361,7 @@ class ClaudeCode:
         result: dict | None = None
         limits: dict = {}
         chatter: list[str] = []
+        current = session
         for line in self._run(command, prompt, folder, cancelled):
             try:
                 event = json.loads(line)
@@ -295,6 +370,7 @@ class ClaudeCode:
                 continue
             if not isinstance(event, dict):
                 continue
+            current = event.get("session_id") or current
             kind = event.get("type")
             if kind == "assistant":
                 for name in _opened(event):
@@ -305,12 +381,13 @@ class ClaudeCode:
                 limits = event.get("rate_limit_info") or {}
             elif kind == "result":
                 result = event
+        said = "".join(chatter).strip()[-500:]
+        text = str((result or {}).get("result") or "")
+        _stop_at_limit(limits, text if result else said, current)
         if result is None:
-            said = "".join(chatter).strip()[-500:]
             if "/login" in said:
                 raise ClaudeLoggedOut(said)
             raise ReadingFailed(said or "Claude Code gave no answer")
-        text = str(result.get("result") or "")
         if result.get("is_error"):
             if "/login" in text or "log in" in text.lower():
                 raise ClaudeLoggedOut(text)
@@ -338,6 +415,67 @@ def _notation(text: str) -> str:
     return inside.split("\n", 1)[1] if "\n" in inside else inside
 
 
+def magnified(image: Image.Image) -> list[Image.Image]:
+    """The system in overlapping pieces, each enlarged as far as is worth it.
+
+    Enlarged until Claude would scale it down again, but at most twice:
+    a narrow capture gains from it, past that only the blur grows. A system
+    that fits whole and cannot be enlarged has no pieces.
+    """
+    width, height = image.size
+    piece = min(width, PIECE_WIDTH)
+    scale = max(1.0, min(MAGNIFY_MOST, SEEN_WHOLE / max(piece, height)))
+    count = max(1, math.ceil((width - PIECE_OVERLAP) / (piece - PIECE_OVERLAP)))
+    if count == 1 and scale == 1.0:
+        return []
+    step = (width - piece) / (count - 1) if count > 1 else 0
+    size = (round(piece * scale), round(height * scale))
+    return [
+        image.crop((round(n * step), 0, round(n * step) + piece, height)).resize(
+            size, Image.LANCZOS
+        )
+        for n in range(count)
+    ]
+
+
+def work_folder(root: Path, system_images: Sequence[Image.Image]) -> Path:
+    """The folder a reading of exactly these systems works in.
+
+    Named after the images rather than made afresh: a reading the usage
+    limit stopped can only be taken up from the folder it began in, and
+    only if the captures are still the same.
+    """
+    digest = hashlib.sha256()
+    for image in system_images:
+        digest.update(f"{image.mode}{image.size}".encode())
+        digest.update(image.tobytes())
+    return root / digest.hexdigest()[:16]
+
+
+def paused(folder: Path) -> Pause | None:
+    """The reading the usage limit stopped in this folder, if there is one."""
+    try:
+        saved = json.loads((folder / PAUSE_FILE).read_text(encoding="utf-8"))
+        return Pause(str(saved["session"]), int(saved["attempt"]))
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+
+
+def _write_images(
+    system_images: Sequence[Image.Image], folder: Path
+) -> dict[str, list[str]]:
+    """Each system's file name, with the names of its magnified pieces."""
+    pieces: dict[str, list[str]] = {}
+    for number, image in enumerate(system_images, start=1):
+        name = f"system-{number:02d}"
+        image.save(folder / f"{name}.png")
+        pieces[f"{name}.png"] = []
+        for part, enlarged in enumerate(magnified(image), start=1):
+            enlarged.save(folder / f"{name}-zoom-{part}.png")
+            pieces[f"{name}.png"].append(f"{name}-zoom-{part}.png")
+    return pieces
+
+
 def read(
     system_images: Sequence[Image.Image],
     hints: str,
@@ -345,38 +483,66 @@ def read(
     folder: Path,
     progress: Callable[[Progress], None] | None = None,
     cancelled: Callable[[], bool] = lambda: False,
+    resume: bool = False,
 ) -> tuple[str, Usage]:
     """Notation for the systems that parses and whose every bar adds up.
 
     What the check finds is handed back for up to CORRECTIONS rounds; a
     reader that still has not got it right by then is not going to. The
     usage counts every round, the failed ones too - they cost the same.
+
+    A reading the usage limit stops is noted in `folder`; with `resume` the
+    next one carries on in that session instead of starting over.
     """
     folder.mkdir(parents=True, exist_ok=True)
-    names = []
-    for number, image in enumerate(system_images, start=1):
-        name = f"system-{number:02d}.png"
-        image.save(folder / name)
-        names.append(name)
-    prompt = PROMPT.format(
-        files=", ".join(names), notation=transcript.NOTATION, hints=hints
-    )
+    pause = paused(folder) if resume else None
+    (folder / PAUSE_FILE).unlink(missing_ok=True)
+    pieces = _write_images(system_images, folder)
+    names = list(pieces)
+    if pause is None:
+        listing = "\n".join(
+            f"{name}: {', '.join(parts)}" for name, parts in pieces.items() if parts
+        )
+        prompt = PROMPT.format(
+            files=", ".join(names),
+            notation=transcript.NOTATION,
+            hints=hints,
+            pieces=listing or "(none - every system is shown whole)",
+        )
+    else:
+        prompt = RESUME
+        log.info("taking up the reading of session %s", pause.session)
+    zoomable = {piece for parts in pieces.values() for piece in parts}
     total = CORRECTIONS + 1
-    session = None
+    session = pause.session if pause else None
     usage = Usage()
     seen: set[str] = set()
+    zoomed: set[str] = set()
 
     def report(attempt: int) -> None:
         if progress:
-            progress(Progress(attempt, total, len(seen), len(names), usage))
+            progress(
+                Progress(
+                    attempt,
+                    total,
+                    len(seen),
+                    len(names),
+                    usage,
+                    tuple(sorted(zoomed)),
+                )
+            )
 
-    for attempt in range(1, total + 1):
+    for attempt in range(pause.attempt if pause else 1, total + 1):
         if cancelled():
             raise Cancelled("the transcription was cancelled")
         report(attempt)
 
         def looked(name: str, attempt: int = attempt) -> None:
-            if name in names and name not in seen:
+            if name in zoomable and name not in zoomed:
+                zoomed.add(name)
+                log.info("Claude magnified %s", name)
+                report(attempt)
+            elif name in names and name not in seen:
                 seen.add(name)
                 report(attempt)
 
@@ -388,9 +554,18 @@ def read(
             len(names),
             folder,
         )
-        reply = backend.ask(
-            prompt, folder, session, looked=looked, cancelled=cancelled
-        )
+        try:
+            reply = backend.ask(
+                prompt, folder, session, looked=looked, cancelled=cancelled
+            )
+        except LimitReached as stop:
+            stopped_in = stop.session or session
+            if stopped_in:
+                (folder / PAUSE_FILE).write_text(
+                    json.dumps({"session": stopped_in, "attempt": attempt}),
+                    encoding="utf-8",
+                )
+            raise
         session = reply.session
         usage = usage + reply.usage
         seen.update(names)  # whatever it skipped, this reading is over
@@ -404,6 +579,13 @@ def read(
                 raise ReadingFailed(str(error)) from error
             prompt = CORRECTION.format(problems=str(error))
             continue
+        log.info(
+            "Claude magnified %d of %d piece(s) in %d of %d system(s)",
+            len(zoomed),
+            len(zoomable),
+            len({name.split("-zoom-")[0] for name in zoomed}),
+            len(names),
+        )
         return text, usage
     raise AssertionError("unreachable")
 
@@ -415,6 +597,7 @@ def transcribe(
     backend: Backend | None = None,
     progress: Callable[[Progress], None] | None = None,
     cancelled: Callable[[], bool] = lambda: False,
+    resume: bool = False,
 ) -> tuple[Path, Usage]:
     """The file written, one line per sung voice, and what reading it used.
 
@@ -429,6 +612,7 @@ def transcribe(
         work_dir,
         progress=progress,
         cancelled=cancelled,
+        resume=resume,
     )
     if cancelled():
         raise Cancelled("the transcription was cancelled")
@@ -442,5 +626,6 @@ def transcribe(
         partial, encoding="utf-8", xml_declaration=True
     )
     os.replace(partial, target)  # atomic on the same volume
+    shutil.rmtree(work_dir, ignore_errors=True)  # nothing left to take up
     return target, usage
 

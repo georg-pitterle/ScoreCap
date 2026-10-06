@@ -15,6 +15,7 @@ from PySide6.QtCore import (
     QEvent,
     QLocale,
     QSettings,
+    QStandardPaths,
     Qt,
     QThreadPool,
     QTimer,
@@ -85,6 +86,17 @@ def settings_store() -> QSettings:
     return QSettings("ScoreCap", "ScoreCap")
 
 
+def claude_work_root() -> Path:
+    """Where Claude's readings work, kept across sessions.
+
+    Not the session's temporary folder: a reading the usage limit stopped
+    is taken up hours later, maybe after a restart, and only from the
+    folder it began in.
+    """
+    local = QStandardPaths.writableLocation(QStandardPaths.AppLocalDataLocation)
+    return Path(local) / "claude"
+
+
 def scan_files(paths: Sequence[Path]) -> list[Path]:
     """The paths a scan import can read, by their suffix."""
     return [path for path in paths if path.suffix.lower() in SCAN_SUFFIXES]
@@ -152,6 +164,7 @@ class MainWindow(QMainWindow):
         self._musicxml_task: MusicXmlExport | ClaudeExport | None = None
         # What Claude's reading has used so far; None while Audiveris reads.
         self._claude_usage: reader.Usage | None = None
+        self._claude_reached: reader.Progress | None = None
         self._capturing = False
         self._project_path: Path | None = None
         self._saved_revision = self.document.revision
@@ -1087,26 +1100,84 @@ class MainWindow(QMainWindow):
     def export_musicxml_with_claude_to(
         self, path: Path, backend: reader.Backend | None = None
     ) -> None:
-        """Start Claude's reading; the result arrives in _on_musicxml_done."""
+        """Start Claude's reading; the result arrives in _on_musicxml_done.
+
+        If the usage limit stopped a reading of these same captures, the
+        user decides whether it carries on or starts over.
+        """
         if self._musicxml_task is not None:
             return
+        systems = self.musicxml_systems()
+        folder = reader.work_folder(claude_work_root(), systems)
+        resume = False
+        if reader.paused(folder) is not None:
+            choice = self.ask_resume()
+            if choice is None:
+                return
+            resume = choice
         signals = MusicXmlSignals(self)
         signals.reading.connect(self._on_claude_progress)
         signals.done.connect(self._on_musicxml_done)
         self._musicxml_task = self._track(
             ClaudeExport(
-                self.musicxml_systems(),
+                systems,
                 path,
-                self._temp_dir / "claude",
+                folder,
                 signals,
                 backend=backend,
+                resume=resume,
             )
         )
         self.musicxml_button.setEnabled(False)
         self._claude_usage = reader.Usage()
+        self._claude_reached = None
         self._show_progress(0, 0)
-        self.status.setText(self.tr("Claude is reading the score …"))
+        if resume:
+            self.status.setText(self.tr("Claude carries on where it stopped …"))
+        else:
+            self.status.setText(self.tr("Claude is reading the score …"))
         QThreadPool.globalInstance().start(self._musicxml_task)
+
+    def ask_resume(self) -> bool | None:
+        """Carry on with the stopped reading (True), start over, or not at all."""
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Question)
+        box.setWindowTitle(self.tr("Carry on reading?"))
+        box.setText(
+            self.tr(
+                "Claude's usage limit stopped an earlier reading of these "
+                "captures. Carry on where it stopped, or start over?"
+            )
+        )
+        box.setInformativeText(
+            self.tr(
+                "Carrying on is quicker, but Claude first takes in everything "
+                "it read before - that counts towards the plan as well."
+            )
+        )
+        carry_on = box.addButton(self.tr("Carry on"), QMessageBox.AcceptRole)
+        start_over = box.addButton(self.tr("Start over"), QMessageBox.DestructiveRole)
+        box.addButton(QMessageBox.Cancel)
+        box.setDefaultButton(carry_on)
+        box.exec()
+        if box.clickedButton() is carry_on:
+            return True
+        if box.clickedButton() is start_over:
+            return False
+        return None
+
+    def zoom_text(self, reached: reader.Progress) -> str:
+        """How often Claude had to magnify a piece to be sure of it.
+
+        Often means the captures are too small to read well; a sharper
+        capture or scan pays off in the next reading.
+        """
+        if not reached.zoomed:
+            return self.tr("no system needed magnifying")
+        systems = len({name.split("-zoom-")[0] for name in reached.zoomed})
+        return self.tr("%n magnified piece(s)", "", len(reached.zoomed)) + self.tr(
+            " in {systems} of {total} systems"
+        ).format(systems=systems, total=reached.systems)
 
     def _show_progress(self, value: int, maximum: int) -> None:
         """Fill the bar to value of maximum; with no maximum it only runs."""
@@ -1121,6 +1192,7 @@ class MainWindow(QMainWindow):
         notation down and correcting it can only be waited for.
         """
         self._claude_usage = reached.usage
+        self._claude_reached = reached
         if reached.attempt > 1:
             self._show_progress(0, 0)
             text = self.tr(
@@ -1191,6 +1263,7 @@ class MainWindow(QMainWindow):
         self.musicxml_button.setEnabled(True)
         self.progress_bar.hide()
         usage, self._claude_usage = self._claude_usage, None
+        reached, self._claude_reached = self._claude_reached, None
         if isinstance(outcome, omr.AudiverisMissing):
             QMessageBox.information(
                 self,
@@ -1223,6 +1296,24 @@ class MainWindow(QMainWindow):
                 ),
             )
             return
+        if isinstance(outcome, reader.LimitReached):
+            if outcome.resets is not None:
+                when = self.tr("until {time}").format(
+                    time=QLocale().toString(outcome.resets.time(), QLocale.ShortFormat)
+                )
+            else:
+                when = self.tr("for now")
+            QMessageBox.information(
+                self,
+                self.tr("Claude's usage limit is reached"),
+                self.tr(
+                    "The plan's usage limit is used up {when}. What Claude has "
+                    "read so far is kept: export with Claude again after that, "
+                    "and it can carry on where it stopped."
+                ).format(when=when),
+            )
+            self.status.setText(self.tr("Reading paused at the usage limit"))
+            return
         if isinstance(outcome, omr.Cancelled):
             self.status.setText(self.tr("Transcription cancelled"))
             return
@@ -1232,6 +1323,8 @@ class MainWindow(QMainWindow):
         text = self.tr("Transcribed: {name}").format(name=outcome.name)
         if usage is not None:
             text = f"{text} · {self.usage_text(usage)}"
+        if reached is not None:
+            text = f"{text} · {self.zoom_text(reached)}"
         self.status.setText(text)
 
     def export_to(self, path: Path) -> None:

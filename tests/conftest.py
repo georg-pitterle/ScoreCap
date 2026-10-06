@@ -25,6 +25,12 @@ def _private_settings_store(monkeypatch, tmp_path):
     )
 
 
+@pytest.fixture(autouse=True)
+def _private_claude_folder(monkeypatch, tmp_path):
+    """Claude's readings in tests must not land in the user's app data."""
+    monkeypatch.setattr("scorecap.app.claude_work_root", lambda: tmp_path / "claude")
+
+
 def _install(language):
     from PySide6.QtCore import QLocale
     from PySide6.QtWidgets import QApplication

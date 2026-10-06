@@ -342,8 +342,47 @@ Press {hotkey}, then drag out the area.</source>
         <translation>Wird mit Audiveris übertragen — das dauert …</translation>
     </message>
     <message>
+        <source>Claude carries on where it stopped …</source>
+        <translation>Claude macht weiter, wo es aufgehört hat …</translation>
+    </message>
+    <message>
         <source>Claude is reading the score …</source>
         <translation>Claude liest die Partitur …</translation>
+    </message>
+    <message>
+        <source>Carry on reading?</source>
+        <translation>Weiterlesen?</translation>
+    </message>
+    <message>
+        <source>Claude&apos;s usage limit stopped an earlier reading of these captures. Carry on where it stopped, or start over?</source>
+        <translation>Das Nutzungslimit von Claude hat ein früheres Lesen dieser Aufnahmen unterbrochen. Dort weitermachen oder neu anfangen?</translation>
+    </message>
+    <message>
+        <source>Carrying on is quicker, but Claude first takes in everything it read before - that counts towards the plan as well.</source>
+        <translation>Weitermachen geht schneller, aber Claude nimmt zuerst alles auf, was es schon gelesen hat – auch das zählt zum Kontingent.</translation>
+    </message>
+    <message>
+        <source>Carry on</source>
+        <translation>Weitermachen</translation>
+    </message>
+    <message>
+        <source>Start over</source>
+        <translation>Neu anfangen</translation>
+    </message>
+    <message>
+        <source>no system needed magnifying</source>
+        <translation>kein System musste vergrößert werden</translation>
+    </message>
+    <message numerus="yes">
+        <source>%n magnified piece(s)</source>
+        <translation>
+            <numerusform>%n vergrößertes Stück</numerusform>
+            <numerusform>%n vergrößerte Stücke</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source> in {systems} of {total} systems</source>
+        <translation> in {systems} von {total} Systemen</translation>
     </message>
     <message>
         <source>Claude is reading system {number} of {total} …</source>
@@ -460,6 +499,26 @@ Press {hotkey}, then drag out the area.</source>
     <message>
         <source>Open a terminal, run claude and sign in with your Claude account, then try again.</source>
         <translation>Ein Terminal öffnen, claude starten und mit dem Claude-Konto anmelden, dann noch einmal versuchen.</translation>
+    </message>
+    <message>
+        <source>until {time}</source>
+        <translation>bis {time}</translation>
+    </message>
+    <message>
+        <source>for now</source>
+        <translation>vorerst</translation>
+    </message>
+    <message>
+        <source>Claude&apos;s usage limit is reached</source>
+        <translation>Das Nutzungslimit von Claude ist erreicht</translation>
+    </message>
+    <message>
+        <source>The plan&apos;s usage limit is used up {when}. What Claude has read so far is kept: export with Claude again after that, and it can carry on where it stopped.</source>
+        <translation>Das Nutzungslimit des Abos ist {when} aufgebraucht. Was Claude bisher gelesen hat, bleibt erhalten: danach noch einmal mit Claude exportieren, dann kann es dort weitermachen.</translation>
+    </message>
+    <message>
+        <source>Reading paused at the usage limit</source>
+        <translation>Lesen am Nutzungslimit angehalten</translation>
     </message>
     <message>
         <source>Transcription cancelled</source>

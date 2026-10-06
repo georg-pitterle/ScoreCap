@@ -164,6 +164,15 @@ Partitur ist geöffnet.
     (*Bass 1*, *Bass 2*), jede Zeile singt durchgehend, und die Taktzahl
     stimmt mit dem Heft überein. Ohne Claude Code erscheint ein Hinweis mit
     Link, ohne Anmeldung einer zur Anmeldung, und es entsteht keine Datei.
+    Am Ende nennt die Statuszeile, wie viele vergrößerte Stücke Claude
+    geöffnet hat; im Arbeitsordner liegen keine Dateien, die Claude selbst
+    geschrieben hat.
+12. **Nutzungslimit.** Eine lange Partitur mit Claude lesen, bis das Limit
+    greift (oder nahe am Limit starten).
+    Erwartet: ein Hinweis nennt die Uhrzeit, ab der das Limit wieder frei
+    ist. Danach, auch nach einem Neustart von ScoreCap, dieselben Aufnahmen
+    mit Claude exportieren: ScoreCap fragt *Weitermachen* oder *Neu
+    anfangen*; *Weitermachen* liefert die ganze Partitur.
 
 ## Sprache
 
