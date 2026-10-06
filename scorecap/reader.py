@@ -40,10 +40,15 @@ Open every one of them with the Read tool and read every bar of every voice.
 Write the music down in this short notation and in nothing else:
 
 {notation}
-Treat each sung staff as one voice. Where a voice divides on one staff,
-write chords (`G3+Bb3:h`); where it divides onto several staves, give each
-staff its own voice. Leave out piano and other instruments. Give the voices
-names as the score does (Soprano, Alto, Tenor, Bass, Solo ...).
+Write one voice per sung part, not per staff. A staff that carries two
+parts - Soprano and Alto, or Tenor and Bass, as in a closed score - is two
+voices: stems up belong to the upper part, stems down to the lower, and a
+head with stems both ways is sung by both. Where one part divides on its
+own (two heads on one stem), write a chord in that part's voice
+(`G3+Bb3:h`); where a part divides onto several staves, give each staff its
+own voice. A tenor voice takes clef G8, even where the score writes it in
+the bass clef. Leave out piano and other instruments. Name the voices as
+the score does (Soprano, Alto, Tenor, Bass, Solo ...).
 
 A program has found the noteheads already. For each system and staff it
 lists them bar by bar, each head as it reads under a treble and under a
