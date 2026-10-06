@@ -29,7 +29,7 @@ import pymupdf
 from PySide6.QtCore import QCoreApplication
 from PIL import Image, ImageDraw, ImageFilter, ImageMath, ImageOps, ImageSequence
 
-from .ink import DARK, Line, binary, columns, rows, staff_lines
+from .ink import DARK, Staff, binary, columns, rows, staff_lines, staves_of
 from .model import PageSource, Shot
 from .trim import trim_box, trim_within
 
@@ -79,15 +79,6 @@ class ImportResult:
     blank: list[str]    # nothing on it - skipped
     errors: list[str]
     sources: dict[Path, PageSource] = field(default_factory=dict)
-
-
-@dataclass(frozen=True)
-class _Staff:
-    top: int
-    bottom: int
-    left: int
-    right: int
-    space: float
 
 
 # --- loading ----------------------------------------------------------------
@@ -287,30 +278,7 @@ def finish(grey: Image.Image, mode: str) -> Image.Image:
 # --- systems ----------------------------------------------------------------
 
 
-def _staves(lines: list[Line]) -> list[_Staff]:
-    """Five lines at an even spacing make a staff."""
-    staves: list[_Staff] = []
-    index = 0
-    while index + 5 <= len(lines):
-        group = lines[index : index + 5]
-        gaps = [b.centre - a.centre for a, b in zip(group, group[1:])]
-        if min(gaps) >= 3 and max(gaps) <= 1.3 * min(gaps):
-            staves.append(
-                _Staff(
-                    top=group[0].top,
-                    bottom=group[-1].bottom,
-                    left=round(statistics.median(line.left for line in group)),
-                    right=round(statistics.median(line.right for line in group)),
-                    space=statistics.mean(gaps),
-                )
-            )
-            index += 5
-        else:
-            index += 1
-    return staves
-
-
-def _joined(ink: Image.Image, upper: _Staff, lower: _Staff) -> bool:
+def _joined(ink: Image.Image, upper: Staff, lower: Staff) -> bool:
     """Do both staves hang on one barline at the left, as a system's do?"""
     space = round(max(upper.space, lower.space))
     left = max(0, min(upper.left, lower.left) - 2 * space)
@@ -377,10 +345,10 @@ def find_systems(grey: Image.Image) -> list[System]:
     # of it, and the piece that looks longest may start mid-system. Grown by
     # a pixel up and down, the pieces merge into one line again.
     lines_ink = ink.filter(ImageFilter.MaxFilter(3))
-    staves = _staves(staff_lines(lines_ink, LINE_SPAN))
+    staves = staves_of(staff_lines(lines_ink, LINE_SPAN))
     if not staves:
         return []
-    groups: list[list[_Staff]] = [[staves[0]]]
+    groups: list[list[Staff]] = [[staves[0]]]
     for upper, lower in zip(staves, staves[1:]):
         if _joined(lines_ink, upper, lower):
             groups[-1].append(lower)

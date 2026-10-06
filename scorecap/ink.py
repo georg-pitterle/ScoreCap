@@ -7,6 +7,7 @@ pixel with a box filter, which averages it in C.
 from __future__ import annotations
 
 import re
+import statistics
 from dataclasses import dataclass
 
 from PIL import Image
@@ -30,6 +31,34 @@ class Line:
     @property
     def centre(self) -> float:
         return (self.top + self.bottom) / 2.0
+
+
+@dataclass(frozen=True)
+class Staff:
+    """Five staff lines at an even spacing, top to bottom."""
+
+    lines: tuple[Line, ...]
+
+    @property
+    def top(self) -> int:
+        return self.lines[0].top
+
+    @property
+    def bottom(self) -> int:
+        return self.lines[-1].bottom
+
+    @property
+    def left(self) -> int:
+        return round(statistics.median(line.left for line in self.lines))
+
+    @property
+    def right(self) -> int:
+        return round(statistics.median(line.right for line in self.lines))
+
+    @property
+    def space(self) -> float:
+        """Distance from one line to the next."""
+        return (self.lines[-1].centre - self.lines[0].centre) / (len(self.lines) - 1)
 
 
 def binary(grey: Image.Image) -> Image.Image:
@@ -82,3 +111,18 @@ def staff_lines(ink: Image.Image, span: float) -> list[Line]:
         else:
             lines.append(Line(top=y, bottom=y, left=run.start(), right=run.end()))
     return lines
+
+
+def staves_of(lines: list[Line]) -> list[Staff]:
+    """Five lines at an even spacing make a staff."""
+    staves: list[Staff] = []
+    index = 0
+    while index + 5 <= len(lines):
+        group = lines[index : index + 5]
+        gaps = [b.centre - a.centre for a, b in zip(group, group[1:])]
+        if min(gaps) >= 3 and max(gaps) <= 1.3 * min(gaps):
+            staves.append(Staff(tuple(group)))
+            index += 5
+        else:
+            index += 1
+    return staves
