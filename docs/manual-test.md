@@ -68,6 +68,8 @@ Partitur ist geöffnet.
     weißen Flächen, das PDF ebenso. `Strg+Z` macht Zuschnitt und Radierungen
     in einem Schritt rückgängig. Ein Wechsel auf *Zuschneiden* lässt die
     weißen Flächen stehen, auch *Ganzes Bild* löscht sie nicht.
+    Danach auf *Zuschneiden* wechseln, *Abbrechen*, erneut *Bearbeiten*:
+    der Dialog steht auf *Zuschneiden*, auch nach einem Neustart.
 13c. **Zuschnitt nach dem Radieren.** Eine Aufnahme mit einer Seitenzahl am
     Rand: die Seitenzahl wegradieren, *Übernehmen*.
     Erwartet: der Zuschnitt rückt nach, die Aufnahme wird um den frei

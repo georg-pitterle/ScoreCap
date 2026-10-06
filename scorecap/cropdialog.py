@@ -49,6 +49,8 @@ CURSORS = {
     "move": Qt.SizeAllCursor,
 }
 
+MODES = ("erase", "crop")  # the eraser first: the everyday job
+
 
 def display_rect(source: QSize, viewport: QSize) -> QRect:
     scale = min(viewport.width() / source.width(), viewport.height() / source.height())
@@ -376,7 +378,10 @@ class CropDialog(QDialog):
         parent: QWidget | None = None,
         palette: Palette = LIGHT,
         source: PageSource | None = None,
+        mode: str = "erase",
     ) -> None:
+        if mode not in MODES:
+            raise ValueError(f"no such tool: {mode}")
         super().__init__(parent)
         self.setWindowTitle(self.tr("Edit"))
         self._shot = shot
@@ -391,7 +396,6 @@ class CropDialog(QDialog):
         self._erase_mode.setToolTip(
             self.tr("Drag over anything disturbing to paint it white")
         )
-        self._erase_mode.setChecked(True)
         modes = QButtonGroup(self)
         modes.setExclusive(True)
         modes.addButton(self._crop_mode)
@@ -437,7 +441,7 @@ class CropDialog(QDialog):
         layout.addLayout(tools)
         layout.addWidget(self._canvas, 1)
         layout.addLayout(row)
-        self._update_actions()
+        self.set_mode(mode)
         self.resize(self._opening_size())
 
     def _mode_button(self, text: str, mode: str) -> QPushButton:
@@ -464,6 +468,11 @@ class CropDialog(QDialog):
     @property
     def erasures(self) -> tuple[tuple[int, int, int, int], ...]:
         return self._canvas.erasures
+
+    @property
+    def mode(self) -> str:
+        """The tool in hand: "erase" or "crop"."""
+        return self._canvas.mode
 
     def set_mode(self, mode: str) -> None:
         (self._erase_mode if mode == "erase" else self._crop_mode).setChecked(True)

@@ -40,7 +40,8 @@ ist, steht in `%LocalAppData%\ScoreCap\logs\scorecap.log`.
 - Links die Aufnahmen: per Drag&Drop sortieren, *Neu aufnehmen*, *Bearbeiten*,
   *Löschen*. Doppelklick auf einen Eintrag öffnet das Bearbeiten. `Strg+Z`
   macht rückgängig.
-- *Bearbeiten* kennt zwei Werkzeuge und öffnet mit dem *Radierer*, weil der
+- *Bearbeiten* kennt zwei Werkzeuge und öffnet mit dem zuletzt gewählten,
+  auch nach einem Neustart; beim allerersten Mal mit dem *Radierer*, weil der
   öfter gebraucht wird: ein gezogenes Rechteck wird weiß übermalt — für
   Seitenzahlen, Bleistiftspuren und anderes Störende. *Radierung zurück* nimmt
   das letzte wieder weg. Danach wird der Zuschnitt neu gerechnet: was weiß

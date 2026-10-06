@@ -150,8 +150,9 @@ def test_double_clicking_a_shot_opens_the_edit_dialog_for_it(tmp_path, qapp, mon
     opened = []
 
     class FakeDialog:
-        def __init__(self, shot, parent, palette, source=None):
+        def __init__(self, shot, parent, palette, source=None, mode="erase"):
             opened.append(shot)
+            self.mode = mode
             self.shot = shot
             self.crop = (0, 0, 500, 250)
             self.erasures = ((10, 10, 40, 40),)
@@ -256,7 +257,8 @@ def page_with_a_number(tmp_path: Path) -> Shot:
 
 def _dialog_returning(crop, erasures):
     class FakeDialog:
-        def __init__(self, shot, parent, palette, source=None):
+        def __init__(self, shot, parent, palette, source=None, mode="erase"):
+            self.mode = mode
             self.shot = shot
             self.crop = shot.crop if crop == "unchanged" else crop
             self.erasures = erasures
@@ -292,6 +294,37 @@ def test_a_visit_without_erasing_leaves_the_crop_as_it_was_set(tmp_path, qapp, m
     window.edit_selected()
     assert window.document.shots[0].crop == (10, 10, 190, 90)
 
+
+
+def test_editing_opens_with_the_tool_used_last_even_after_a_restart(
+    tmp_path, qapp, monkeypatch
+):
+    import scorecap.app as app_module
+    from scorecap.app import MainWindow
+
+    given = []
+
+    class SwitchingDialog:
+        """A user who picks the crop tool and then cancels."""
+
+        def __init__(self, shot, parent, palette, source=None, mode="erase"):
+            given.append(mode)
+            self.mode = mode
+            self.shot = shot
+
+        def exec(self):
+            self.mode = "crop"
+            return False
+
+    monkeypatch.setattr(app_module, "CropDialog", SwitchingDialog)
+    for _ in range(2):  # the second window is ScoreCap started again
+        window = MainWindow()
+        window.add_shot(make_shot(tmp_path, "a.png"))
+        window.shot_list.setCurrentRow(0)
+        window.edit_selected()
+        window.close()
+
+    assert given == ["erase", "crop"]
 
 def test_closing_clears_the_session_folder_whatever_is_left_in_it(tmp_path, qapp):
     from scorecap.app import MainWindow

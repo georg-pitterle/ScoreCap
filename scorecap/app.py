@@ -39,6 +39,7 @@ from PySide6.QtWidgets import (
 
 from . import icons, omr, pdf, reader
 from .capture import SelectionOverlay, grab
+from .cropdialog import MODES as EDIT_MODES
 from .cropdialog import CropDialog
 from .hotkey import HotkeyFilter
 from .layout import Page, paginate, placement_at
@@ -860,10 +861,19 @@ class MainWindow(QMainWindow):
         shot = self.document.shots[index]
         if not shot.path.exists():
             return  # nothing to show; the list already says the file is gone
+        # The tool used last, also across restarts: someone cropping a whole
+        # book should not have to switch away from the eraser every time.
+        mode = self._store.value("edit/mode", EDIT_MODES[0])
         dialog = CropDialog(
-            shot, self, self.palette_tokens, self._scan_sources.get(shot.path)
+            shot,
+            self,
+            self.palette_tokens,
+            self._scan_sources.get(shot.path),
+            mode=mode if mode in EDIT_MODES else EDIT_MODES[0],
         )
-        if not dialog.exec():
+        accepted = dialog.exec()
+        self._store.setValue("edit/mode", dialog.mode)
+        if not accepted:
             return
         base = dialog.shot
         crop = dialog.crop

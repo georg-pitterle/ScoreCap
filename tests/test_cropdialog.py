@@ -173,6 +173,18 @@ def test_the_dialog_opens_with_the_eraser(tmp_path, qapp):
     assert not dialog._crop_mode.isChecked()
 
 
+
+def test_the_dialog_opens_with_the_tool_it_is_handed(tmp_path, qapp):
+    from scorecap.cropdialog import CropDialog
+
+    path = tmp_path / "e.png"
+    Image.new("RGB", (400, 200), (255, 255, 255)).save(path)
+    dialog = CropDialog(Shot(path=path, width=400, height=200), mode="crop")
+
+    assert dialog.mode == "crop"
+    assert dialog._crop_mode.isChecked()
+    assert not dialog._erase_mode.isChecked()
+
 def test_a_drag_in_erase_mode_adds_a_white_rectangle(tmp_path, qapp):
     dialog = erase_dialog(tmp_path, qapp)
     drag(dialog._canvas, QPoint(100, 50), QPoint(200, 150))
