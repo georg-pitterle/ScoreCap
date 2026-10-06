@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.9.0](https://github.com/georg-pitterle/ScoreCap/compare/v0.8.0...v0.9.0) (2026-10-06)
+
+
+### Features
+
+* carry on a Claude reading the usage limit stopped ([f2da5a4](https://github.com/georg-pitterle/ScoreCap/commit/f2da5a497d2f03dd42e63d9d7ca24cdc0664e004))
+* export a score as MusicXML for practising a voice ([acc13f4](https://github.com/georg-pitterle/ScoreCap/commit/acc13f4c7eb52c0cd2ba417973f9f5472ed0bbc0))
+* open the edit dialog with the tool used last ([76b15ab](https://github.com/georg-pitterle/ScoreCap/commit/76b15aba5ab24aea7b0cd3174e5821cf7c580048))
+* read a score with Claude into one line per sung voice ([05a43cf](https://github.com/georg-pitterle/ScoreCap/commit/05a43cf5ea606ff4b26c7fd8bbdb5507a8b941b9))
+* show how far Claude has read a score and what it used of the plan ([45c5686](https://github.com/georg-pitterle/ScoreCap/commit/45c56862e6a8336fa9ab558b3d2c13195a94a44a))
+
+
+### Bug Fixes
+
+* find open notes and barlines on a real score, not hairpins ([2d1a934](https://github.com/georg-pitterle/ScoreCap/commit/2d1a93451e3c3075cd1c6d86533a60d27da8e308))
+* read a closed score as separate soprano, alto, tenor and bass ([71c5999](https://github.com/georg-pitterle/ScoreCap/commit/71c59998fb8cd61d6449ba13856996f9d2771ed1))
+
 ## [0.8.0](https://github.com/georg-pitterle/ScoreCap/compare/v0.7.0...v0.8.0) (2026-09-22)
 
 
