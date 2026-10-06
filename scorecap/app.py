@@ -9,6 +9,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Sequence
 
+from PIL import Image
 from PySide6.QtCore import (
     QCoreApplication,
     QEvent,
@@ -25,6 +26,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QMainWindow,
+    QMenu,
     QMessageBox,
     QPushButton,
     QSplitter,
@@ -33,7 +35,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from . import icons, omr, pdf
+from . import icons, omr, pdf, reader
 from .capture import SelectionOverlay, grab
 from .cropdialog import CropDialog
 from .hotkey import HotkeyFilter
@@ -49,6 +51,7 @@ from .settingsdialog import SettingsDialog, load_settings, save_settings
 from .shotlist import ShotList, row_data
 from .staff import staff_extent_of
 from .tasks import (
+    ClaudeExport,
     MusicXmlExport,
     MusicXmlSignals,
     BackgroundTask,
@@ -144,7 +147,7 @@ class MainWindow(QMainWindow):
         self._scan_sources: dict[Path, PageSource] = {}
         self._pending_replace: int | None = None
         self._scan_task: ScanImport | None = None
-        self._musicxml_task: MusicXmlExport | None = None
+        self._musicxml_task: MusicXmlExport | ClaudeExport | None = None
         self._capturing = False
         self._project_path: Path | None = None
         self._saved_revision = self.document.revision
@@ -236,11 +239,26 @@ class MainWindow(QMainWindow):
             self.tr("Export as MusicXML …"), icons.MUSICXML
         )
         self.musicxml_button.setToolTip(
+            self.tr("Transcribe the score, for playing it back elsewhere")
+        )
+        musicxml_menu = QMenu(self.musicxml_button)
+        audiveris_action = musicxml_menu.addAction(self.tr("With Audiveris …"))
+        audiveris_action.setToolTip(
+            self.tr("Free and offline; reads clean engraving well")
+        )
+        audiveris_action.triggered.connect(lambda: self.export_musicxml("audiveris"))
+        claude_action = musicxml_menu.addAction(
+            self.tr("With Claude, one line per voice …")
+        )
+        claude_action.setToolTip(
             self.tr(
-                "Transcribe the score with Audiveris, for playing it back elsewhere"
+                "Claude Code reads the score and splits divided voices into "
+                "lines for rehearsal files"
             )
         )
-        self.musicxml_button.clicked.connect(self.export_musicxml)
+        claude_action.triggered.connect(lambda: self.export_musicxml("claude"))
+        musicxml_menu.setToolTipsVisible(True)
+        self.musicxml_button.setMenu(musicxml_menu)
 
         toolbar = QWidget()
         toolbar.setObjectName("Toolbar")
@@ -1047,7 +1065,50 @@ class MainWindow(QMainWindow):
         )
         QThreadPool.globalInstance().start(self._musicxml_task)
 
-    def export_musicxml(self) -> None:
+    def musicxml_systems(self) -> list[Image.Image]:
+        """Each capture as Claude should see it: grey, erased and cropped."""
+        settings = replace(self.settings, scan_mode="grey")
+        return [
+            pdf.shot_image(shot, settings)
+            for shot in usable_shots(self.document.shots).shots
+        ]
+
+    def export_musicxml_with_claude_to(
+        self, path: Path, backend: reader.Backend | None = None
+    ) -> None:
+        """Start Claude's reading; the result arrives in _on_musicxml_done."""
+        if self._musicxml_task is not None:
+            return
+        signals = MusicXmlSignals(self)
+        signals.progress.connect(self._on_claude_progress)
+        signals.done.connect(self._on_musicxml_done)
+        self._musicxml_task = self._track(
+            ClaudeExport(
+                self.musicxml_systems(),
+                path,
+                self._temp_dir / "claude",
+                signals,
+                backend=backend,
+            )
+        )
+        self.musicxml_button.setEnabled(False)
+        self.status.setText(self.tr("Claude is reading the score …"))
+        QThreadPool.globalInstance().start(self._musicxml_task)
+
+    def _on_claude_progress(self, attempt: int, total: int) -> None:
+        """A reading went out; after the first, Claude mends its own."""
+        if attempt <= 1:
+            text = self.tr(
+                "Claude is reading the score — this takes a few minutes …"
+            )
+        else:
+            text = self.tr(
+                "Claude is correcting bars that did not add up "
+                "({attempt} of {total}) …"
+            )
+        self.status.setText(text.format(attempt=attempt - 1, total=total - 1))
+
+    def export_musicxml(self, reader_name: str = "audiveris") -> None:
         stem = self._project_path.stem if self._project_path else self.tr("score")
         folder = self._last_folder("musicxml") or (
             str(self._project_path.parent) if self._project_path else ""
@@ -1060,7 +1121,10 @@ class MainWindow(QMainWindow):
         )
         if name:
             self._remember_folder("musicxml", Path(name))
-            self.export_musicxml_to(Path(name))
+            if reader_name == "claude":
+                self.export_musicxml_with_claude_to(Path(name))
+            else:
+                self.export_musicxml_to(Path(name))
 
     def _on_musicxml_progress(self, page: int, total: int) -> None:
         """Audiveris reached a new page. Before it says how many there are,
@@ -1083,6 +1147,27 @@ class MainWindow(QMainWindow):
                     "Audiveris, a separate free program. Install it from {url} and "
                     "try again."
                 ).format(url=omr.DOWNLOAD_URL),
+            )
+            return
+        if isinstance(outcome, reader.ClaudeMissing):
+            QMessageBox.information(
+                self,
+                self.tr("Claude Code is needed for this"),
+                self.tr(
+                    "Reading the score with Claude goes through Claude Code. "
+                    "Install it from {url}, sign in once by running claude, and "
+                    "try again."
+                ).format(url=reader.DOWNLOAD_URL),
+            )
+            return
+        if isinstance(outcome, reader.ClaudeLoggedOut):
+            QMessageBox.information(
+                self,
+                self.tr("Claude Code is not signed in"),
+                self.tr(
+                    "Open a terminal, run claude and sign in with your Claude "
+                    "account, then try again."
+                ),
             )
             return
         if isinstance(outcome, omr.Cancelled):

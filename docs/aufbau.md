@@ -15,12 +15,16 @@
 | `erase.py` | malt die Radierungen weiß, wenn eine Aufnahme gerendert wird |
 | `shotlist.py` | Aufnahmeliste mit Vorschaubildern |
 | `staff.py` | erkennt, wo die Notenlinien eines Systems enden |
-| `tasks.py` | Update-Prüfung und Scan-Import abseits des Fensters |
+| `tasks.py` | Update-Prüfung, Scan-Import und MusicXML-Export abseits des Fensters |
 | `scan.py` | Scans bereinigen, gerade stellen, in Systeme zerlegen |
 | `theme.py`, `icons.py` | Farb- und Schrift-Tokens, Symbole |
 | `i18n.py`, `translations/` | Sprache wählen, Übersetzungen laden |
 | `optimize.py` | vorhandene PDFs verkleinern |
-| `omr.py` | Noten erkennen lassen und als MusicXML schreiben |
+| `omr.py` | Noten von Audiveris erkennen lassen und als MusicXML schreiben |
+| `noteheads.py` | Notenköpfe und Taktstriche eines Systems finden, als Tonhöhen-Hinweise |
+| `transcript.py` | Kurznotation lesen, jeden Takt nachzählen, MusicXML schreiben |
+| `voices.py` | Akkorde einer geteilten Stimme nach Stimmführung in Einzelzeilen legen |
+| `reader.py` | Claude die Systeme lesen lassen, Fehler zur Korrektur zurückgeben |
 | `project.py` | Projekte als `.scorecap` speichern und öffnen |
 | `updater.py` | Selbst-Update über die GitHub-Releases |
 | `app.py` | Hauptfenster, verdrahtet alles |
@@ -32,3 +36,33 @@ die Vorschau zeigt genau dieses PDF. Was zu sehen ist, wird auch gedruckt.
 `ink.py` und `staff.py` teilen sich eine Notenlinien-Erkennung: `scan.py`
 braucht sie, um eine Seite in Systeme zu schneiden, `staff.py`, um die Enden
 einer Aufnahme auf die Ränder zu legen.
+
+`ink.py` kennt auch das Notensystem selbst — fünf Linien in gleichem Abstand —,
+und `noteheads.py` liest darauf die Notenköpfe.
+
+## MusicXML über Claude
+
+Zwei Wege führen zu MusicXML. Audiveris (`omr.py`) erkennt alles selbst. Der
+zweite teilt die Arbeit:
+
+1. `noteheads.py` findet in jedem System Notenlinien, Taktstriche und
+   Notenköpfe (gefüllt oder hohl) und rechnet ihre Höhe in Tonhöhen um — für
+   Violin- und Bassschlüssel zugleich, denn den Schlüssel liest es nicht.
+   Rhythmus, Vorzeichen, Bögen und Pausen sieht es nicht.
+2. `reader.py` gibt die Systembilder und diese Hinweise an Claude, das daraus
+   die Kurznotation schreibt (`F4:h C4:e D4:e`, `G3+Bb3:h~`, `R`). Ihre
+   Grammatik steht als `NOTATION` in `transcript.py` und geht wörtlich in den
+   Prompt.
+3. `transcript.py` zählt jeden Takt jeder Stimme gegen die Taktart nach. Was
+   nicht aufgeht, geht mit Takt und Stimme zurück an Claude, bis zu dreimal.
+4. `voices.py` legt jeden Akkord einer Stimme auf Einzelzeilen (Bass 1, Bass 2
+   …): jede Zeile nimmt den Ton, der ihrem letzten am nächsten liegt. Ein
+   Haltebogen bleibt nur, wo die Zeile denselben Ton weitersingt.
+5. `transcript.py` schreibt daraus MusicXML, eine Stimme pro Part — fertig für
+   Übe-Dateien in MuseScore.
+
+Claude läuft als `claude -p` mit dem eigenen Konto: ein Team-Plan ohne
+API-Zugang reicht. Es darf nur Bilder lesen (`--allowedTools Read`); Korrekturen
+setzen die Sitzung mit `--resume` fort, statt alle Bilder neu zu lesen. Ein
+zweites Backend über einen API-Schlüssel braucht nur die Methode
+`ask(prompt, folder, session)` von `reader.Backend`.

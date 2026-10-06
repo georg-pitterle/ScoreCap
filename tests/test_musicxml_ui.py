@@ -93,3 +93,67 @@ def test_before_the_page_count_is_known_only_the_page_is_named(window, tmp_path)
 
     assert "page 1" in window.status.text()
     assert " of " not in window.status.text()
+
+
+# --- read by Claude -------------------------------------------------------------
+
+
+class RecordedClaude:
+    """A reader that answers with notation it was given, never a live call."""
+
+    def __init__(self, text: str) -> None:
+        self.text = text
+
+    def ask(self, prompt, folder, session):
+        from scorecap.reader import Reply
+
+        return Reply(self.text, "s1")
+
+
+TWO_BASSES = """```
+voice B: Bass, F
+bar 4/4
+B: C3+G3:w
+```"""
+
+
+def test_claude_writes_one_line_per_voice_where_the_user_asked(
+    window, tmp_path, qtbot
+):
+    target = tmp_path / "Evening.musicxml"
+
+    window.export_musicxml_with_claude_to(target, backend=RecordedClaude(TWO_BASSES))
+    qtbot.waitUntil(lambda: not window.is_transcribing, timeout=30_000)
+
+    parts = omr.read_score(target).iter("score-part")
+    names = [part.findtext("part-name") for part in parts]
+    assert names == ["Bass 1", "Bass 2"]
+    assert any("Evening" in text for text in window.shown_status)
+
+
+def test_without_claude_code_the_window_explains_instead_of_failing(
+    window, tmp_path, qtbot, monkeypatch
+):
+    from scorecap import reader
+
+    def missing():
+        raise reader.ClaudeMissing("not installed")
+
+    monkeypatch.setattr(reader, "find_claude", missing)
+    shown = []
+    monkeypatch.setattr(
+        "scorecap.app.QMessageBox.information", lambda *args: shown.append(args[2])
+    )
+    target = tmp_path / "Evening.musicxml"
+
+    window.export_musicxml_with_claude_to(target)
+    qtbot.waitUntil(lambda: not window.is_transcribing, timeout=30_000)
+
+    assert shown and "Claude Code" in shown[0]
+    assert not target.exists()
+
+
+def test_the_status_line_says_when_claude_mends_its_own_reading(window):
+    window._on_claude_progress(2, 4)
+
+    assert "1 of 3" in window.status.text()

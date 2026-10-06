@@ -143,6 +143,26 @@
         <translation>Ein vorhandenes PDF verkleinern; das Original bleibt unverändert</translation>
     </message>
     <message>
+        <source>Transcribe the score, for playing it back elsewhere</source>
+        <translation>Die Partitur in Noten übertragen, um sie anderswo abzuspielen</translation>
+    </message>
+    <message>
+        <source>With Audiveris …</source>
+        <translation>Mit Audiveris …</translation>
+    </message>
+    <message>
+        <source>Free and offline; reads clean engraving well</source>
+        <translation>Kostenlos und offline; liest sauberen Notensatz gut</translation>
+    </message>
+    <message>
+        <source>With Claude, one line per voice …</source>
+        <translation>Mit Claude, eine Zeile je Stimme …</translation>
+    </message>
+    <message>
+        <source>Claude Code reads the score and splits divided voices into lines for rehearsal files</source>
+        <translation>Claude Code liest die Partitur und teilt geteilte Stimmen in Zeilen für Übe-Dateien</translation>
+    </message>
+    <message>
         <source>Nothing captured yet.
 
 Press {hotkey}, then drag out the area.</source>
@@ -157,10 +177,6 @@ Press {hotkey}, then drag out the area.</source>
     <message>
         <source>Export as MusicXML …</source>
         <translation>Als MusicXML exportieren …</translation>
-    </message>
-    <message>
-        <source>Transcribe the score with Audiveris, for playing it back elsewhere</source>
-        <translation>Die Noten von Audiveris erkennen lassen, um sie anderswo abzuspielen</translation>
     </message>
     <message>
         <source>No capture yet</source>
@@ -326,6 +342,18 @@ Press {hotkey}, then drag out the area.</source>
         <translation>Wird mit Audiveris übertragen — das dauert …</translation>
     </message>
     <message>
+        <source>Claude is reading the score …</source>
+        <translation>Claude liest die Partitur …</translation>
+    </message>
+    <message>
+        <source>Claude is reading the score — this takes a few minutes …</source>
+        <translation>Claude liest die Partitur – das dauert ein paar Minuten …</translation>
+    </message>
+    <message>
+        <source>Claude is correcting bars that did not add up ({attempt} of {total}) …</source>
+        <translation>Claude korrigiert Takte, die nicht aufgehen ({attempt} von {total}) …</translation>
+    </message>
+    <message>
         <source>Unsaved captures</source>
         <translation>Ungespeicherte Aufnahmen</translation>
     </message>
@@ -400,6 +428,22 @@ Press {hotkey}, then drag out the area.</source>
     <message>
         <source>ScoreCap has the pages; reading the notes off them is done by Audiveris, a separate free program. Install it from {url} and try again.</source>
         <translation>ScoreCap hat die Seiten; die Noten daraus liest Audiveris, ein eigenes freies Programm. Von {url} installieren und es noch einmal versuchen.</translation>
+    </message>
+    <message>
+        <source>Claude Code is needed for this</source>
+        <translation>Dafür wird Claude Code gebraucht</translation>
+    </message>
+    <message>
+        <source>Reading the score with Claude goes through Claude Code. Install it from {url}, sign in once by running claude, and try again.</source>
+        <translation>Claude liest die Partitur über Claude Code. Von {url} installieren, einmal claude starten und anmelden, dann noch einmal versuchen.</translation>
+    </message>
+    <message>
+        <source>Claude Code is not signed in</source>
+        <translation>Claude Code ist nicht angemeldet</translation>
+    </message>
+    <message>
+        <source>Open a terminal, run claude and sign in with your Claude account, then try again.</source>
+        <translation>Ein Terminal öffnen, claude starten und mit dem Claude-Konto anmelden, dann noch einmal versuchen.</translation>
     </message>
     <message>
         <source>Transcription cancelled</source>

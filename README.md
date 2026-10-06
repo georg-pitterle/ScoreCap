@@ -140,6 +140,21 @@ landen in den falschen. Ein solcher Schnitt ist im Bearbeiten-Dialog mit
 99, 100, 100 und 83 % mit geradem Schnitt, gegen zwei unbrauchbare Stimmen
 ohne.
 
+### Mit Claude: eine Zeile je Stimme
+
+*Als MusicXML exportieren* bietet zwei Wege: *Mit Audiveris* wie oben, oder
+*Mit Claude, eine Zeile je Stimme*. Dort liest Claude die Partitur, und ScoreCap
+prüft, was es liest: Jeder Takt jeder Stimme wird gegen die Taktart
+nachgezählt, und was nicht aufgeht, bekommt Claude mit Takt und Stimme zur
+Korrektur zurück. Wo eine Stimme sich teilt, wird jede Teilung ihre eigene
+Zeile — *Bass 1*, *Bass 2*, *Bass 3* —, so wie die Sänger sie singen. Das ist
+der Weg für Übe-Dateien: in MuseScore öffnen, eine Stimme laut, als MP3
+exportieren.
+
+Dafür muss [Claude Code](https://claude.com/claude-code) installiert und einmal
+angemeldet sein (`claude` im Terminal starten). Ein Claude-Abo genügt, ein
+API-Schlüssel ist nicht nötig. Eine Partitur zu lesen dauert einige Minuten.
+
 ## Oberfläche
 
 Die Palette kommt aus dem Notendruck: ein einziger Akzent im tiefen Ultramarin

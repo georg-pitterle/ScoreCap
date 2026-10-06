@@ -157,6 +157,13 @@ Partitur ist geöffnet.
     Erwartet: vier Stimmen, S/A/T/B benannt, der Tenor klingt in seiner Lage
     und nicht eine Oktave zu hoch. Ohne installiertes Audiveris erscheint
     stattdessen ein Hinweis mit Link, und es entsteht keine Datei.
+11. **MusicXML mit Claude.** Ein Chorsatz, in dem sich eine Stimme teilt,
+    dann *Als MusicXML exportieren* → *Mit Claude, eine Zeile je Stimme …*.
+    Erwartet: die Statuszeile meldet das Lesen und gegebenenfalls
+    Korrekturrunden; in MuseScore steht jede Teilung als eigene Stimme
+    (*Bass 1*, *Bass 2*), jede Zeile singt durchgehend, und die Taktzahl
+    stimmt mit dem Heft überein. Ohne Claude Code erscheint ein Hinweis mit
+    Link, ohne Anmeldung einer zur Anmeldung, und es entsteht keine Datei.
 
 ## Sprache
 

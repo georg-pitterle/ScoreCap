@@ -21,8 +21,8 @@ FOOTER_COLOR = (0.4, 0.4, 0.4)
 FOOTER_BASELINE_MM = 8.0
 
 
-def _png_bytes(shot: Shot, settings: Settings) -> bytes:
-    """Load the shot, apply its crop, and re-encode losslessly in grey.
+def shot_image(shot: Shot, settings: Settings) -> Image.Image:
+    """The shot as it is printed: grey, erased, cropped, a scan finished.
 
     Notation is black on white, so colour carries nothing but a third of the
     bytes. Grey keeps the anti-aliased edges that make staves look clean -
@@ -36,14 +36,18 @@ def _png_bytes(shot: Shot, settings: Settings) -> bytes:
     """
     with Image.open(shot.path) as image:
         image = image.convert("L")
-        # Erasures are in whole-image coordinates, so they go on before the crop.
-        image = erase(image, shot.erasures)
-        if shot.crop is not None:
-            image = image.crop(shot.crop)
-        if shot.scan:
-            image = finish(image, settings.scan_mode)
-        buffer = io.BytesIO()
-        image.save(buffer, format="PNG")
+    # Erasures are in whole-image coordinates, so they go on before the crop.
+    image = erase(image, shot.erasures)
+    if shot.crop is not None:
+        image = image.crop(shot.crop)
+    if shot.scan:
+        image = finish(image, settings.scan_mode)
+    return image
+
+
+def _png_bytes(shot: Shot, settings: Settings) -> bytes:
+    buffer = io.BytesIO()
+    shot_image(shot, settings).save(buffer, format="PNG")
     return buffer.getvalue()
 
 

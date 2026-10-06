@@ -14,9 +14,10 @@ import threading
 from pathlib import Path
 from typing import Sequence
 
+from PIL import Image
 from PySide6.QtCore import QCoreApplication, QObject, QRunnable, Signal
 
-from . import omr
+from . import omr, reader
 from .scan import ImportResult, import_scans
 from .updater import PendingUpdate, UpdateService
 
@@ -36,7 +37,7 @@ class ScanSignals(QObject):
 
 
 class MusicXmlSignals(QObject):
-    progress = Signal(int, int)   # the page reached, and how many there are
+    progress = Signal(int, int)   # the page or reading reached, and how many
     done = Signal(object)   # the written Path, or the Exception that stopped it
     finished = Signal()
 
@@ -205,6 +206,54 @@ class MusicXmlExport(BackgroundTask):
         except (
             omr.AudiverisMissing,
             omr.NothingFound,
+            omr.Cancelled,
+            OSError,
+        ) as error:
+            emit(self.signals.done, error)
+            return
+        emit(self.signals.done, written)
+
+    def _failed(self) -> None:
+        emit(self.signals.done, RuntimeError("the transcription crashed"))
+
+
+class ClaudeExport(BackgroundTask):
+    """Has Claude read the systems, off the UI thread; minutes per score."""
+
+    def __init__(
+        self,
+        systems: Sequence[Image.Image],
+        target: Path,
+        work_dir: Path,
+        signals: MusicXmlSignals,
+        backend: reader.Backend | None = None,
+    ) -> None:
+        super().__init__(signals)
+        self._systems = list(systems)
+        self._target = target
+        self._work_dir = work_dir
+        self._backend = backend
+        self._cancelled = threading.Event()
+
+    def cancel(self) -> None:
+        self._cancelled.set()
+
+    def _work(self) -> None:
+        try:
+            written = reader.transcribe(
+                self._systems,
+                self._target,
+                self._work_dir,
+                backend=self._backend,
+                progress=lambda done, total: emit(
+                    self.signals.progress, done, total
+                ),
+                cancelled=self._cancelled.is_set,
+            )
+        except (
+            reader.ClaudeMissing,
+            reader.ClaudeLoggedOut,
+            reader.ReadingFailed,
             omr.Cancelled,
             OSError,
         ) as error:

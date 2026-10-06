@@ -143,6 +143,26 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Transcribe the score, for playing it back elsewhere</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>With Audiveris …</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Free and offline; reads clean engraving well</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>With Claude, one line per voice …</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Claude Code reads the score and splits divided voices into lines for rehearsal files</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Nothing captured yet.
 
 Press {hotkey}, then drag out the area.</source>
@@ -154,10 +174,6 @@ Press {hotkey}, then drag out the area.</source>
     </message>
     <message>
         <source>Export as MusicXML …</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Transcribe the score with Audiveris, for playing it back elsewhere</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -324,6 +340,18 @@ Press {hotkey}, then drag out the area.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Claude is reading the score …</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Claude is reading the score — this takes a few minutes …</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Claude is correcting bars that did not add up ({attempt} of {total}) …</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Unsaved captures</source>
         <translation type="unfinished"></translation>
     </message>
@@ -397,6 +425,22 @@ Press {hotkey}, then drag out the area.</source>
     </message>
     <message>
         <source>ScoreCap has the pages; reading the notes off them is done by Audiveris, a separate free program. Install it from {url} and try again.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Claude Code is needed for this</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Reading the score with Claude goes through Claude Code. Install it from {url}, sign in once by running claude, and try again.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Claude Code is not signed in</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Open a terminal, run claude and sign in with your Claude account, then try again.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
