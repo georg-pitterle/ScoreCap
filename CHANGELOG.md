@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.1](https://github.com/georg-pitterle/ScoreCap/compare/v0.9.0...v0.9.1) (2026-10-16)
+
+
+### Miscellaneous Chores
+
+* release 0.9.1 ([3c769e5](https://github.com/georg-pitterle/ScoreCap/commit/3c769e569560907d65a9795fbf723f8ee33fc265))
+
 ## [0.9.0](https://github.com/georg-pitterle/ScoreCap/compare/v0.8.0...v0.9.0) (2026-10-06)
 
 
