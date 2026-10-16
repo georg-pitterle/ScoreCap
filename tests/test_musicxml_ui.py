@@ -28,9 +28,13 @@ def _missing():
 
 
 @pytest.fixture()
-def window(qapp, tmp_path):
+def window(qapp, tmp_path, monkeypatch):
     from scorecap.app import MainWindow
 
+    # The stubs stand in for running Audiveris, not for finding it: without
+    # this a machine lacking Audiveris opens the modal "needed" box, and the
+    # test waits on it forever.
+    monkeypatch.setattr(omr, "find_audiveris", lambda: tmp_path / "Audiveris.exe")
     win = MainWindow()
     path = tmp_path / "shot.png"
     Image.new("L", (1200, 300), "white").save(path)
