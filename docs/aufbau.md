@@ -57,9 +57,12 @@ zweite teilt die Arbeit:
    nicht aufgeht, geht mit Takt und Stimme zurück an Claude, bis zu dreimal.
 4. `voices.py` legt jeden Akkord einer Stimme auf Einzelzeilen (Bass 1, Bass 2
    …): jede Zeile nimmt den Ton, der ihrem letzten am nächsten liegt. Ein
-   Haltebogen bleibt nur, wo die Zeile denselben Ton weitersingt.
+   Haltebogen bleibt nur, wo die Zeile denselben Ton weitersingt. Klavier und
+   andere Instrumente (`instrument`-Zeilen) behalten ihre Akkorde.
 5. `transcript.py` schreibt daraus MusicXML, eine Stimme pro Part — fertig für
-   Übe-Dateien in MuseScore.
+   Übe-Dateien in MuseScore. Die Zeilen eines Instruments werden ein Part:
+   Zeilen mit gleichem Schlüssel teilen sich ein System, das Klavier bekommt
+   so seine zwei.
 
 Claude läuft als `claude -p` mit dem eigenen Konto: ein Team-Plan ohne
 API-Zugang reicht. Es darf nur Bilder lesen: `--tools Read` nimmt ihm jedes

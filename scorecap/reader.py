@@ -60,8 +60,13 @@ head with stems both ways is sung by both. Where one part divides on its
 own (two heads on one stem), write a chord in that part's voice
 (`G3+Bb3:h`); where a part divides onto several staves, give each staff its
 own voice. A tenor voice takes clef G8, even where the score writes it in
-the bass clef. Leave out piano and other instruments. Name the voices as
-the score does (Soprano, Alto, Tenor, Bass, Solo ...).
+the bass clef. Name the voices as the score does (Soprano, Alto, Tenor,
+Bass, Solo ...).
+
+Write the piano and any other instrument too, as `instrument` lines, with
+every note it plays: the singers rehearse against it. Notes a hand strikes
+together are one chord; a staff that moves in two rhythms at once - a held
+chord under a moving line - gets a second line with the same name and clef.
 
 A program has found the noteheads already. For each system and staff it
 lists them bar by bar, each head as it reads under a treble and under a
@@ -599,7 +604,10 @@ def transcribe(
     cancelled: Callable[[], bool] = lambda: False,
     resume: bool = False,
 ) -> tuple[Path, Usage]:
-    """The file written, one line per sung voice, and what reading it used.
+    """The file written, and what reading it used.
+
+    Every sung voice gets a line of its own; the instruments keep their
+    chords, as they are played.
 
     Written through a partial file that only replaces the old one at the
     end, so a reading that breaks off leaves the previous export intact.

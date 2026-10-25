@@ -87,3 +87,16 @@ def test_a_rest_in_a_divided_voice_is_a_rest_in_every_line():
     rested = "voice B: Bass, F\nbar 2/4\nB: C3+G3:q r:q\n"
 
     assert lines(rested) == {"Bass 1": ["G3", "r"], "Bass 2": ["C3", "r"]}
+
+
+def test_a_piano_chord_stays_a_chord_while_the_singers_divide():
+    split_up = lines("""voice B: Bass, F
+instrument P: Piano, F
+bar 4/4
+B: C3+G3:w
+P: C3+E3+G3:w
+""")
+
+    assert split_up == {
+        "Bass 1": ["G3"], "Bass 2": ["C3"], "Piano": ["G3+E3+C3"]
+    }

@@ -20,6 +20,7 @@ VALUES = {"w": Fraction(4), "h": Fraction(2), "q": Fraction(1),
 TYPES = {"w": "whole", "h": "half", "q": "quarter", "e": "eighth", "s": "16th"}
 CLEFS = {"G": ("G", 2, 0), "G8": ("G", 2, -1), "F": ("F", 4, 0)}
 VOICE_PROGRAM = 53  # General MIDI "Voice Oohs": a sung line, not a piano
+PIANO_PROGRAM = 1   # General MIDI "Acoustic Grand Piano", for every instrument
 
 # The contract with whoever reads the score; the reader's prompt quotes it.
 NOTATION = """title: The Road Home
@@ -28,21 +29,31 @@ tempo: 92
 voice S: Soprano, G
 voice T: Tenor, G8
 voice B: Bass, F
+instrument P: Piano, G
+instrument L: Piano, F
 
 bar 3/4 pickup
 S: C5:q
 T: C4:q
 B: A3:q
+P: F4+A4+C5:q
+L: F2:q
 
 bar
 S: D5:q C5:q A4:q~
 T: D4:q C4:h
 B: G3+Bb3:h.
+P: Bb4+D5:q A4+C5:q F4+A4:q
+L: G2:e D3:e G3:h
 
 - `key` counts sharps (positive) or flats (negative); `tempo` is quarters per
   minute and may be left out.
 - One `voice` line per staff or sung voice: a short key, its name, its clef -
   G (treble), G8 (treble sounding an octave lower, tenors) or F (bass).
+- One `instrument` line per staff of the piano or another instrument, named
+  as the score does, in the clef the staff mostly uses. Lines with the same
+  name are one instrument: the piano's two staves. Where a staff plays two
+  rhythms at once, give it a second line with the same name and clef.
 - `bar` opens each bar. A time signature after it holds until the next one;
   `pickup` marks an incomplete bar, which every voice must fill equally.
 - Every voice has one line in every bar.
@@ -51,7 +62,8 @@ B: G3+Bb3:h.
 - Pitches are written as they sound, with octave: C4 is middle C. Write the
   accidental the key signature or an earlier accidental in the bar implies:
   `Bb3`, `F#4`, `Bn3` is plain B.
-- `G3+Bb3:h` is a chord - two or more notes the voice divides into.
+- `G3+Bb3:h` is a chord - two or more notes the voice divides into, or
+  that an instrument strikes together.
 - `~` at the end ties the note to the next one of the same pitch.
 - `x:` before the pitch marks a spoken or shouted note: `x:C4:q`.
 - `r:q` is a rest, `R` alone a rest for the whole bar.
@@ -139,9 +151,12 @@ class Event:
 
 @dataclass(frozen=True)
 class Voice:
+    """A sung voice, or with `played` one line of an instrument's staff."""
+
     key: str
     name: str
     clef: str
+    played: bool = False
 
     def __post_init__(self) -> None:
         if self.clef not in CLEFS:
@@ -221,9 +236,12 @@ def _beats(length: Fraction) -> str:
 def _header(line: str, fields: dict[str, str], voices: list[Voice]) -> None:
     name, _, value = line.partition(":")
     name, value = name.strip(), value.strip()
-    if name.startswith("voice "):
+    kind, _, key = name.partition(" ")
+    if kind in ("voice", "instrument") and key.strip():
         label, _, clef = value.rpartition(",")
-        voices.append(Voice(name[6:].strip(), label.strip(), clef.strip()))
+        voices.append(
+            Voice(key.strip(), label.strip(), clef.strip(), kind == "instrument")
+        )
     elif name in ("title", "key", "tempo"):
         fields[name] = value
     else:
@@ -366,7 +384,49 @@ def _divisions(score: Score) -> int:
     return divisions
 
 
-def _attributes(measure, score: Score, voice: Voice, bar: Bar, first: bool) -> None:
+@dataclass(frozen=True)
+class _Part:
+    """The lines one MusicXML part is made of, each with its staff, from 1."""
+
+    name: str
+    lines: tuple[int, ...]
+    staves: tuple[int, ...]
+    played: bool
+
+    @property
+    def clefs(self) -> dict[int, int]:
+        """The first line on each staff; its clef is the staff's."""
+        firsts: dict[int, int] = {}
+        for line, staff in zip(self.lines, self.staves):
+            firsts.setdefault(staff, line)
+        return firsts
+
+
+def _parts(voices: Sequence[Voice]) -> list[_Part]:
+    """Every sung voice a part of its own; an instrument's lines one part.
+
+    An instrument's lines share a staff where they share its clef - the
+    second rhythm of a right hand - so the piano keeps its two staves.
+    """
+    parts: list[_Part] = []
+    for index, voice in enumerate(voices):
+        last = parts[-1] if parts else None
+        if voice.played and last and last.played and last.name == voice.name:
+            clefs = [voices[line].clef for line in last.clefs.values()]
+            staff = (
+                clefs.index(voice.clef) + 1
+                if voice.clef in clefs
+                else len(clefs) + 1
+            )
+            parts[-1] = _Part(
+                last.name, last.lines + (index,), last.staves + (staff,), True
+            )
+        else:
+            parts.append(_Part(voice.name, (index,), (1,), voice.played))
+    return parts
+
+
+def _attributes(measure, score: Score, part: _Part, bar: Bar, first: bool) -> None:
     attributes = _sub(measure, "attributes")
     if first:
         _sub(attributes, "divisions", _divisions(score))
@@ -375,17 +435,24 @@ def _attributes(measure, score: Score, voice: Voice, bar: Bar, first: bool) -> N
     time = _sub(attributes, "time")
     _sub(time, "beats", bar.time[0])
     _sub(time, "beat-type", bar.time[1])
-    if first:
-        sign, line, octave = CLEFS[voice.clef]
-        clef = _sub(attributes, "clef")
+    if not first:
+        return
+    staves = part.clefs
+    if len(staves) > 1:
+        _sub(attributes, "staves", len(staves))
+    for staff, line in staves.items():
+        sign, clef_line, octave = CLEFS[score.voices[line].clef]
+        clef = _sub(
+            attributes, "clef", **({"number": str(staff)} if len(staves) > 1 else {})
+        )
         _sub(clef, "sign", sign)
-        _sub(clef, "line", line)
+        _sub(clef, "line", clef_line)
         if octave:
             _sub(clef, "clef-octave-change", octave)
 
 
 def _note(measure, event: Event, pitch: Pitch | None, chord: bool, ticks: int,
-          ties: tuple[bool, bool]) -> None:
+          ties: tuple[bool, bool], voice: int, staff: int | None) -> None:
     note = _sub(measure, "note")
     if chord:
         _sub(note, "chord")
@@ -403,7 +470,7 @@ def _note(measure, event: Event, pitch: Pitch | None, chord: bool, ticks: int,
         _sub(note, "tie", type="stop")
     if starts:
         _sub(note, "tie", type="start")
-    _sub(note, "voice", 1)
+    _sub(note, "voice", voice)
     if not event.fills_bar:
         _sub(note, "type", TYPES[event.value])
         for _ in range(event.dots):
@@ -414,6 +481,8 @@ def _note(measure, event: Event, pitch: Pitch | None, chord: bool, ticks: int,
         _sub(modification, "normal-notes", 2)
     if event.spoken:
         _sub(note, "notehead", "x")
+    if staff is not None:
+        _sub(note, "staff", staff)
     if stops or starts:
         notations = _sub(note, "notations")
         if stops:
@@ -422,20 +491,24 @@ def _note(measure, event: Event, pitch: Pitch | None, chord: bool, ticks: int,
             _sub(notations, "tied", type="start")
 
 
-def _part(root, score: Score, index: int, voice: Voice) -> None:
-    part = _sub(root, "part", id=f"P{index + 1}")
+def _part(root, score: Score, index: int, part: _Part) -> None:
+    element = _sub(root, "part", id=f"P{index + 1}")
     divisions = _divisions(score)
-    flat = [event for bar in score.bars for event in bar.music[index]]
-    position = 0
+    several = len(part.clefs) > 1
+    flats = {
+        line: [event for bar in score.bars for event in bar.music[line]]
+        for line in part.lines
+    }
+    positions = dict.fromkeys(part.lines, 0)
     for number, bar in enumerate(score.bars):
         measure = _sub(
-            part,
+            element,
             "measure",
             number=str(bar.number),
             **({"implicit": "yes"} if bar.pickup else {}),
         )
         if number == 0 or bar.time != score.bars[number - 1].time:
-            _attributes(measure, score, voice, bar, number == 0)
+            _attributes(measure, score, part, bar, number == 0)
         if number == 0 and score.tempo and index == 0:
             direction = _sub(measure, "direction", placement="above")
             kind = _sub(direction, "direction-type")
@@ -443,21 +516,30 @@ def _part(root, score: Score, index: int, voice: Voice) -> None:
             _sub(metronome, "beat-unit", "quarter")
             _sub(metronome, "per-minute", score.tempo)
             _sub(direction, "sound", tempo=str(score.tempo))
-        for event in bar.music[index]:
-            before = flat[position - 1] if position else None
-            after = flat[position + 1] if position + 1 < len(flat) else None
-            ticks = int(event.duration(bar.length) * divisions)
-            for order, pitch in enumerate(event.pitches or (None,)):
-                ties = (
-                    bool(before and before.tied and pitch in before.pitches),
-                    bool(event.tied and after and pitch in after.pitches),
-                )
-                _note(measure, event, pitch, order > 0, ticks, ties)
-            position += 1
+        for order, (line, staff) in enumerate(zip(part.lines, part.staves)):
+            if order:
+                # Each line of the part starts again at the bar's beginning.
+                previous = part.lines[order - 1]
+                _sub(_sub(measure, "backup"), "duration",
+                     int(bar.sung(previous) * divisions))
+            flat = flats[line]
+            for event in bar.music[line]:
+                position = positions[line]
+                before = flat[position - 1] if position else None
+                after = flat[position + 1] if position + 1 < len(flat) else None
+                ticks = int(event.duration(bar.length) * divisions)
+                for chord, pitch in enumerate(event.pitches or (None,)):
+                    ties = (
+                        bool(before and before.tied and pitch in before.pitches),
+                        bool(event.tied and after and pitch in after.pitches),
+                    )
+                    _note(measure, event, pitch, chord > 0, ticks, ties,
+                          order + 1, staff if several else None)
+                positions[line] += 1
 
 
 def to_musicxml(score: Score) -> ElementTree.Element:
-    """The score as MusicXML, one part per voice.
+    """The score as MusicXML, one part per voice and one per instrument.
 
     A tie is written only where the next note carries the same pitch on: a
     bow into a different note is a slur, and a slur does not sound.
@@ -467,17 +549,18 @@ def to_musicxml(score: Score) -> ElementTree.Element:
         work = _sub(root, "work")
         _sub(work, "work-title", score.title)
     part_list = _sub(root, "part-list")
-    for index, voice in enumerate(score.voices):
+    parts = _parts(score.voices)
+    for index, part in enumerate(parts):
         ident = f"P{index + 1}"
         score_part = _sub(part_list, "score-part", id=ident)
-        _sub(score_part, "part-name", voice.name)
+        _sub(score_part, "part-name", part.name)
         instrument = _sub(score_part, "score-instrument", id=f"{ident}-I1")
-        _sub(instrument, "instrument-name", voice.name)
+        _sub(instrument, "instrument-name", part.name)
         midi = _sub(score_part, "midi-instrument", id=f"{ident}-I1")
         channel = index % 15 + 1
         # Channel 10 is the drum kit; a voice there would play as percussion.
         _sub(midi, "midi-channel", channel + 1 if channel >= 10 else channel)
-        _sub(midi, "midi-program", VOICE_PROGRAM)
-    for index, voice in enumerate(score.voices):
-        _part(root, score, index, voice)
+        _sub(midi, "midi-program", PIANO_PROGRAM if part.played else VOICE_PROGRAM)
+    for index, part in enumerate(parts):
+        _part(root, score, index, part)
     return root

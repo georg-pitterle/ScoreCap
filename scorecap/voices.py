@@ -110,12 +110,15 @@ def split(score: Score) -> Score:
     A voice that divides into three becomes "Bass 1" to "Bass 3", top to
     bottom where the music lets the order show. Which note goes to which
     line is decided by voice leading: each line takes the note nearest the
-    one it sang last, because that is what the singers do.
+    one it sang last, because that is what the singers do. An instrument
+    keeps its chords: one hand strikes them, nobody has to sing them apart.
     """
     voices: list[Voice] = []
     columns: list[list[tuple[Event, ...]]] = []
     for index, voice in enumerate(score.voices):
         count = max(_widest(bar.music[index]) for bar in score.bars)
+        if voice.played:
+            count = 1
         if count > MOST_LINES:
             raise ValueError(
                 f"{voice.name} divides into {count}; at most {MOST_LINES}"

@@ -148,9 +148,10 @@ ohne.
 prüft, was es liest: Jeder Takt jeder Stimme wird gegen die Taktart
 nachgezählt, und was nicht aufgeht, bekommt Claude mit Takt und Stimme zur
 Korrektur zurück. Wo eine Stimme sich teilt, wird jede Teilung ihre eigene
-Zeile — *Bass 1*, *Bass 2*, *Bass 3* —, so wie die Sänger sie singen. Das ist
-der Weg für Übe-Dateien: in MuseScore öffnen, eine Stimme laut, als MP3
-exportieren.
+Zeile — *Bass 1*, *Bass 2*, *Bass 3* —, so wie die Sänger sie singen. Eine
+Klavierbegleitung kommt mit, wie sie dasteht: als eigener Part auf zwei
+Systemen, mit allen Akkorden. Das ist der Weg für Übe-Dateien: in MuseScore
+öffnen, eine Stimme laut, als MP3 exportieren — mit Klavier oder ohne.
 
 Dafür muss [Claude Code](https://claude.com/claude-code) installiert und einmal
 angemeldet sein (`claude` im Terminal starten). Ein Claude-Abo genügt, ein

@@ -30,7 +30,9 @@ B: D3:h.
 def test_the_example_the_reader_is_shown_reads_without_complaint():
     score = parse(EXAMPLE)
 
-    assert [voice.name for voice in score.voices] == ["Soprano", "Tenor", "Bass"]
+    assert [voice.name for voice in score.voices] == [
+        "Soprano", "Tenor", "Bass", "Piano", "Piano"
+    ]
     assert [bar.number for bar in score.bars] == [0, 1]
 
 
@@ -143,3 +145,68 @@ def test_a_tenor_line_is_written_with_its_octave_clef():
 
     assert tenor.findtext(".//clef/clef-octave-change") == "-1"
     assert tenor.find("measure").get("implicit") == "yes"
+
+
+WITH_PIANO = """key: 0
+voice S: Soprano, G
+instrument R: Piano, G
+instrument H: Piano, G
+instrument L: Piano, F
+
+bar 3/4
+S: E5:h.
+R: C5:q D5:q E5:q
+H: E4+G4:h.
+L: C3:q G3:h
+"""
+
+
+@pytest.fixture(scope="module")
+def accompanied():
+    return to_musicxml(parse(WITH_PIANO))
+
+
+def test_the_piano_is_one_part_on_two_staves_beside_the_singers(accompanied):
+    names = [p.findtext("part-name") for p in accompanied.iter("score-part")]
+    piano = accompanied.findall("part")[1]
+    clefs = [
+        (clef.get("number"), clef.findtext("sign")) for clef in piano.iter("clef")
+    ]
+
+    assert names == ["Soprano", "Piano"]
+    assert piano.findtext("measure/attributes/staves") == "2"
+    assert clefs == [("1", "G"), ("2", "F")]
+
+
+def test_a_piano_chord_sounds_together_and_every_line_starts_with_the_bar(
+    accompanied,
+):
+    piano = accompanied.findall("part")[1]
+    divisions = int(piano.findtext("measure/attributes/divisions"))
+    onsets, now = [], 0
+    for element in piano.find("measure"):
+        if element.tag == "backup":
+            now -= int(element.findtext("duration"))
+        elif element.tag == "note":
+            if element.find("chord") is None:
+                start = now
+                now += int(element.findtext("duration"))
+            onsets.append(
+                (element.findtext("pitch/step") + element.findtext("pitch/octave"),
+                 element.findtext("staff"), start / divisions)
+            )
+
+    assert onsets == [
+        ("C5", "1", 0), ("D5", "1", 1), ("E5", "1", 2),
+        ("G4", "1", 0), ("E4", "1", 0),
+        ("C3", "2", 0), ("G3", "2", 1),
+    ]
+
+
+def test_the_piano_plays_as_a_piano_and_the_singers_as_voices(accompanied):
+    programs = [
+        p.findtext("midi-instrument/midi-program")
+        for p in accompanied.iter("score-part")
+    ]
+
+    assert programs == [str(transcript.VOICE_PROGRAM), str(transcript.PIANO_PROGRAM)]
