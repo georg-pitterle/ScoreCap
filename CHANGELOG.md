@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.0](https://github.com/georg-pitterle/ScoreCap/compare/v0.9.1...v0.10.0) (2026-10-25)
+
+
+### Features
+
+* keep the piano accompaniment in the Claude export ([3034b0b](https://github.com/georg-pitterle/ScoreCap/commit/3034b0bb24fde3bb0f010e36120ece382a3e781e))
+
 ## [0.9.1](https://github.com/georg-pitterle/ScoreCap/compare/v0.9.0...v0.9.1) (2026-10-16)
 
 
