@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.1](https://github.com/georg-pitterle/ScoreCap/compare/v0.10.0...v0.10.1) (2026-10-30)
+
+
+### Bug Fixes
+
+* keep the app starting with PyMuPDF 2.0 released ([b674af2](https://github.com/georg-pitterle/ScoreCap/commit/b674af298d28bb01dceb175b9aba839ebf27015a))
+
 ## [0.10.0](https://github.com/georg-pitterle/ScoreCap/compare/v0.9.1...v0.10.0) (2026-10-25)
 
 
