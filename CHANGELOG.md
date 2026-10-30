@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.11.0](https://github.com/georg-pitterle/ScoreCap/compare/v0.10.1...v0.11.0) (2026-10-30)
+
+
+### Features
+
+* keep a capture series in view and in reach of the keyboard ([31a6e88](https://github.com/georg-pitterle/ScoreCap/commit/31a6e8869aa891ecf5216d19575c1b59371a91bc))
+
+
+### Documentation
+
+* keep the README to what ScoreCap is and move the guide to docs ([5f75062](https://github.com/georg-pitterle/ScoreCap/commit/5f7506244ebd69f51199619fdf4e71c4faf3102c))
+* settle how work reaches main ([c524460](https://github.com/georg-pitterle/ScoreCap/commit/c5244608c7f5012da60578f31c5e8f663caa551f))
+
 ## [0.10.1](https://github.com/georg-pitterle/ScoreCap/compare/v0.10.0...v0.10.1) (2026-10-30)
 
 
