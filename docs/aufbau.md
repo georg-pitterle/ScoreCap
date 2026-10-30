@@ -9,9 +9,11 @@
 | `pdf.py` | PDF-Bau samt Fußzeile |
 | `preview.py` | rastert dasselbe PDF für die Vorschau |
 | `capture.py` | Auswahl-Overlay und Bildschirmaufnahme |
+| `seriesbar.py` | die Leiste, die während einer Serie auf dem Bildschirm bleibt |
+| `elided.py` | einzeiliges Label, das kürzt, statt das Fenster zu verbreitern |
 | `hotkey.py` | systemweiter Hotkey über Win32 |
 | `cropdialog.py`, `settingsdialog.py` | Dialoge |
-| `projectui.py` | die Frage nach ungespeicherten Aufnahmen |
+| `projectui.py` | die Fragen beim Schließen: ungespeicherte Aufnahmen, laufende Lesung |
 | `erase.py` | malt die Radierungen weiß, wenn eine Aufnahme gerendert wird |
 | `shotlist.py` | Aufnahmeliste mit Vorschaubildern |
 | `staff.py` | erkennt, wo die Notenlinien eines Systems enden |

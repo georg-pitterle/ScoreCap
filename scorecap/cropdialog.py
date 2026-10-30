@@ -9,13 +9,14 @@ from __future__ import annotations
 
 import logging
 
-from PySide6.QtCore import QPoint, QRect, QSize, Qt, Signal
+from PySide6.QtCore import QCoreApplication, QPoint, QRect, QSize, Qt, Signal
 from PySide6.QtGui import QColor, QGuiApplication, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import (
     QButtonGroup,
     QDialog,
     QDialogButtonBox,
     QHBoxLayout,
+    QMessageBox,
     QPushButton,
     QVBoxLayout,
     QWidget,
@@ -32,6 +33,15 @@ HANDLE_PX = 7
 GRAB_PX = 8        # how close to an edge or corner the pointer takes hold of it
 MIN_CROP_PX = 5
 MIN_ERASE_PX = 2   # smaller than this is a click that missed, not an erasure
+KEY_STEP_PX = 10   # on screen, one press of an arrow
+FINE_STEP_PX = 1   # the same with Shift
+CROP_KEY_SHARE = 200  # one press moves a crop edge this fraction of the image
+ARROWS = {
+    Qt.Key.Key_Left: (-1, 0),
+    Qt.Key.Key_Right: (1, 0),
+    Qt.Key.Key_Up: (0, -1),
+    Qt.Key.Key_Down: (0, 1),
+}
 
 CANVAS_MIN = QSize(480, 360)   # the smallest the canvas may be squeezed to
 SCREEN_SHARE = 0.8             # of the screen the dialog takes when it opens
@@ -134,6 +144,32 @@ def adjust_crop(
     return left, top, right, bottom
 
 
+def ask_discard_edits(parent: QWidget) -> bool:
+    """True when what was changed in the dialog may go."""
+    box = QMessageBox(parent)
+    box.setIcon(QMessageBox.Icon.Question)
+    box.setWindowTitle(QCoreApplication.translate("CropDialog", "Discard changes?"))
+    box.setText(
+        QCoreApplication.translate(
+            "CropDialog", "The crop or the erasures have changed."
+        )
+    )
+    discard = box.addButton(
+        QCoreApplication.translate("CropDialog", "Discard"),
+        QMessageBox.ButtonRole.DestructiveRole,
+    )
+    keep = box.addButton(
+        QCoreApplication.translate("CropDialog", "Keep editing"),
+        QMessageBox.ButtonRole.RejectRole,
+    )
+    box.setDefaultButton(keep)
+    for button in box.buttons():
+        button.ensurePolished()
+        button.setMinimumWidth(button.sizeHint().width())
+    box.exec()
+    return box.clickedButton() is discard
+
+
 class _CropCanvas(QWidget):
     """Shows the shot scaled to fit and lets the user drag rectangles on it.
 
@@ -141,6 +177,10 @@ class _CropCanvas(QWidget):
     a drag whites out the rectangle it spans. In crop mode a drag draws the
     crop, or adjusts an existing one: its corners and edges resize it, a drag
     inside moves it.
+
+    From the keyboard, in crop mode the arrows move the crop, with Shift they
+    move its right and bottom edge, with Ctrl its left and top edge. In erase
+    mode they walk a crosshair and Enter sets each corner of the rectangle.
     """
 
     erasures_changed = Signal()
@@ -162,7 +202,10 @@ class _CropCanvas(QWidget):
         self._now: QPoint | None = None   # the far corner while erasing
         # While adjusting: the part held, the crop and source point at the start.
         self._drag: tuple[str, tuple[int, int, int, int], QPoint] | None = None
+        self._caret: QPoint | None = None  # where the keyboard stands, erasing
         self.setMinimumSize(CANVAS_MIN)
+        # Tab only: a click on the image must leave Enter with the dialog.
+        self.setFocusPolicy(Qt.FocusPolicy.TabFocus)
         self.setCursor(Qt.CrossCursor)
         self.setMouseTracking(True)  # the cursor shows what a drag would do
 
@@ -182,6 +225,7 @@ class _CropCanvas(QWidget):
         self._mode = mode
         self._start = self._now = None
         self._drag = None
+        self._caret = None
         self.setCursor(Qt.CrossCursor)
         self.update()
 
@@ -232,6 +276,19 @@ class _CropCanvas(QWidget):
             self._paint_handles(painter, selection)
         else:
             self._paint_pending_erasure(painter, display)
+            self._paint_caret(painter)
+        if self.hasFocus():
+            painter.setPen(QPen(QColor(self._palette.accent), 2))
+            painter.setBrush(Qt.NoBrush)
+            painter.drawRect(self.rect().adjusted(1, 1, -1, -1))
+
+    def _paint_caret(self, painter: QPainter) -> None:
+        if self._caret is None:
+            return
+        painter.setPen(QPen(QColor(self._palette.accent), 1))
+        x, y = self._caret.x(), self._caret.y()
+        painter.drawLine(x - GRAB_PX, y, x + GRAB_PX, y)
+        painter.drawLine(x, y - GRAB_PX, x, y + GRAB_PX)
 
     def _dim_around(self, painter: QPainter, display: QRect, selection: QRect) -> None:
         """Dim what falls away, the same language the capture overlay speaks."""
@@ -342,6 +399,63 @@ class _CropCanvas(QWidget):
             self._set_crop(self._start, point)
             self._start = None
 
+    def keyPressEvent(self, event) -> None:  # noqa: N802
+        key = event.key()
+        if key in ARROWS and self._mode == "crop":
+            self._nudge_crop(ARROWS[key], event.modifiers())
+        elif key in ARROWS:
+            self._walk_caret(ARROWS[key], event.modifiers())
+        elif key in (Qt.Key.Key_Return, Qt.Key.Key_Enter) and self._mode == "erase":
+            self._set_erasure_corner()
+        elif key == Qt.Key.Key_Escape and self._start is not None:
+            self._start = self._now = None  # the rectangle goes, not the dialog
+            self.update()
+        else:
+            super().keyPressEvent(event)
+
+    def _nudge_crop(self, direction: tuple[int, int], modifiers) -> None:
+        if modifiers & Qt.KeyboardModifier.ShiftModifier:
+            handle = "br"
+        elif modifiers & Qt.KeyboardModifier.ControlModifier:
+            handle = "tl"
+        elif self._crop is None:
+            return  # nothing to move; the edges can be pulled in with Shift or Ctrl
+        else:
+            handle = "move"
+        source = self._pixmap.size()
+        step = max(1, source.width() // CROP_KEY_SHARE)
+        self._crop = adjust_crop(
+            self._held_crop(),
+            handle,
+            direction[0] * step,
+            direction[1] * step,
+            (source.width(), source.height()),
+        )
+        self.update()
+
+    def _walk_caret(self, direction: tuple[int, int], modifiers) -> None:
+        display = self._display()
+        fine = modifiers & Qt.KeyboardModifier.ShiftModifier
+        step = FINE_STEP_PX if fine else KEY_STEP_PX
+        caret = self._caret or display.center()
+        self._caret = QPoint(
+            _clamp(caret.x() + direction[0] * step, display.left(), display.right()),
+            _clamp(caret.y() + direction[1] * step, display.top(), display.bottom()),
+        )
+        if self._start is not None:
+            self._now = self._caret
+        self.update()
+
+    def _set_erasure_corner(self) -> None:
+        caret = self._caret or self._display().center()
+        self._caret = caret
+        if self._start is None:
+            self._start = self._now = caret
+            self.update()
+            return
+        self._add_erasure(self._start, caret)
+        self._start = self._now = None
+
     def _adjust(self, point: QPoint) -> None:
         handle, crop, origin = self._drag
         now = self._source_point(point)
@@ -385,9 +499,18 @@ class CropDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle(self.tr("Edit"))
         self._shot = shot
+        self._opened = shot
         self._source = source
         self._canvas = _CropCanvas(
             QPixmap(str(shot.path)), shot.crop, shot.erasures, palette
+        )
+        self._canvas.setAccessibleName(self.tr("The capture"))
+        self._canvas.setAccessibleDescription(
+            self.tr(
+                "Crop: the arrow keys move the crop, with Shift its right and "
+                "bottom edge, with Ctrl its left and top edge. Eraser: the "
+                "arrow keys move the crosshair, Enter sets each corner."
+            )
         )
 
         self._crop_mode = self._mode_button(self.tr("Crop"), "crop")
@@ -486,6 +609,17 @@ class CropDialog(QDialog):
 
     def reset(self) -> None:
         self._canvas.reset()
+
+    def reject(self) -> None:  # noqa: D102 - QDialog's own slot
+        """Ask first when leaving would lose work; Esc is pressed quickly."""
+        changed = (
+            self._shot != self._opened
+            or self.crop != self._opened.crop
+            or self.erasures != self._opened.erasures
+        )
+        if changed and not ask_discard_edits(self):
+            return
+        super().reject()
 
     def show_page(self) -> None:
         """Swap the band for the page it was cut from. Cancelling goes back."""

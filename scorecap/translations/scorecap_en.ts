@@ -8,7 +8,31 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Discard changes?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The crop or the erasures have changed.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Discard</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Keep editing</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Edit</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The capture</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Crop: the arrow keys move the crop, with Shift its right and bottom edge, with Ctrl its left and top edge. Eraser: the arrow keys move the crosshair, Enter sets each corner.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -71,10 +95,6 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Crop the capture or erase what disturbs</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>{systems} from {pages} imported</source>
         <translation type="unfinished"></translation>
     </message>
@@ -91,14 +111,6 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Prepare capture</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>The window steps aside; capturing starts only with the hotkey</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Import scans …</source>
         <translation type="unfinished"></translation>
     </message>
@@ -107,15 +119,23 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Undo the last change ({shortcut})</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Recapture</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Delete</source>
+        <source>Capture this line again; the new one replaces it ({shortcut})</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Settings</source>
+        <source>Crop the capture or erase what disturbs ({shortcut})</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Delete</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -135,10 +155,6 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Shrink PDF …</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Shrink an existing PDF; the original stays unchanged</source>
         <translation type="unfinished"></translation>
     </message>
@@ -151,21 +167,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Free and offline; reads clean engraving well</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>With Claude, one line per voice …</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Claude Code reads the score and splits divided voices into lines for rehearsal files</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Nothing captured yet.
-
-Press {hotkey}, then drag out the area.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -177,7 +179,43 @@ Press {hotkey}, then drag out the area.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Delete this capture (Del)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Extras</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Shrink a PDF file …</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Settings …</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Takes minutes. Check that no system is cut in two first.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Free and offline; reads clean engraving well, about 15 seconds a page</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Claude Code reads the score and splits divided voices into lines for rehearsal files; takes minutes and counts towards your Claude plan</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Nothing captured yet.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>No capture yet</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Stop the transcription</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -209,7 +247,11 @@ Press {hotkey}, then drag out the area.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Fit</source>
+        <source>Redo</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Bring back what was undone ({shortcut})</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -289,11 +331,39 @@ Press {hotkey}, then drag out the area.</source>
         </translation>
     </message>
     <message>
-        <source>Ready — press {hotkey}</source>
+        <source>Capture {number}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Capture {number}</source>
+        <source>Series ready</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>That was too small. Press {hotkey} and drag again</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>{hotkey} next · {retake} again</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Scroll to the passage, press {hotkey} and drag</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Take this capture back and drag it again ({shortcut})</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Capture {number} taken back</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Esc ends the series</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>{retake} or right-click: the last one again</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -334,6 +404,26 @@ Press {hotkey}, then drag out the area.</source>
             <numerusform> — %n capture whose file is gone was left out</numerusform>
             <numerusform> — %n captures whose files are gone were left out</numerusform>
         </translation>
+    </message>
+    <message>
+        <source>{name} could not be written. Another program may have it open: close it there and try again.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>{name} could not be written: {reason}</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Stopping the transcription …</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Open {name} in its program</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>No program here opens {name}</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Transcribing with Audiveris — this takes a while …</source>
@@ -423,7 +513,67 @@ Press {hotkey}, then drag out the area.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Transcription under way</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>ScoreCap is still transcribing the score.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Closing stops it, and the MusicXML file is not written.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Stop and close</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Keep transcribing</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Cancel</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Save the pages as they stand here ({shortcut})</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Fit width</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Start series ({hotkey})</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The window steps aside. Scroll to the passage, press {hotkey} and drag; capturing starts only with the hotkey</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Nothing here yet.
+
+Start a series, scroll to the passage, press {hotkey} and drag out each system. Every capture lands on this page, as it will print.
+
+Or drop scanned pages onto this window.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Zoom out ({shortcut})</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Zoom in ({shortcut})</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Fit the page to the window&apos;s width ({shortcut})</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Recapture {number}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -544,9 +694,39 @@ Press {hotkey}, then drag out the area.</source>
     </message>
 </context>
 <context>
+    <name>Preview</name>
+    <message>
+        <source>Page {number}</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>SeriesBar</name>
+    <message>
+        <source>Again</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Undo</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Done</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>SettingsDialog</name>
     <message>
         <source>Settings</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>How far a capture may be scaled down so that it still fits on the page; 0.85 keeps at least 85 % of its size</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Captures that would print coarser than this get a warning</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -570,6 +750,10 @@ Press {hotkey}, then drag out the area.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Takes back the last capture and lets it be dragged again. Held only while a series runs</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Black and white</source>
         <translation type="unfinished"></translation>
     </message>
@@ -587,6 +771,10 @@ Press {hotkey}, then drag out the area.</source>
     </message>
     <message>
         <source>Takes effect the next time ScoreCap starts</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Page</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -610,7 +798,19 @@ Press {hotkey}, then drag out the area.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Capturing</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Hotkey for capturing again</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Warning threshold dpi</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The two hotkeys need different keys.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -618,7 +818,15 @@ Press {hotkey}, then drag out the area.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Scans</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Print scans in</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>General</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -642,6 +850,10 @@ Press {hotkey}, then drag out the area.</source>
     <name>ShotList</name>
     <message>
         <source>File missing</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>page {page}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

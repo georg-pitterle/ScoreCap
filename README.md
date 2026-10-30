@@ -27,19 +27,38 @@ ist, steht in `%LocalAppData%\ScoreCap\logs\scorecap.log`.
 ## Bedienung
 
 - `Ctrl+Shift+S` (systemweit) öffnet das Auswahl-Overlay: Rechteck ziehen,
-  loslassen. `Esc` bricht ab.
-- *Aufnahme vorbereiten* und *Neu aufnehmen* nehmen selbst noch kein Bild auf.
-  Sie stellen nur scharf: das Fenster geht aus dem Weg, du scrollst oder
-  wechselst in Ruhe zum richtigen Fenster, und erst der Hotkey dunkelt den
-  Bildschirm ab. Ein Hinweis am Cursor erinnert an den Hotkey.
+  loslassen. `Esc` beendet die Serie. Ohne Maus: Pfeiltasten bewegen den Zeiger
+  (mit `Umschalt` pixelweise), `Enter` setzt die erste Ecke, ein zweites `Enter`
+  die zweite.
+- *Serie starten* und *Neu aufnehmen* nehmen selbst noch kein Bild auf. Sie
+  stellen nur scharf: das Fenster geht aus dem Weg, du scrollst oder wechselst
+  in Ruhe zum richtigen Fenster, und erst der Hotkey dunkelt den Bildschirm ab.
 - **Serienaufnahme:** nach einer Aufnahme bleibt ScoreCap minimiert, der Browser
-  behält den Fokus. Also: scrollen, Hotkey, ziehen, scrollen, Hotkey, … Ein
-  kurzer Hinweis am Cursor zeigt, dass die Aufnahme saß. Zurück ins Fenster:
-  Hotkey drücken und `Esc`, oder das Fenster aus der Taskleiste holen — dann
-  wird die Vorschau nachgezogen.
-- Links die Aufnahmen: per Drag&Drop sortieren, *Neu aufnehmen*, *Bearbeiten*,
-  *Löschen*. Doppelklick auf einen Eintrag öffnet das Bearbeiten. `Strg+Z`
-  macht rückgängig.
+  behält den Fokus. Also: scrollen, Hotkey, ziehen, scrollen, Hotkey, … Eine
+  kleine Leiste am unteren Bildschirmrand zeigt die letzte Aufnahme und ihre
+  Nummer, nimmt mit *Rückgängig* die letzte zurück und führt mit *Fertig*
+  zurück ins Fenster; dort steht dann die neueste Aufnahme markiert. Die Leiste
+  nimmt dem Browser nie den Fokus, lässt sich mit der Maus verschieben und ist
+  in keiner Aufnahme zu sehen. Ein versehentlicher Klick beendet die Serie
+  nicht. Das Fenster aus der Taskleiste zu holen beendet sie ebenfalls.
+- **Daneben markiert?** `Ctrl+Shift+Z` oder *Nochmal* in der Leiste nimmt die
+  letzte Aufnahme zurück und dunkelt sofort wieder ab, die Serie läuft weiter.
+  Noch beim Ziehen verwirft ein Rechtsklick die Markierung, ohne dass etwas
+  aufgenommen wird. Ist der Bildschirm schon abgedunkelt, nimmt ein Rechtsklick
+  oder die Rücktaste die letzte Aufnahme zurück. `Ctrl+Shift+Z` ist nur während
+  einer Serie belegt und lässt sich in den Einstellungen ändern.
+- Links die Aufnahmen: per Drag&Drop sortieren oder mit `Alt+↑`/`Alt+↓`. Mit
+  `Strg`- oder `Umschalt`-Klick lassen sich mehrere wählen, um sie gemeinsam zu
+  verschieben oder zu löschen. Über der Liste stehen *Rückgängig* (`Strg+Z`),
+  *Wiederherstellen* (`Strg+Y`), *Neu aufnehmen* (`Strg+R`), *Bearbeiten* (`F2`,
+  `Enter` oder Doppelklick) und *Löschen* (`Entf`). Die gewählte Aufnahme ist
+  rechts auf ihrer Seite umrandet; ein Klick dort wählt umgekehrt die Zeile.
+- `Strg+E` exportiert das PDF, `Strg++`, `Strg+-` und `Strg+0` zoomen. Danach
+  bleibt die exportierte Datei in der Statuszeile genannt, *Öffnen* zeigt sie.
+- *Bearbeiten* geht auch ohne Maus: mit `Tab` auf das Bild, dann verschieben
+  die Pfeiltasten den Rahmen, mit `Umschalt` seine rechte und untere, mit `Strg`
+  seine linke und obere Kante. Beim Radieren bewegen sie ein Fadenkreuz, und
+  `Enter` setzt jede Ecke. *Abbrechen* fragt nach, wenn sich etwas geändert hat.
 - *Bearbeiten* kennt zwei Werkzeuge und öffnet mit dem zuletzt gewählten,
   auch nach einem Neustart; beim allerersten Mal mit dem *Radierer*, weil der
   öfter gebraucht wird: ein gezogenes Rechteck wird weiß übermalt — für
@@ -143,7 +162,8 @@ ohne.
 
 ### Mit Claude: eine Zeile je Stimme
 
-*Als MusicXML exportieren* bietet zwei Wege: *Mit Audiveris* wie oben, oder
+*Als MusicXML exportieren* steht unten rechts neben dem PDF-Export und bietet
+zwei Wege: *Mit Audiveris* wie oben, oder
 *Mit Claude, eine Zeile je Stimme*. Dort liest Claude die Partitur, und ScoreCap
 prüft, was es liest: Jeder Takt jeder Stimme wird gegen die Taktart
 nachgezählt, und was nicht aufgeht, bekommt Claude mit Takt und Stimme zur
@@ -158,7 +178,9 @@ angemeldet sein (`claude` im Terminal starten). Ein Claude-Abo genügt, ein
 API-Schlüssel ist nicht nötig. Eine Partitur zu lesen dauert einige Minuten;
 der Balken in der Statuszeile füllt sich mit jedem System, das Claude öffnet.
 Danach steht dort, was die Lesung gekostet hat: Tokens und wie viel vom
-Fünf-Stunden- und Wochenkontingent des Abos verbraucht ist.
+Fünf-Stunden- und Wochenkontingent des Abos verbraucht ist. *Abbrechen* in der
+Statuszeile stoppt eine Lesung, und auch Audiveris sofort; wer ScoreCap
+währenddessen schließt, wird vorher gefragt.
 
 Wo ein Vorzeichen oder Punkt zu klein ist, darf Claude ein vergrößertes Stück
 des Systems öffnen. Die Statuszeile sagt am Ende, wie oft das nötig war —

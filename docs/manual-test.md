@@ -3,9 +3,9 @@
 Voraussetzung: `python -m scorecap` läuft, ein Browser mit einer mehrzeiligen
 Partitur ist geöffnet.
 
-1. **Button friert nichts ein.** Im Fenster auf *Aufnahme vorbereiten* klicken.
-   Erwartet: ScoreCap geht aus dem Weg, ein Hinweis nennt den Hotkey, der
-   Bildschirm bleibt normal bedienbar — Browser scrollen und Fenster wechseln
+1. **Button friert nichts ein.** Im Fenster auf *Serie starten* klicken.
+   Erwartet: ScoreCap geht aus dem Weg, die Serienleiste unten nennt den Hotkey,
+   der Bildschirm bleibt normal bedienbar — Browser scrollen und Fenster wechseln
    geht weiterhin. Erst der Hotkey dunkelt ab.
 2. **Vorbereitetes Neu aufnehmen.** Eintrag wählen, *Neu aufnehmen*, dann zum
    Browser wechseln, scrollen, Hotkey, Rechteck ziehen.
@@ -18,8 +18,21 @@ Partitur ist geöffnet.
 5. **Serienaufnahme.** Ohne das Fenster anzufassen: Hotkey, ziehen, im Browser
    weiterscrollen, Hotkey, ziehen — zehnmal hintereinander.
    Erwartet: ScoreCap bleibt minimiert, der Browser behält Fokus und
-   Scrollposition, nach jeder Aufnahme erscheint kurz „Aufnahme N", jeder
-   Hotkey greift sofort.
+   Scrollposition, die Leiste zeigt „Aufnahme N" mit dem Anfang der letzten
+   Aufnahme, jeder Hotkey greift sofort, und die Leiste ist auf keiner Aufnahme
+   zu sehen.
+5a. **Serienleiste.** Mitten in der Serie auf *Rückgängig* klicken, dann die
+   Leiste mit der Maus an eine andere Stelle ziehen, dann wieder Hotkey.
+   Erwartet: die letzte Aufnahme ist weg, der Browser hat weiter den Fokus
+   (Pfeiltasten scrollen), die Leiste bleibt an der neuen Stelle. *Fertig*
+   holt das Fenster zurück, die neueste Aufnahme ist markiert.
+5b. **Nochmal.** Mitten in der Serie bewusst daneben markieren, dann im Browser
+   `Ctrl+Shift+Z`, richtig aufziehen, mit dem Hotkey weitermachen.
+   Erwartet: die falsche Aufnahme ist weg, der Bildschirm dunkelt sofort wieder
+   ab, oben steht „Aufnahme N zurückgenommen“, die Serie läuft weiter. Danach
+   dasselbe mit *Nochmal* in der Leiste. Beim Ziehen verwirft ein Rechtsklick
+   die Markierung, und nichts wird aufgenommen. Nach der Serie macht
+   `Ctrl+Shift+Z` im Browser wieder das, was der Browser damit macht.
 6. **Rückkehr über Taskleiste.** Nach der Serie ScoreCap aus der Taskleiste
    holen.
    Erwartet: Vorschau enthält alle Aufnahmen der Serie in der richtigen
@@ -27,7 +40,8 @@ Partitur ist geöffnet.
 7. **Abbruch.** Hotkey drücken, `Esc` drücken.
    Erwartet: keine neue Aufnahme, keine Fehlermeldung, Fenster kommt zurück.
 8. **Zu kleine Auswahl.** Hotkey drücken, nur wenige Pixel ziehen.
-   Erwartet: keine neue Aufnahme, keine Fehlermeldung.
+   Erwartet: keine neue Aufnahme, keine Fehlermeldung, die Serie läuft weiter
+   und die Leiste sagt, dass die Auswahl zu klein war.
 9. **Weißer Rand.** Bewusst großzügig um eine Notenzeile herum auswählen, mit
    viel Weiß über und unter den Noten.
    Erwartet: in der Vorschau sitzt die Zeile ohne den weißen Rand auf der Seite;
@@ -81,7 +95,13 @@ Partitur ist geöffnet.
     Erwartet: der Klick auf die Aufnahme markiert links den dritten Eintrag
     und scrollt ihn ins Bild; der Klick auf den Rand ändert die Auswahl
     nicht.
-14. **Löschen und Undo.** Eintrag löschen, dann `Strg+Z`.
+13c. **Bearbeiten ohne Maus.** *Bearbeiten*, mit `Tab` auf das Bild, Rahmen
+    mit den Pfeiltasten verschieben, mit `Umschalt` und `Strg` die Kanten ziehen;
+    beim Radierer mit den Pfeilen und zweimal `Enter` ein Rechteck weißen.
+    Dann `Esc`: ScoreCap fragt nach, bevor die Änderungen verloren gehen.
+14. **Löschen und Undo.** Mit `Strg`-Klick drei Einträge wählen, `Entf`, dann
+    `Strg+Z` und `Strg+Y`. Erwartet: ein einziger Schritt je Taste. Mehrere
+    Einträge per Drag verschieben, dann `Strg+Z`: auch das ist ein Schritt.
     Erwartet: Eintrag ist wieder da, an derselben Position.
 15. **Fußzeile.** In den Einstellungen die Fußzeile aus- und wieder einschalten.
     Erwartet: `1 von N` verschwindet und erscheint wieder, zentriert unten.
@@ -90,7 +110,7 @@ Partitur ist geöffnet.
 16a. **Dateigröße.** Eine Partitur mit rund zehn Seiten exportieren.
     Erwartet: die Datei hat wenige MB, nicht Dutzende; die Noten sehen im
     Reader genauso scharf aus wie in der Vorschau.
-16b. **Vorhandenes PDF verkleinern.** *PDF verkleinern …*, ein älteres, großes
+16b. **Vorhandenes PDF verkleinern.** *Extras → PDF-Datei verkleinern …*, ein älteres, großes
     Export-PDF wählen, vorgeschlagenen Namen `…-klein.pdf` übernehmen.
     Erwartet: neue Datei neben dem Original, deutlich kleiner, Seiten sehen
     gleich aus; das Original ist unverändert. Ein zweites Mal auf die kleine

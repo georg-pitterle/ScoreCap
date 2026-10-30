@@ -80,3 +80,40 @@ def test_the_thumbnail_shows_only_the_cropped_part(qapp, tmp_path):
     thumb = ShotDelegate(LIGHT)._thumbnail(data.path, data.crop).toImage()
     centre = thumb.pixelColor(thumb.width() // 2, thumb.height() // 2)
     assert centre.lightness() < 50
+
+
+def test_a_row_says_which_page_its_capture_landed_on(qapp, tmp_path):
+    data = row_data(0, make_shot(tmp_path), Settings(), missing=False, page=2)
+    widget = ShotList(LIGHT)
+    widget.add_row(data)
+    assert "page 2" in widget.item(0).toolTip()
+
+
+def test_the_thumbnail_starts_at_the_clef_end_of_the_system(qapp):
+    from PySide6.QtCore import QRect
+    from PySide6.QtGui import QPainter, QPixmap, Qt
+
+    from scorecap.shotlist import ShotDelegate
+
+    # White with a black start, the way a clef and first bar stand out.
+    wide = Image.new("RGB", (1400, 100), "white")
+    wide.paste((0, 0, 0), (0, 0, 60, 100))
+    delegate = ShotDelegate(LIGHT)
+    delegate._thumbnail = lambda *args: _pixmap(wide)
+    target = QPixmap(96, 48)
+    target.fill(Qt.white)
+    painter = QPainter(target)
+    delegate._paint_thumbnail(
+        painter, QRect(0, 0, 96, 48), RowData(1, "1400×100", None, None, "wide")
+    )
+    painter.end()
+    assert target.toImage().pixelColor(4, 24).lightness() < 50
+
+
+def _pixmap(image: Image.Image):
+    from PySide6.QtGui import QImage, QPixmap
+
+    raw = image.tobytes()
+    return QPixmap.fromImage(
+        QImage(raw, image.width, image.height, image.width * 3, QImage.Format_RGB888)
+    )

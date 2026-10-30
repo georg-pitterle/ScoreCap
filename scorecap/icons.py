@@ -14,7 +14,7 @@ FONT_FAMILY = "Segoe Fluent Icons"
 LEGACY_FAMILY = "Segoe MDL2 Assets"
 
 # Glyph names say what the button does, not what the glyph is called.
-CAPTURE = "\ue7b3"      # crop marks
+CAPTURE = "\ue722"      # camera
 RECAPTURE = "\ue72c"    # refresh
 SCAN = "\ue8fe"         # flatbed scanner
 CROP = "\ue7a8"
@@ -27,6 +27,11 @@ SAVE = "\ue74e"         # floppy disk
 SHRINK = "\ue73f"       # arrows pointing inward
 MUSICXML = "\ue8d6"     # quarter note
 UNDO = "\ue7a7"
+REDO = "\ue7a6"
+DONE = "\ue73e"         # check mark
+CANCEL = "\ue711"
+MORE = "\ue712"         # three dots
+RESULT = "\ue8a7"       # open in a new window
 ZOOM_FIT = "\ue9a6"
 ZOOM_IN = "\ue8a3"
 ZOOM_OUT = "\ue71f"
@@ -50,8 +55,21 @@ def icon_font(size: int) -> QFont:
     return font
 
 
-def icon(glyph: str, colour: str, size: int = 16) -> QIcon:
-    """Render one glyph into an icon of the given colour."""
+def icon(
+    glyph: str, colour: str, size: int = 16, disabled: str | None = None
+) -> QIcon:
+    """Render one glyph into an icon of the given colour.
+
+    `disabled` is the colour while its button cannot be used. Left to Qt, a
+    white icon on a button that has lost its fill all but disappears.
+    """
+    result = QIcon(_pixmap(glyph, colour, size))
+    if disabled is not None:
+        result.addPixmap(_pixmap(glyph, disabled, size), QIcon.Mode.Disabled)
+    return result
+
+
+def _pixmap(glyph: str, colour: str, size: int) -> QPixmap:
     scale = 2  # draw oversized so the icon stays crisp on HiDPI screens
     pixmap = QPixmap(QSize(size * scale, size * scale))
     pixmap.fill(Qt.transparent)
@@ -64,4 +82,4 @@ def icon(glyph: str, colour: str, size: int = 16) -> QIcon:
     finally:
         painter.end()
     pixmap.setDevicePixelRatio(scale)
-    return QIcon(pixmap)
+    return pixmap

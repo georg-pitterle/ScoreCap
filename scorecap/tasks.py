@@ -171,7 +171,25 @@ class ScanImport(BackgroundTask):
         emit(self.signals.done, result)
 
 
-class MusicXmlExport(BackgroundTask):
+class Transcription(BackgroundTask):
+    """A job of minutes: it can be called off, and closing can wait for that."""
+
+    def __init__(self, signals: MusicXmlSignals) -> None:
+        super().__init__(signals)
+        self._cancelled = threading.Event()
+        self.stopped = threading.Event()
+
+    def cancel(self) -> None:
+        self._cancelled.set()
+
+    def run(self) -> None:
+        try:
+            super().run()
+        finally:
+            self.stopped.set()
+
+
+class MusicXmlExport(Transcription):
     """Hands a rendered score to Audiveris without freezing the window."""
 
     def __init__(
@@ -187,10 +205,6 @@ class MusicXmlExport(BackgroundTask):
         self._target = target
         self._work_dir = work_dir
         self._run = run
-        self._cancelled = threading.Event()
-
-    def cancel(self) -> None:
-        self._cancelled.set()
 
     def _work(self) -> None:
         try:
@@ -218,7 +232,7 @@ class MusicXmlExport(BackgroundTask):
         emit(self.signals.done, RuntimeError("the transcription crashed"))
 
 
-class ClaudeExport(BackgroundTask):
+class ClaudeExport(Transcription):
     """Has Claude read the systems, off the UI thread; minutes per score."""
 
     def __init__(
@@ -236,10 +250,6 @@ class ClaudeExport(BackgroundTask):
         self._target = target
         self._work_dir = work_dir
         self._backend = backend
-        self._cancelled = threading.Event()
-
-    def cancel(self) -> None:
-        self._cancelled.set()
 
     def _work(self) -> None:
         try:

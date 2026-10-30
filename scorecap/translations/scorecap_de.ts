@@ -8,8 +8,32 @@
         <translation>Zuschneiden</translation>
     </message>
     <message>
+        <source>Discard changes?</source>
+        <translation>Änderungen verwerfen?</translation>
+    </message>
+    <message>
+        <source>The crop or the erasures have changed.</source>
+        <translation>Zuschnitt oder Radierungen wurden geändert.</translation>
+    </message>
+    <message>
+        <source>Discard</source>
+        <translation>Verwerfen</translation>
+    </message>
+    <message>
+        <source>Keep editing</source>
+        <translation>Weiter bearbeiten</translation>
+    </message>
+    <message>
         <source>Edit</source>
         <translation>Bearbeiten</translation>
+    </message>
+    <message>
+        <source>The capture</source>
+        <translation>Die Aufnahme</translation>
+    </message>
+    <message>
+        <source>Crop: the arrow keys move the crop, with Shift its right and bottom edge, with Ctrl its left and top edge. Eraser: the arrow keys move the crosshair, Enter sets each corner.</source>
+        <translation>Zuschneiden: Die Pfeiltasten verschieben den Rahmen, mit Umschalt seine rechte und untere Kante, mit Strg seine linke und obere Kante. Radierer: Die Pfeiltasten bewegen das Fadenkreuz, Enter setzt jede Ecke.</translation>
     </message>
     <message>
         <source>Drag out the part of the capture to keep</source>
@@ -71,10 +95,6 @@
         <translation>Bearbeiten</translation>
     </message>
     <message>
-        <source>Crop the capture or erase what disturbs</source>
-        <translation>Die Aufnahme zuschneiden oder Störendes wegradieren</translation>
-    </message>
-    <message>
         <source>{systems} from {pages} imported</source>
         <translation>{systems} aus {pages} importiert</translation>
     </message>
@@ -91,14 +111,6 @@
         <translation>-klein</translation>
     </message>
     <message>
-        <source>Prepare capture</source>
-        <translation>Aufnahme vorbereiten</translation>
-    </message>
-    <message>
-        <source>The window steps aside; capturing starts only with the hotkey</source>
-        <translation>Fenster tritt zur Seite; die Aufnahme startet erst mit dem Hotkey</translation>
-    </message>
-    <message>
         <source>Import scans …</source>
         <translation>Scans importieren …</translation>
     </message>
@@ -107,16 +119,24 @@
         <translation>Gescannte Seiten (PDF oder Bilder) bereinigen und in Systeme zerlegen; Dateien lassen sich auch ins Fenster ziehen</translation>
     </message>
     <message>
+        <source>Undo the last change ({shortcut})</source>
+        <translation>Letzte Änderung zurücknehmen ({shortcut})</translation>
+    </message>
+    <message>
         <source>Recapture</source>
         <translation>Neu aufnehmen</translation>
     </message>
     <message>
-        <source>Delete</source>
-        <translation>Löschen</translation>
+        <source>Capture this line again; the new one replaces it ({shortcut})</source>
+        <translation>Diese Zeile neu aufnehmen; die neue Aufnahme ersetzt sie ({shortcut})</translation>
     </message>
     <message>
-        <source>Settings</source>
-        <translation>Einstellungen</translation>
+        <source>Crop the capture or erase what disturbs ({shortcut})</source>
+        <translation>Aufnahme zuschneiden oder Störendes radieren ({shortcut})</translation>
+    </message>
+    <message>
+        <source>Delete</source>
+        <translation>Löschen</translation>
     </message>
     <message>
         <source>Open …</source>
@@ -135,10 +155,6 @@
         <translation>Aufnahmen als Projekt speichern ({save}, Speichern unter: {save_as})</translation>
     </message>
     <message>
-        <source>Shrink PDF …</source>
-        <translation>PDF verkleinern …</translation>
-    </message>
-    <message>
         <source>Shrink an existing PDF; the original stays unchanged</source>
         <translation>Ein vorhandenes PDF verkleinern; das Original bleibt unverändert</translation>
     </message>
@@ -151,24 +167,8 @@
         <translation>Mit Audiveris …</translation>
     </message>
     <message>
-        <source>Free and offline; reads clean engraving well</source>
-        <translation>Kostenlos und offline; liest sauberen Notensatz gut</translation>
-    </message>
-    <message>
         <source>With Claude, one line per voice …</source>
         <translation>Mit Claude, eine Zeile je Stimme …</translation>
-    </message>
-    <message>
-        <source>Claude Code reads the score and splits divided voices into lines for rehearsal files</source>
-        <translation>Claude Code liest die Partitur und teilt geteilte Stimmen in Zeilen für Übe-Dateien</translation>
-    </message>
-    <message>
-        <source>Nothing captured yet.
-
-Press {hotkey}, then drag out the area.</source>
-        <translation>Noch nichts aufgenommen.
-
-{hotkey} drücken, dann den Bereich aufziehen.</translation>
     </message>
     <message>
         <source>Captures</source>
@@ -179,8 +179,44 @@ Press {hotkey}, then drag out the area.</source>
         <translation>Als MusicXML exportieren …</translation>
     </message>
     <message>
+        <source>Delete this capture (Del)</source>
+        <translation>Diese Aufnahme löschen (Entf)</translation>
+    </message>
+    <message>
+        <source>Extras</source>
+        <translation>Extras</translation>
+    </message>
+    <message>
+        <source>Shrink a PDF file …</source>
+        <translation>PDF-Datei verkleinern …</translation>
+    </message>
+    <message>
+        <source>Settings …</source>
+        <translation>Einstellungen …</translation>
+    </message>
+    <message>
+        <source>Takes minutes. Check that no system is cut in two first.</source>
+        <translation>Dauert Minuten. Vorher prüfen, dass kein System zerschnitten ist.</translation>
+    </message>
+    <message>
+        <source>Free and offline; reads clean engraving well, about 15 seconds a page</source>
+        <translation>Kostenlos und offline; liest sauberen Notensatz gut, rund 15 Sekunden je Seite</translation>
+    </message>
+    <message>
+        <source>Claude Code reads the score and splits divided voices into lines for rehearsal files; takes minutes and counts towards your Claude plan</source>
+        <translation>Claude Code liest die Partitur und teilt geteilte Stimmen in Zeilen für Übe-Dateien auf; dauert Minuten und zählt aufs Claude-Abo</translation>
+    </message>
+    <message>
+        <source>Nothing captured yet.</source>
+        <translation>Noch nichts aufgenommen.</translation>
+    </message>
+    <message>
         <source>No capture yet</source>
         <translation>Noch keine Aufnahme</translation>
+    </message>
+    <message>
+        <source>Stop the transcription</source>
+        <translation>Transkription stoppen</translation>
     </message>
     <message>
         <source>Restart now</source>
@@ -211,8 +247,12 @@ Press {hotkey}, then drag out the area.</source>
         <translation>Vergrößern</translation>
     </message>
     <message>
-        <source>Fit</source>
-        <translation>Einpassen</translation>
+        <source>Redo</source>
+        <translation>Wiederherstellen</translation>
+    </message>
+    <message>
+        <source>Bring back what was undone ({shortcut})</source>
+        <translation>Zurückgenommenes wiederherstellen ({shortcut})</translation>
     </message>
     <message>
         <source>The hotkey {hotkey} is already in use. It can be changed in the settings.</source>
@@ -291,12 +331,40 @@ Press {hotkey}, then drag out the area.</source>
         </translation>
     </message>
     <message>
-        <source>Ready — press {hotkey}</source>
-        <translation>Bereit — {hotkey} drücken</translation>
-    </message>
-    <message>
         <source>Capture {number}</source>
         <translation>Aufnahme {number}</translation>
+    </message>
+    <message>
+        <source>Series ready</source>
+        <translation>Serie bereit</translation>
+    </message>
+    <message>
+        <source>That was too small. Press {hotkey} and drag again</source>
+        <translation>Das war zu klein. {hotkey} drücken und neu aufziehen</translation>
+    </message>
+    <message>
+        <source>{hotkey} next · {retake} again</source>
+        <translation>{hotkey} nächste · {retake} nochmal</translation>
+    </message>
+    <message>
+        <source>Scroll to the passage, press {hotkey} and drag</source>
+        <translation>Zur Stelle scrollen, {hotkey} drücken und aufziehen</translation>
+    </message>
+    <message>
+        <source>Take this capture back and drag it again ({shortcut})</source>
+        <translation>Diese Aufnahme zurücknehmen und neu aufziehen ({shortcut})</translation>
+    </message>
+    <message>
+        <source>Capture {number} taken back</source>
+        <translation>Aufnahme {number} zurückgenommen</translation>
+    </message>
+    <message>
+        <source>Esc ends the series</source>
+        <translation>Esc beendet die Serie</translation>
+    </message>
+    <message>
+        <source>{retake} or right-click: the last one again</source>
+        <translation>{retake} oder Rechtsklick: die letzte noch einmal</translation>
     </message>
     <message>
         <source>Language</source>
@@ -336,6 +404,26 @@ Press {hotkey}, then drag out the area.</source>
             <numerusform> — %n Aufnahme ohne Datei wurde ausgelassen</numerusform>
             <numerusform> — %n Aufnahmen ohne Datei wurden ausgelassen</numerusform>
         </translation>
+    </message>
+    <message>
+        <source>{name} could not be written. Another program may have it open: close it there and try again.</source>
+        <translation>{name} konnte nicht geschrieben werden. Vermutlich hat ein anderes Programm die Datei offen: dort schließen und noch einmal versuchen.</translation>
+    </message>
+    <message>
+        <source>{name} could not be written: {reason}</source>
+        <translation>{name} konnte nicht geschrieben werden: {reason}</translation>
+    </message>
+    <message>
+        <source>Stopping the transcription …</source>
+        <translation>Transkription wird gestoppt …</translation>
+    </message>
+    <message>
+        <source>Open {name} in its program</source>
+        <translation>{name} im zugehörigen Programm öffnen</translation>
+    </message>
+    <message>
+        <source>No program here opens {name}</source>
+        <translation>Kein Programm hier öffnet {name}</translation>
     </message>
     <message>
         <source>Transcribing with Audiveris — this takes a while …</source>
@@ -425,8 +513,72 @@ Press {hotkey}, then drag out the area.</source>
         <translation>Nicht speichern</translation>
     </message>
     <message>
+        <source>Transcription under way</source>
+        <translation>Transkription läuft</translation>
+    </message>
+    <message>
+        <source>ScoreCap is still transcribing the score.</source>
+        <translation>ScoreCap transkribiert die Partitur noch.</translation>
+    </message>
+    <message>
+        <source>Closing stops it, and the MusicXML file is not written.</source>
+        <translation>Beim Schließen stoppt sie, und die MusicXML-Datei wird nicht geschrieben.</translation>
+    </message>
+    <message>
+        <source>Stop and close</source>
+        <translation>Stoppen und schließen</translation>
+    </message>
+    <message>
+        <source>Keep transcribing</source>
+        <translation>Weiter transkribieren</translation>
+    </message>
+    <message>
         <source>Cancel</source>
         <translation>Abbrechen</translation>
+    </message>
+    <message>
+        <source>Save the pages as they stand here ({shortcut})</source>
+        <translation>Die Seiten so speichern, wie sie hier stehen ({shortcut})</translation>
+    </message>
+    <message>
+        <source>Fit width</source>
+        <translation>Seitenbreite</translation>
+    </message>
+    <message>
+        <source>Start series ({hotkey})</source>
+        <translation>Serie starten ({hotkey})</translation>
+    </message>
+    <message>
+        <source>The window steps aside. Scroll to the passage, press {hotkey} and drag; capturing starts only with the hotkey</source>
+        <translation>Das Fenster tritt zur Seite. Zur Stelle scrollen, {hotkey} drücken und aufziehen; aufgenommen wird erst mit dem Hotkey</translation>
+    </message>
+    <message>
+        <source>Nothing here yet.
+
+Start a series, scroll to the passage, press {hotkey} and drag out each system. Every capture lands on this page, as it will print.
+
+Or drop scanned pages onto this window.</source>
+        <translation>Noch leer.
+
+Serie starten, zur Stelle scrollen, {hotkey} drücken und jedes System aufziehen. Jede Aufnahme landet auf dieser Seite, so wie sie gedruckt wird.
+
+Oder gescannte Seiten auf dieses Fenster ziehen.</translation>
+    </message>
+    <message>
+        <source>Zoom out ({shortcut})</source>
+        <translation>Verkleinern ({shortcut})</translation>
+    </message>
+    <message>
+        <source>Zoom in ({shortcut})</source>
+        <translation>Vergrößern ({shortcut})</translation>
+    </message>
+    <message>
+        <source>Fit the page to the window&apos;s width ({shortcut})</source>
+        <translation>Seite an die Fensterbreite anpassen ({shortcut})</translation>
+    </message>
+    <message>
+        <source>Recapture {number}</source>
+        <translation>Aufnahme {number} ersetzen</translation>
     </message>
     <message>
         <source>Saved: {name}</source>
@@ -546,10 +698,40 @@ Press {hotkey}, then drag out the area.</source>
     </message>
 </context>
 <context>
+    <name>Preview</name>
+    <message>
+        <source>Page {number}</source>
+        <translation>Seite {number}</translation>
+    </message>
+</context>
+<context>
+    <name>SeriesBar</name>
+    <message>
+        <source>Again</source>
+        <translation>Nochmal</translation>
+    </message>
+    <message>
+        <source>Undo</source>
+        <translation>Rückgängig</translation>
+    </message>
+    <message>
+        <source>Done</source>
+        <translation>Fertig</translation>
+    </message>
+</context>
+<context>
     <name>SettingsDialog</name>
     <message>
         <source>Settings</source>
         <translation>Einstellungen</translation>
+    </message>
+    <message>
+        <source>How far a capture may be scaled down so that it still fits on the page; 0.85 keeps at least 85 % of its size</source>
+        <translation>Wie weit eine Aufnahme verkleinert werden darf, damit sie noch auf die Seite passt; 0,85 lässt ihr mindestens 85 % ihrer Größe</translation>
+    </message>
+    <message>
+        <source>Captures that would print coarser than this get a warning</source>
+        <translation>Aufnahmen, die gröber gedruckt würden, bekommen eine Warnung</translation>
     </message>
     <message>
         <source>Page number as footer</source>
@@ -572,6 +754,10 @@ Press {hotkey}, then drag out the area.</source>
         <translation>Ein oder mehrere Modifier und eine Taste, zum Beispiel Strg+Umschalt+S</translation>
     </message>
     <message>
+        <source>Takes back the last capture and lets it be dragged again. Held only while a series runs</source>
+        <translation>Nimmt die letzte Aufnahme zurück und lässt sie neu aufziehen. Nur während einer Serie belegt</translation>
+    </message>
+    <message>
         <source>Black and white</source>
         <translation>Schwarz/Weiß</translation>
     </message>
@@ -590,6 +776,10 @@ Press {hotkey}, then drag out the area.</source>
     <message>
         <source>Takes effect the next time ScoreCap starts</source>
         <translation>Wirkt beim nächsten Start von ScoreCap</translation>
+    </message>
+    <message>
+        <source>Page</source>
+        <translation>Seite</translation>
     </message>
     <message>
         <source>Side margin (mm)</source>
@@ -612,16 +802,36 @@ Press {hotkey}, then drag out the area.</source>
         <translation>Kleinster Schrumpffaktor</translation>
     </message>
     <message>
+        <source>Capturing</source>
+        <translation>Aufnahme</translation>
+    </message>
+    <message>
+        <source>Hotkey for capturing again</source>
+        <translation>Hotkey für „noch einmal“</translation>
+    </message>
+    <message>
         <source>Warning threshold dpi</source>
         <translation>Warnschwelle dpi</translation>
+    </message>
+    <message>
+        <source>The two hotkeys need different keys.</source>
+        <translation>Die beiden Hotkeys brauchen verschiedene Tasten.</translation>
     </message>
     <message>
         <source>Hotkey</source>
         <translation>Hotkey</translation>
     </message>
     <message>
+        <source>Scans</source>
+        <translation>Scans</translation>
+    </message>
+    <message>
         <source>Print scans in</source>
         <translation>Scans drucken in</translation>
+    </message>
+    <message>
+        <source>General</source>
+        <translation>Allgemein</translation>
     </message>
     <message>
         <source>Language</source>
@@ -645,6 +855,10 @@ Press {hotkey}, then drag out the area.</source>
     <message>
         <source>File missing</source>
         <translation>Datei fehlt</translation>
+    </message>
+    <message>
+        <source>page {page}</source>
+        <translation>Seite {page}</translation>
     </message>
     <message>
         <source>Capture {number}, {size} px</source>

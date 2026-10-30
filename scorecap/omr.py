@@ -6,6 +6,8 @@ import logging
 import os
 import re
 import subprocess
+import threading
+import time
 import zipfile
 from pathlib import Path
 from typing import Callable, Sequence
@@ -15,6 +17,7 @@ from xml.parsers import expat
 log = logging.getLogger(__name__)
 
 DOWNLOAD_URL = "https://github.com/Audiveris/audiveris/releases"
+WATCH_S = 0.2
 
 CANDIDATES = (
     Path(r"C:\Program Files\Audiveris\Audiveris.exe"),
@@ -214,13 +217,15 @@ def run_audiveris(
     out_dir: Path,
     progress: Callable[[int, int], None] | None = None,
     timeout: int = 1800,
+    cancelled: Callable[[], bool] = lambda: False,
 ) -> str:
     """Transcribe one file into `out_dir`; returns what Audiveris said.
 
     Read line by line rather than in one go: a page takes ten seconds or
     more, and the window has nothing to say meanwhile unless it listens.
     Both streams go into one pipe - two pipes read in turn deadlock as soon
-    as one of them fills.
+    as one of them fills. A watcher ends the process on cancel: waiting for
+    the next line to check would wait out the page being read.
     """
     out_dir.mkdir(parents=True, exist_ok=True)
     process = subprocess.Popen(
@@ -239,6 +244,15 @@ def run_audiveris(
         text=True,
         errors="replace",
     )
+
+    def watch() -> None:
+        while process.poll() is None:
+            if cancelled():
+                _stop(process)
+                return
+            time.sleep(WATCH_S)
+
+    threading.Thread(target=watch, daemon=True).start()
     said: list[str] = []
     total = 0
     reached = 0
@@ -256,6 +270,22 @@ def run_audiveris(
     return "".join(said)
 
 
+def _stop(process: subprocess.Popen) -> None:
+    """End Audiveris with what it started.
+
+    The launcher may be a script around Java; killing only the script would
+    leave Java reading on and writing into a folder that is about to go.
+    """
+    if os.name == "nt":
+        subprocess.run(
+            ["taskkill", "/F", "/T", "/PID", str(process.pid)],
+            capture_output=True,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+    else:
+        process.kill()
+
+
 def transcribe(
     source: Path,
     target: Path,
@@ -270,7 +300,9 @@ def transcribe(
     end, so a run that breaks off leaves the previous export intact.
     """
     launcher = find_audiveris()
-    output = run(launcher, source, work_dir, progress=progress)
+    output = run(
+        launcher, source, work_dir, progress=progress, cancelled=cancelled
+    )
     log.info("audiveris finished: %s", output.strip().splitlines()[-1:] or "no output")
     written = _in_reading_order(
         list(work_dir.rglob("*.mxl")) + list(work_dir.rglob("*.musicxml"))

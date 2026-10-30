@@ -17,7 +17,7 @@ def score_xml() -> str:
     )
 
 
-def stub_audiveris(launcher, source, out_dir, progress=None, timeout=1800):
+def stub_audiveris(launcher, source, out_dir, progress=None, timeout=1800, cancelled=None):
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "score.musicxml").write_text(score_xml(), encoding="utf-8")
     return "stub"
@@ -74,7 +74,7 @@ def test_without_audiveris_the_window_explains_instead_of_failing(
     assert not target.exists()
 
 
-def counting_audiveris(launcher, source, out_dir, progress=None, timeout=1800):
+def counting_audiveris(launcher, source, out_dir, progress=None, timeout=1800, cancelled=None):
     """An Audiveris that reports three pages before it writes anything."""
     if progress:
         progress(1, 0)      # the page count is not known yet

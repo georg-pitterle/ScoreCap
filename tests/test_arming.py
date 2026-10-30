@@ -72,6 +72,6 @@ def test_leaving_capture_mode_forgets_a_pending_recapture(window, tmp_path):
     assert len(window.document.shots) == 2  # added, not replaced
 
 
-def test_arming_shows_the_hotkey_as_a_hint(window):
+def test_arming_names_the_hotkey_in_the_series_bar(window):
     window.arm_capture()
-    assert window.settings.hotkey in window._toast.text()
+    assert window.settings.hotkey in window._series_bar.hint

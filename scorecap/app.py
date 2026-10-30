@@ -13,14 +13,16 @@ from PIL import Image
 from PySide6.QtCore import (
     QCoreApplication,
     QEvent,
+    QItemSelectionModel,
     QLocale,
     QSettings,
     QStandardPaths,
     Qt,
     QThreadPool,
     QTimer,
+    QUrl,
 )
-from PySide6.QtGui import QAction, QCursor, QGuiApplication, QKeySequence
+from PySide6.QtGui import QAction, QDesktopServices, QGuiApplication, QKeySequence
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
@@ -41,15 +43,17 @@ from . import icons, omr, pdf, reader
 from .capture import SelectionOverlay, grab
 from .cropdialog import MODES as EDIT_MODES
 from .cropdialog import CropDialog
-from .hotkey import HotkeyFilter
+from .elided import ElidedLabel
+from .hotkey import RETAKE_HOTKEY_ID, HotkeyFilter
 from .layout import Page, paginate, placement_at
 from .optimize import OptimizeResult, optimize_pdf
-from .model import Document, PageSource, Shot, normalize_move
+from .model import Document, PageSource, Shot, shifted_order
 from .preview import PreviewWidget
 from .project import SUFFIX, load_project, save_project
-from .projectui import ask_save_changes, project_filter
+from .projectui import ask_save_changes, ask_stop_transcription, project_filter
 from .scan import SUFFIXES as SCAN_SUFFIXES
 from .scan import ImportResult
+from .seriesbar import SeriesBar
 from .settingsdialog import SettingsDialog, load_settings, save_settings
 from .shotlist import ShotList, row_data
 from .staff import staff_extent_of
@@ -71,11 +75,12 @@ from .updater import PendingUpdate, UpdateService
 REBUILD_DELAY_MS = 150
 # Not Ctrl+Shift+S for "save as": that is the global capture hotkey.
 SAVE_AS_KEY = "F12"
-SCAN_CLOSE_WAIT_S = 10.0
-TOAST_MS = 900
+EDIT_KEY = "F2"
+RECAPTURE_KEY = "Ctrl+R"
+EXPORT_KEY = "Ctrl+E"
+FIT_KEY = "Ctrl+0"
+CLOSE_WAIT_S = 10.0
 PROGRESS_WIDTH_PX = 160
-TOAST_MARGIN_PX = 8
-TOAST_OFFSET_PX = 12
 ZOOM_STEP = 1.25
 UPDATE_CHECK_DELAY_MS = 2000
 
@@ -103,8 +108,8 @@ def scan_files(paths: Sequence[Path]) -> list[Path]:
     return [path for path in paths if path.suffix.lower() in SCAN_SUFFIXES]
 
 
-def _shortcut_text(key: QKeySequence.StandardKey) -> str:
-    """A standard shortcut as the user's language writes it, e.g. Strg+O."""
+def _shortcut_text(key: QKeySequence.StandardKey | str) -> str:
+    """A shortcut as the user's language writes it, e.g. Strg+O."""
     return QKeySequence(key).toString(QKeySequence.SequenceFormat.NativeText)
 
 
@@ -167,6 +172,11 @@ class MainWindow(QMainWindow):
         self._claude_usage: reader.Usage | None = None
         self._claude_reached: reader.Progress | None = None
         self._capturing = False
+        self._series_taken = 0
+        # The last thing exported: it stays in the status line, however often
+        # the captures change, until there is a newer one to report.
+        self._result = ""
+        self._result_path: Path | None = None
         self._project_path: Path | None = None
         self._saved_revision = self.document.revision
         self._dirty = False
@@ -188,9 +198,18 @@ class MainWindow(QMainWindow):
     def _apply_icon(self, button: QPushButton) -> None:
         if not icons.available():
             return
+        tokens = self.palette_tokens
         primary = button.objectName() == "Primary"
-        colour = self.palette_tokens.paper if primary else self.palette_tokens.text
-        button.setIcon(icons.icon(button.property("glyph"), colour))
+        colour = tokens.on_accent if primary else tokens.text
+        button.setIcon(
+            icons.icon(button.property("glyph"), colour, disabled=tokens.text_muted)
+        )
+
+    def _icon_button(self, glyph: str, name: str) -> QPushButton:
+        """A button that only shows an icon, and says its name to a screen reader."""
+        button = self._button("", glyph)
+        button.setAccessibleName(name)
+        return button
 
     def apply_palette(self, palette: Palette) -> None:
         """Switch theme: stylesheet, icon colours and the painted widgets."""
@@ -201,20 +220,15 @@ class MainWindow(QMainWindow):
                 self._apply_icon(button)
         # The preview takes its colours from the stylesheet above.
         self.shot_list.set_palette(palette)
-        self._toast.setStyleSheet(
-            f"background: {palette.text}; color: {palette.app}; border-radius: 4px;"
-        )
+        self._series_bar.set_palette(palette)
 
     def _follow_colour_scheme(self, scheme) -> None:
         """Windows switched between its light and dark app colours."""
         self.apply_palette(palette_for(scheme == Qt.ColorScheme.Dark))
 
     def _build_ui(self) -> None:
-        self.capture_button = self._button(self.tr("Prepare capture"), icons.CAPTURE, "Primary")
+        self.capture_button = self._button("", icons.CAPTURE, "Primary")
         self.capture_button.clicked.connect(self.arm_capture)
-        self.capture_button.setToolTip(
-            self.tr("The window steps aside; capturing starts only with the hotkey")
-        )
         self.scan_button = self._button(self.tr("Import scans …"), icons.SCAN)
         self.scan_button.setToolTip(
             self.tr(
@@ -223,17 +237,39 @@ class MainWindow(QMainWindow):
             )
         )
         self.scan_button.clicked.connect(self.choose_scans)
-        self.recapture_button = self._button(self.tr("Recapture"), icons.RECAPTURE)
+        self.undo_button = self._icon_button(icons.UNDO, self.tr("Undo"))
+        self.undo_button.setToolTip(
+            self.tr("Undo the last change ({shortcut})").format(
+                shortcut=_shortcut_text(QKeySequence.Undo)
+            )
+        )
+        self.undo_button.clicked.connect(self.undo)
+        self.redo_button = self._icon_button(icons.REDO, self.tr("Redo"))
+        self.redo_button.setToolTip(
+            self.tr("Bring back what was undone ({shortcut})").format(
+                shortcut=_shortcut_text(QKeySequence.Redo)
+            )
+        )
+        self.redo_button.clicked.connect(self.redo)
+        self.recapture_button = self._icon_button(
+            icons.RECAPTURE, self.tr("Recapture")
+        )
+        self.recapture_button.setToolTip(
+            self.tr(
+                "Capture this line again; the new one replaces it ({shortcut})"
+            ).format(shortcut=_shortcut_text(RECAPTURE_KEY))
+        )
         self.recapture_button.clicked.connect(self.recapture_selected)
-        self.edit_button = self._button(self.tr("Edit"), icons.EDIT)
+        self.edit_button = self._icon_button(icons.EDIT, self.tr("Edit"))
         self.edit_button.setToolTip(
-            self.tr("Crop the capture or erase what disturbs")
+            self.tr("Crop the capture or erase what disturbs ({shortcut})").format(
+                shortcut=EDIT_KEY
+            )
         )
         self.edit_button.clicked.connect(self.edit_selected)
-        self.delete_button = self._button(self.tr("Delete"), icons.DELETE)
+        self.delete_button = self._icon_button(icons.DELETE, self.tr("Delete"))
+        self.delete_button.setToolTip(self.tr("Delete this capture (Del)"))
         self.delete_button.clicked.connect(self.delete_selected)
-        self.settings_button = self._button(self.tr("Settings"), icons.SETTINGS)
-        self.settings_button.clicked.connect(self.edit_settings)
         self.open_button = self._button(self.tr("Open …"), icons.OPEN)
         self.open_button.setToolTip(
             self.tr("Open a saved project ({shortcut})").format(
@@ -248,21 +284,39 @@ class MainWindow(QMainWindow):
             )
         )
         self.save_button.clicked.connect(self.save)
-        self.shrink_button = self._button(self.tr("Shrink PDF …"), icons.SHRINK)
-        self.shrink_button.setToolTip(
+        self.extras_button = self._button(self.tr("Extras"), icons.MORE)
+        extras_menu = QMenu(self.extras_button)
+        # Not with the exports: it opens some other PDF, not this document.
+        self.shrink_action = extras_menu.addAction(self.tr("Shrink a PDF file …"))
+        self.shrink_action.setToolTip(
             self.tr("Shrink an existing PDF; the original stays unchanged")
         )
-        self.shrink_button.clicked.connect(self.shrink_pdf)
+        self.shrink_action.triggered.connect(self.shrink_pdf)
+        self.settings_action = extras_menu.addAction(self.tr("Settings …"))
+        self.settings_action.triggered.connect(self.edit_settings)
+        extras_menu.setToolTipsVisible(True)
+        self.extras_button.setMenu(extras_menu)
+        self.extras_button.setProperty("menu", True)
         self.musicxml_button = self._button(
             self.tr("Export as MusicXML …"), icons.MUSICXML
         )
+        self.musicxml_button.setEnabled(False)
         self.musicxml_button.setToolTip(
             self.tr("Transcribe the score, for playing it back elsewhere")
         )
         musicxml_menu = QMenu(self.musicxml_button)
+        # Before the choice, not in the README: a system cut in two at the
+        # start costs every voice of the file.
+        first_check = musicxml_menu.addAction(
+            self.tr("Takes minutes. Check that no system is cut in two first.")
+        )
+        first_check.setEnabled(False)
+        musicxml_menu.addSeparator()
         audiveris_action = musicxml_menu.addAction(self.tr("With Audiveris …"))
         audiveris_action.setToolTip(
-            self.tr("Free and offline; reads clean engraving well")
+            self.tr(
+                "Free and offline; reads clean engraving well, about 15 seconds a page"
+            )
         )
         audiveris_action.triggered.connect(lambda: self.export_musicxml("audiveris"))
         claude_action = musicxml_menu.addAction(
@@ -271,12 +325,14 @@ class MainWindow(QMainWindow):
         claude_action.setToolTip(
             self.tr(
                 "Claude Code reads the score and splits divided voices into "
-                "lines for rehearsal files"
+                "lines for rehearsal files; takes minutes and counts towards "
+                "your Claude plan"
             )
         )
         claude_action.triggered.connect(lambda: self.export_musicxml("claude"))
         musicxml_menu.setToolTipsVisible(True)
         self.musicxml_button.setMenu(musicxml_menu)
+        self.musicxml_button.setProperty("menu", True)
 
         toolbar = QWidget()
         toolbar.setObjectName("Toolbar")
@@ -285,23 +341,21 @@ class MainWindow(QMainWindow):
         bar.setSpacing(8)
         bar.addWidget(self.capture_button)
         bar.addWidget(self.scan_button)
-        bar.addSpacing(8)
-        for button in (self.recapture_button, self.edit_button, self.delete_button):
-            bar.addWidget(button)
         bar.addStretch(1)
         bar.addWidget(self.open_button)
         bar.addWidget(self.save_button)
-        bar.addSpacing(8)
-        bar.addWidget(self.shrink_button)
-        bar.addWidget(self.musicxml_button)
-        bar.addWidget(self.settings_button)
+        bar.addWidget(self.extras_button)
 
         self.shot_list = ShotList(self.palette_tokens)
         self.shot_list.model().rowsMoved.connect(self._on_rows_moved)
-        self.shot_list.currentRowChanged.connect(self._update_actions)
+        self.shot_list.currentRowChanged.connect(self._on_row_changed)
+        self.shot_list.itemSelectionChanged.connect(self._on_row_changed)
         self.shot_list.itemDoubleClicked.connect(self._edit_item)
+        self.shot_list.edit_requested.connect(self.edit_selected)
+        self.shot_list.delete_requested.connect(self.delete_selected)
+        self.shot_list.shift_requested.connect(self.shift_selected)
 
-        self.empty_state = QLabel(self._empty_state_text())
+        self.empty_state = QLabel(self.tr("Nothing captured yet."))
         self.empty_state.setObjectName("EmptyState")
         self.empty_state.setAlignment(Qt.AlignCenter)
         self.empty_state.setWordWrap(True)
@@ -312,13 +366,26 @@ class MainWindow(QMainWindow):
 
         heading = QLabel(self.tr("Captures"))
         heading.setObjectName("Heading")
+        # What acts on a row sits with the rows, not in the window's toolbar.
+        header = QHBoxLayout()
+        header.setSpacing(4)
+        header.addWidget(heading)
+        header.addStretch(1)
+        for button in (
+            self.undo_button,
+            self.redo_button,
+            self.recapture_button,
+            self.edit_button,
+            self.delete_button,
+        ):
+            header.addWidget(button)
 
         side = QWidget()
         side.setObjectName("SidePanel")
         side_layout = QVBoxLayout(side)
         side_layout.setContentsMargins(12, 12, 12, 12)
         side_layout.setSpacing(8)
-        side_layout.addWidget(heading)
+        side_layout.addLayout(header)
         side_layout.addWidget(self._list_stack, 1)
 
         self.preview = PreviewWidget()
@@ -336,19 +403,31 @@ class MainWindow(QMainWindow):
         splitter.setStretchFactor(1, 1)
         splitter.setSizes([320, 920])
 
-        self.status = QLabel(self.tr("No capture yet"))
+        self.status = ElidedLabel(self.tr("No capture yet"))
         self.status.setObjectName("StatusText")
         self.progress_bar = QProgressBar()
         self.progress_bar.setTextVisible(False)
         self.progress_bar.setFixedWidth(PROGRESS_WIDTH_PX)
         self.progress_bar.hide()
-        self.update_label = QLabel()
+        self.cancel_button = self._button(self.tr("Cancel"), icons.CANCEL)
+        self.cancel_button.setToolTip(self.tr("Stop the transcription"))
+        self.cancel_button.clicked.connect(self.cancel_transcription)
+        self.cancel_button.hide()
+        self.update_label = ElidedLabel()
         self.update_label.setObjectName("StatusText")
         self.update_label.hide()
-        self.update_button = self._button(self.tr("Restart now"), icons.RECAPTURE, "Primary")
+        self.update_button = self._button(self.tr("Restart now"), icons.RECAPTURE)
         self.update_button.clicked.connect(self._restart_into_update)
         self.update_button.hide()
+        self.result_button = self._button(self.tr("Open"), icons.RESULT)
+        self.result_button.clicked.connect(self.open_result)
+        self.result_button.hide()
         self.export_button = self._button(self.tr("Export as PDF"), icons.EXPORT, "Primary")
+        self.export_button.setToolTip(
+            self.tr("Save the pages as they stand here ({shortcut})").format(
+                shortcut=_shortcut_text(EXPORT_KEY)
+            )
+        )
         self.export_button.clicked.connect(self.export)
         self.export_button.setEnabled(False)
 
@@ -358,8 +437,11 @@ class MainWindow(QMainWindow):
         status_layout.setContentsMargins(12, 8, 12, 8)
         status_layout.addWidget(self.status, 1)
         status_layout.addWidget(self.progress_bar)
+        status_layout.addWidget(self.cancel_button)
         status_layout.addWidget(self.update_label)
         status_layout.addWidget(self.update_button)
+        status_layout.addWidget(self.result_button)
+        status_layout.addWidget(self.musicxml_button)
         status_layout.addWidget(self.export_button)
 
         root = QVBoxLayout()
@@ -372,36 +454,114 @@ class MainWindow(QMainWindow):
         container.setLayout(root)
         self.setCentralWidget(container)
 
-        undo_action = QAction(self.tr("Undo"), self)
-        undo_action.setShortcut(QKeySequence.Undo)
-        undo_action.triggered.connect(self.undo)
-        self.addAction(undo_action)
         # Not Ctrl+Shift+S for "save as": that is the global capture hotkey.
         for label, keys, slot in (
+            (self.tr("Undo"), QKeySequence.Undo, self.undo),
+            (self.tr("Redo"), QKeySequence.Redo, self.redo),
             (self.tr("Open"), QKeySequence.Open, self.open_project),
             (self.tr("Save"), QKeySequence.Save, self.save),
             (self.tr("Save as"), QKeySequence(SAVE_AS_KEY), self.save_as),
+            (
+                self.tr("Recapture"),
+                QKeySequence(RECAPTURE_KEY),
+                self.recapture_selected,
+            ),
+            (self.tr("Edit"), QKeySequence(EDIT_KEY), self.edit_selected),
+            (self.tr("Export as PDF"), QKeySequence(EXPORT_KEY), self.export),
+            (
+                self.tr("Zoom in"),
+                QKeySequence.ZoomIn,
+                lambda: self._step_zoom(ZOOM_STEP),
+            ),
+            (
+                self.tr("Zoom out"),
+                QKeySequence.ZoomOut,
+                lambda: self._step_zoom(1 / ZOOM_STEP),
+            ),
+            (self.tr("Fit width"), QKeySequence(FIT_KEY), self._fit_width),
         ):
             action = QAction(label, self)
             action.setShortcut(keys)
             action.triggered.connect(slot)
             self.addAction(action)
+            if slot == self.export:
+                self.export_action = action  # no pages, nothing to export
+                action.setEnabled(False)
+        self._show_hotkey()
+        # Qt tabs through widgets in the order they were made, and the toolbar
+        # and the panels were not made in the order they are read.
+        chain = [
+            self.capture_button,
+            self.scan_button,
+            self.open_button,
+            self.save_button,
+            self.extras_button,
+            self.undo_button,
+            self.redo_button,
+            self.recapture_button,
+            self.edit_button,
+            self.delete_button,
+            self.shot_list,
+            self.preview,
+            self.zoom_out_button,
+            self.zoom_in_button,
+            self.fit_button,
+            self.cancel_button,
+            self.update_button,
+            self.result_button,
+            self.musicxml_button,
+            self.export_button,
+        ]
+        for before, after in zip(chain, chain[1:]):
+            QWidget.setTabOrder(before, after)
         self._update_title()
         self._update_actions()
 
-    def _empty_state_text(self) -> str:
-        return self.tr(
-            "Nothing captured yet.\n\nPress {hotkey}, then drag out the area."
-        ).format(hotkey=self.settings.hotkey)
+    def _hotkey_text(self) -> str:
+        return _shortcut_text(self.settings.hotkey) or self.settings.hotkey
+
+    def _show_hotkey(self) -> None:
+        """Everywhere the window names the capture hotkey."""
+        hotkey = self._hotkey_text()
+        self.capture_button.setText(
+            self.tr("Start series ({hotkey})").format(hotkey=hotkey)
+        )
+        self.capture_button.setToolTip(
+            self.tr(
+                "The window steps aside. Scroll to the passage, press {hotkey} "
+                "and drag; capturing starts only with the hotkey"
+            ).format(hotkey=hotkey)
+        )
+        self.preview.set_blank_text(
+            self.tr(
+                "Nothing here yet.\n\nStart a series, scroll to the passage, "
+                "press {hotkey} and drag out each system. Every capture lands "
+                "on this page, as it will print.\n\nOr drop scanned pages "
+                "onto this window."
+            ).format(hotkey=hotkey)
+        )
 
     def _build_zoom_bar(self) -> QWidget:
-        self.zoom_out_button = self._button("", icons.ZOOM_OUT)
-        self.zoom_out_button.setToolTip(self.tr("Zoom out"))
+        self.zoom_out_button = self._icon_button(icons.ZOOM_OUT, self.tr("Zoom out"))
+        self.zoom_out_button.setToolTip(
+            self.tr("Zoom out ({shortcut})").format(
+                shortcut=_shortcut_text(QKeySequence.ZoomOut)
+            )
+        )
         self.zoom_out_button.clicked.connect(lambda: self._step_zoom(1 / ZOOM_STEP))
-        self.zoom_in_button = self._button("", icons.ZOOM_IN)
-        self.zoom_in_button.setToolTip(self.tr("Zoom in"))
+        self.zoom_in_button = self._icon_button(icons.ZOOM_IN, self.tr("Zoom in"))
+        self.zoom_in_button.setToolTip(
+            self.tr("Zoom in ({shortcut})").format(
+                shortcut=_shortcut_text(QKeySequence.ZoomIn)
+            )
+        )
         self.zoom_in_button.clicked.connect(lambda: self._step_zoom(ZOOM_STEP))
-        self.fit_button = self._button(self.tr("Fit"), icons.ZOOM_FIT)
+        self.fit_button = self._button(self.tr("Fit width"), icons.ZOOM_FIT)
+        self.fit_button.setToolTip(
+            self.tr("Fit the page to the window's width ({shortcut})").format(
+                shortcut=_shortcut_text(FIT_KEY)
+            )
+        )
         self.fit_button.setCheckable(True)
         self.fit_button.setChecked(True)
         self.fit_button.clicked.connect(self._fit_width)
@@ -410,6 +570,8 @@ class MainWindow(QMainWindow):
 
         bar = QWidget()
         bar.setObjectName("ZoomBar")
+        bar.setEnabled(False)  # nothing to zoom until there is a page
+        self._zoom_bar = bar
         layout = QHBoxLayout(bar)
         layout.setContentsMargins(12, 6, 12, 6)
         layout.setSpacing(6)
@@ -424,24 +586,12 @@ class MainWindow(QMainWindow):
         self._overlay = SelectionOverlay()
         self._overlay.selected.connect(self._on_selected)
         self._overlay.cancelled.connect(self.finish_capture)
-
-        # Tool tip windows never take the focus, so the browser keeps it.
-        # Parented to the window so Qt owns its lifetime; the flags still make
-        # it a separate, focus-free window.
-        self._toast = QLabel(
-            self,
-            Qt.ToolTip | Qt.FramelessWindowHint | Qt.WindowDoesNotAcceptFocus,
-        )
-        self._toast.setMargin(TOAST_MARGIN_PX)
-        self._toast.setStyleSheet(
-            f"background: {self.palette_tokens.text};"
-            f"color: {self.palette_tokens.app};"
-            "border-radius: 4px;"
-        )
-        self._toast_timer = QTimer(self)
-        self._toast_timer.setSingleShot(True)
-        self._toast_timer.setInterval(TOAST_MS)
-        self._toast_timer.timeout.connect(self._toast.hide)
+        self._overlay.missed.connect(self._on_missed)
+        self._overlay.retake.connect(self.retake_capture)
+        self._series_bar = SeriesBar(self.palette_tokens)
+        self._series_bar.retake_requested.connect(self.retake_capture)
+        self._series_bar.undo_requested.connect(self._undo_in_series)
+        self._series_bar.done_requested.connect(self.finish_capture)
 
         self._timer = QTimer(self)
         self._timer.setSingleShot(True)
@@ -449,6 +599,8 @@ class MainWindow(QMainWindow):
         self._timer.timeout.connect(self.rebuild)
 
         self._hotkey = HotkeyFilter(self.begin_capture)
+        self._retake_hotkey = HotkeyFilter(self.retake_capture, RETAKE_HOTKEY_ID)
+        self._hotkeys_installed = False
 
         hints = QGuiApplication.styleHints()
         hints.colorSchemeChanged.connect(self._follow_colour_scheme)
@@ -479,6 +631,8 @@ class MainWindow(QMainWindow):
 
     def install_hotkey(self, app) -> None:
         app.installNativeEventFilter(self._hotkey)
+        app.installNativeEventFilter(self._retake_hotkey)
+        self._hotkeys_installed = True
         self._register_hotkey()
 
     def _register_hotkey(self) -> None:
@@ -527,29 +681,53 @@ class MainWindow(QMainWindow):
         self._pdf_bytes = pdf.build(ready.shots, pages, self.settings)
         self.preview.set_pdf(self._pdf_bytes)
         self.export_button.setEnabled(bool(pages))
+        self.export_action.setEnabled(bool(pages))
         self.musicxml_button.setEnabled(bool(pages) and self._musicxml_task is None)
-        self._refresh_list(shots, set(ready.missing))
+        self._zoom_bar.setEnabled(bool(pages))
+        self._refresh_list(shots, set(ready.missing), pages, ready.rows)
         text = self.tr("{captures}, {pages}").format(
             captures=self.tr("%n capture(s)", "", len(shots)),
             pages=self.tr("%n page(s)", "", len(pages)),
         )
         if ready.missing:
             text += self.tr(", %n file(s) missing", "", len(ready.missing))
-        self.status.setText(text)
+        self.status.setText(f"{text} · {self._result}" if self._result else text)
         self._update_title()
         self._update_zoom_label()
+        self._mark_selection()
         self._dirty = False
 
-    def _refresh_list(self, shots: Sequence[Shot], missing: set[int]) -> None:
+    def _refresh_list(
+        self,
+        shots: Sequence[Shot],
+        missing: set[int],
+        pages: Sequence[Page],
+        rows: Sequence[int],
+    ) -> None:
+        page_of_row = {
+            rows[placement.index]: number
+            for number, page in enumerate(pages, start=1)
+            for placement in page.placements
+        }
         blocked = self.shot_list.blockSignals(True)
         current = self.shot_list.currentRow()
+        chosen = self.shot_list.selected_rows()
         self.shot_list.clear()
         for index, shot in enumerate(shots):
             self.shot_list.add_row(
-                row_data(index, shot, self.settings, missing=index in missing)
+                row_data(
+                    index,
+                    shot,
+                    self.settings,
+                    missing=index in missing,
+                    page=page_of_row.get(index),
+                )
             )
         if 0 <= current < self.shot_list.count():
             self.shot_list.setCurrentRow(current)
+        for row in chosen:
+            if row < self.shot_list.count():
+                self.shot_list.item(row).setSelected(True)
         self.shot_list.blockSignals(blocked)
         self._list_stack.setCurrentWidget(
             self.shot_list if shots else self.empty_state
@@ -557,9 +735,33 @@ class MainWindow(QMainWindow):
         self._update_actions()
 
     def _update_actions(self, *_args) -> None:
-        has_selection = self.shot_list.currentRow() >= 0
-        for button in (self.recapture_button, self.edit_button, self.delete_button):
-            button.setEnabled(has_selection)
+        rows = self.shot_list.selected_rows()
+        # Editing and recapturing mean one capture; deleting can take several.
+        self.recapture_button.setEnabled(len(rows) == 1)
+        self.edit_button.setEnabled(len(rows) == 1)
+        self.delete_button.setEnabled(bool(rows))
+        self.undo_button.setEnabled(self.document.can_undo)
+        self.redo_button.setEnabled(self.document.can_redo)
+
+    def _on_row_changed(self, *_args) -> None:
+        self._update_actions()
+        self._mark_selection()
+
+    def _mark_selection(self) -> None:
+        """Show on the proof which capture the list has selected."""
+        row = self.shot_list.currentRow()
+        if row not in self._usable_rows or row not in self.shot_list.selected_rows():
+            self.preview.mark_capture(None)
+            return
+        position = self._usable_rows.index(row)
+        for number, page in enumerate(self._pages):
+            for placement in page.placements:
+                if placement.index == position:
+                    self.preview.mark_capture(
+                        number,
+                        (placement.x, placement.y, placement.w, placement.h),
+                    )
+                    return
 
     def _update_zoom_label(self) -> None:
         self.zoom_label.setText(f"{round(self.preview.zoom * 100)} %")
@@ -747,42 +949,137 @@ class MainWindow(QMainWindow):
         self._pending_replace = None
         self._arm()
 
+    def _single_row(self) -> int:
+        """The one selected row, or -1 for none and for several."""
+        rows = self.shot_list.selected_rows()
+        return rows[0] if len(rows) == 1 else -1
+
     def recapture_selected(self) -> None:
-        index = self.shot_list.currentRow()
+        index = self._single_row()
         if index < 0:
             return
         self._pending_replace = index
         self._arm()
 
-    def _arm(self) -> None:
+    def _enter_series(self) -> None:
+        if not self._capturing:
+            self._series_taken = 0
+            self._take_retake_hotkey()
         self._capturing = True
-        self.showMinimized()
-        self._hint(self.tr("Ready — press {hotkey}").format(hotkey=self.settings.hotkey))
 
-    def begin_capture(self) -> None:
+    def _take_retake_hotkey(self) -> None:
+        """Hold the key only now: outside a series it belongs to other programs.
+
+        The Again button does the same job, so a key that is taken is no
+        reason to interrupt the user at the start of a series.
+        """
+        if not self._hotkeys_installed:
+            return
+        try:
+            if not self._retake_hotkey.register(self.settings.retake_hotkey):
+                log.info("%s is in use", self.settings.retake_hotkey)
+        except ValueError as error:
+            log.info("retake hotkey not usable: %s", error)
+
+    def _arm(self) -> None:
+        self._enter_series()
+        self.showMinimized()
+        self._show_series_bar()
+
+    def _show_series_bar(self, missed: bool = False) -> None:
+        """Say where the series stands; the window itself is out of sight."""
+        hotkey = self._hotkey_text()
+        shots = self.document.shots
+        if self._pending_replace is not None:
+            title = self.tr("Recapture {number}").format(
+                number=self._pending_replace + 1
+            )
+        elif self._series_taken:
+            title = self.tr("Capture {number}").format(number=len(shots))
+        else:
+            title = self.tr("Series ready")
+        if missed:
+            hint = self.tr("That was too small. Press {hotkey} and drag again")
+        elif self._series_taken:
+            hint = self.tr("{hotkey} next · {retake} again")
+        else:
+            hint = self.tr("Scroll to the passage, press {hotkey} and drag")
+        last = shots[-1] if self._series_taken else None
+        retake = _shortcut_text(self.settings.retake_hotkey)
+        self._series_bar.retake_button.setToolTip(
+            self.tr("Take this capture back and drag it again ({shortcut})").format(
+                shortcut=retake
+            )
+        )
+        self._series_bar.show_state(
+            title,
+            hint.format(hotkey=hotkey, retake=retake),
+            last.path if last else None,
+            last.crop if last else None,
+        )
+
+    def _undo_in_series(self) -> None:
+        """Take back the last capture; only this series', never older work."""
+        if self._series_taken and self.document.undo():
+            self._series_taken -= 1
+            self._dirty = True
+            self._show_series_bar()
+
+    def retake_capture(self) -> None:
+        """The last capture was wrong: back to dragging it, series running on."""
+        if not self._capturing or not self._series_taken:
+            return
+        number = len(self.document.shots)
+        if self.document.undo():
+            self._series_taken -= 1
+            self._dirty = True
+            self.begin_capture(
+                self.tr("Capture {number} taken back").format(number=number)
+            )
+
+    def _overlay_caption(self, note: str) -> str:
+        """What the dimmed screen says; the window that could is out of sight."""
+        end = self.tr("Esc ends the series")
+        if not self._series_taken:
+            return f"{note} · {end}" if note else end
+        again = self.tr("{retake} or right-click: the last one again").format(
+            retake=_shortcut_text(self.settings.retake_hotkey)
+        )
+        return " · ".join(part for part in (note, again, end) if part)
+
+    def begin_capture(self, note: str = "") -> None:
         """What the hotkey does: dim the screen and let the user drag.
 
         Not while a dialog is open: it would take no drag - a modal dialog
         blocks every other window - and would hide the question being asked.
         """
-        if QApplication.activeModalWidget() is not None:
+        waiting = QApplication.activeModalWidget()
+        if waiting is not None:
+            # Silence would look like a broken hotkey; the question explains it.
+            waiting.raise_()
+            waiting.activateWindow()
             return
-        self._capturing = True
+        self._enter_series()
         if not self.isMinimized():
             self.showMinimized()
-        self._toast.hide()
-        self._overlay.start()
+        self._series_bar.hide()  # it would end up in the capture
+        self._overlay.start(self._overlay_caption(note))
 
     def finish_capture(self) -> None:
         """Leave capture mode: show the window again and catch up on rendering."""
         self._capturing = False
         self._pending_replace = None
-        self._toast.hide()
+        self._series_bar.hide()
+        self._retake_hotkey.unregister()
         self.showNormal()
         self.raise_()
         self.activateWindow()
         if self._dirty:
             self.rebuild()
+        if self._series_taken:
+            # Where the user left off: the newest capture, on its page.
+            self.shot_list.setCurrentRow(self.shot_list.count() - 1)
+            self._series_taken = 0
 
     def _on_selected(self, rect) -> None:
         shot = auto_crop(grab(rect, self._temp_dir), self.settings)
@@ -799,9 +1096,12 @@ class MainWindow(QMainWindow):
             return
         # Stay minimised so the browser keeps the focus and the next hotkey
         # press works right away. Rendering waits until capturing is done.
-        self._show_toast(
-            rect, self.tr("Capture {number}").format(number=len(self.document.shots))
-        )
+        self._series_taken += 1
+        self._show_series_bar()
+
+    def _on_missed(self) -> None:
+        """A click or a slip must not cost the user their place in the score."""
+        self._show_series_bar(missed=True)
 
     def changeEvent(self, event) -> None:  # noqa: N802
         # Restoring from the taskbar also ends a capture series, so the
@@ -813,22 +1113,6 @@ class MainWindow(QMainWindow):
         ):
             self.finish_capture()
         super().changeEvent(event)
-
-    def _show_toast(self, rect, text: str) -> None:
-        self._place_toast(text, rect.left(), rect.bottom() + TOAST_OFFSET_PX)
-        self._toast_timer.start()
-
-    def _hint(self, text: str) -> None:
-        """A hint that stays put - it tells the user what to press next."""
-        self._toast_timer.stop()
-        cursor = QCursor.pos()
-        self._place_toast(text, cursor.x() + TOAST_OFFSET_PX, cursor.y() + TOAST_OFFSET_PX)
-
-    def _place_toast(self, text: str, x: int, y: int) -> None:
-        self._toast.setText(text)
-        self._toast.adjustSize()
-        self._toast.move(x, y)
-        self._toast.show()
 
     @property
     def pages(self) -> list[Page]:
@@ -855,7 +1139,7 @@ class MainWindow(QMainWindow):
         self.edit_selected()
 
     def edit_selected(self) -> None:
-        index = self.shot_list.currentRow()
+        index = self._single_row()
         if index < 0:
             return
         shot = self.document.shots[index]
@@ -891,19 +1175,47 @@ class MainWindow(QMainWindow):
         self.rebuild()
 
     def delete_selected(self) -> None:
-        index = self.shot_list.currentRow()
-        if index < 0:
+        rows = self.shot_list.selected_rows()
+        if not rows:
             return
-        self.document.remove(index)
+        self.document.remove_many(rows)
+        self.shot_list.clearSelection()
         self.rebuild()
+        self.shot_list.setCurrentRow(min(rows[0], self.shot_list.count() - 1))
+
+    def shift_selected(self, step: int) -> None:
+        """Move the selected capture one row up or down, for the keyboard."""
+        rows = self.shot_list.selected_rows()
+        order = shifted_order(self.shot_list.count(), rows, step)
+        if order is None:
+            return
+        self.document.arrange(order)
+        self.shot_list.clearSelection()
+        self.rebuild()
+        for row in rows:
+            self.shot_list.item(row + step).setSelected(True)
+        self.shot_list.setCurrentRow(
+            rows[0] + step, QItemSelectionModel.SelectionFlag.NoUpdate
+        )
 
     def undo(self) -> None:
         if self.document.undo():
             self.rebuild()
 
-    def _on_rows_moved(self, parent, start, end, destination, row) -> None:
-        self.document.move(start, normalize_move(start, row))
-        self.schedule_rebuild()
+    def redo(self) -> None:
+        if self.document.redo():
+            self.rebuild()
+
+    def _on_rows_moved(self, *_args) -> None:
+        # A drag of several rows arrives as one signal per row, and undo should
+        # see one step: read the order once the drop is over.
+        QTimer.singleShot(0, self._take_list_order)
+
+    def _take_list_order(self) -> None:
+        order = self.shot_list.order()
+        if order != sorted(order):
+            self.document.arrange(order)
+            self.rebuild()
 
     def edit_settings(self) -> None:
         dialog = SettingsDialog(self.settings, self)
@@ -914,7 +1226,7 @@ class MainWindow(QMainWindow):
         save_settings(self.settings, self._store)
         if self.settings.hotkey != previous.hotkey:
             self._register_hotkey()
-            self.empty_state.setText(self._empty_state_text())
+            self._show_hotkey()
         self.rebuild()
         if self.settings.language != previous.language:
             QMessageBox.information(
@@ -1025,9 +1337,27 @@ class MainWindow(QMainWindow):
         try:
             self.save_to(path)
         except OSError as error:
-            QMessageBox.critical(self, self.tr("Saving failed"), str(error))
+            QMessageBox.critical(
+                self, self.tr("Saving failed"), self._write_failure(path, error)
+            )
             return False
         return True
+
+    def _write_failure(self, path: Path, error: OSError) -> str:
+        """Why a file could not be written, in words that lead to a way out.
+
+        A PDF that is open in a reader is by far the likeliest cause on
+        Windows, and "[Errno 13]" says nothing about it.
+        """
+        log.info("could not write %s: %s", path, error)
+        if isinstance(error, PermissionError):
+            return self.tr(
+                "{name} could not be written. Another program may have it open: "
+                "close it there and try again."
+            ).format(name=path.name)
+        return self.tr("{name} could not be written: {reason}").format(
+            name=path.name, reason=error.strerror or str(error)
+        )
 
     def open_project(self) -> None:
         if not self._confirm_discard():
@@ -1049,6 +1379,7 @@ class MainWindow(QMainWindow):
         self._project_path = path
         self._saved_revision = self.document.revision
         self._remember_folder("project", path)
+        self._forget_result()
         self.rebuild()
         self.status.setText(self.tr("Opened: {name}").format(name=path.name))
 
@@ -1075,6 +1406,46 @@ class MainWindow(QMainWindow):
     def is_transcribing(self) -> bool:
         return self._musicxml_task is not None
 
+    def cancel_transcription(self) -> None:
+        """Stop the running transcription; _on_musicxml_done reports it."""
+        if self._musicxml_task is None:
+            return
+        self._musicxml_task.cancel()
+        self.cancel_button.setEnabled(False)
+        self.status.setText(self.tr("Stopping the transcription …"))
+
+    def _show_running(self) -> None:
+        self.musicxml_button.setEnabled(False)
+        self.cancel_button.setEnabled(True)
+        self.cancel_button.show()
+        self._forget_result()
+        self._show_progress(0, 0)
+
+    def _forget_result(self) -> None:
+        self._result = ""
+        self._result_path = None
+        self.result_button.hide()
+
+    def _keep_result(self, text: str, path: Path) -> None:
+        """Report a finished export until the next one, with a way to open it."""
+        self._result = text
+        self._result_path = path
+        self.result_button.setToolTip(
+            self.tr("Open {name} in its program").format(name=path.name)
+        )
+        self.result_button.show()
+        self.status.setText(text)
+
+    def open_result(self) -> None:
+        path = self._result_path
+        if path is None:
+            return
+        if not QDesktopServices.openUrl(QUrl.fromLocalFile(str(path))):
+            log.info("nothing opened %s", path)
+            self.status.setText(
+                self.tr("No program here opens {name}").format(name=path.name)
+            )
+
     def export_musicxml_to(self, path: Path, run=omr.run_audiveris) -> None:
         """Start the transcription; the result arrives in _on_musicxml_done."""
         if self._musicxml_task is not None:
@@ -1091,9 +1462,8 @@ class MainWindow(QMainWindow):
                 run=run,
             )
         )
-        self.musicxml_button.setEnabled(False)
         self._claude_usage = None
-        self._show_progress(0, 0)
+        self._show_running()
         self.status.setText(
             self.tr("Transcribing with Audiveris — this takes a while …")
         )
@@ -1138,10 +1508,9 @@ class MainWindow(QMainWindow):
                 resume=resume,
             )
         )
-        self.musicxml_button.setEnabled(False)
         self._claude_usage = reader.Usage()
         self._claude_reached = None
-        self._show_progress(0, 0)
+        self._show_running()
         if resume:
             self.status.setText(self.tr("Claude carries on where it stopped …"))
         else:
@@ -1240,7 +1609,25 @@ class MainWindow(QMainWindow):
         )
         return f"{tokens}, {price}"
 
+    def _reader_is_ready(self, reader_name: str) -> bool:
+        """Is the program this reading needs there? If not, say so now.
+
+        Asked before the file dialog: naming a file only to hear that the
+        reading cannot start wastes the user's time.
+        """
+        try:
+            if reader_name == "claude":
+                reader.find_claude()
+            else:
+                omr.find_audiveris()
+        except (omr.AudiverisMissing, reader.ClaudeMissing) as error:
+            self._explain_setup(error)
+            return False
+        return True
+
     def export_musicxml(self, reader_name: str = "audiveris") -> None:
+        if not self._reader_is_ready(reader_name):
+            return
         stem = self._project_path.stem if self._project_path else self.tr("score")
         folder = self._last_folder("musicxml") or (
             str(self._project_path.parent) if self._project_path else ""
@@ -1268,12 +1655,8 @@ class MainWindow(QMainWindow):
             text = self.tr("Reading page {page} with Audiveris …")
         self.status.setText(text.format(page=page, total=total))
 
-    def _on_musicxml_done(self, outcome) -> None:
-        self._musicxml_task = None
-        self.musicxml_button.setEnabled(True)
-        self.progress_bar.hide()
-        usage, self._claude_usage = self._claude_usage, None
-        reached, self._claude_reached = self._claude_reached, None
+    def _explain_setup(self, outcome: Exception) -> bool:
+        """Say what is missing for a reading; False if `outcome` is no such thing."""
         if isinstance(outcome, omr.AudiverisMissing):
             QMessageBox.information(
                 self,
@@ -1284,7 +1667,7 @@ class MainWindow(QMainWindow):
                     "try again."
                 ).format(url=omr.DOWNLOAD_URL),
             )
-            return
+            return True
         if isinstance(outcome, reader.ClaudeMissing):
             QMessageBox.information(
                 self,
@@ -1295,7 +1678,7 @@ class MainWindow(QMainWindow):
                     "try again."
                 ).format(url=reader.DOWNLOAD_URL),
             )
-            return
+            return True
         if isinstance(outcome, reader.ClaudeLoggedOut):
             QMessageBox.information(
                 self,
@@ -1305,6 +1688,20 @@ class MainWindow(QMainWindow):
                     "account, then try again."
                 ),
             )
+            return True
+        return False
+
+    def _on_musicxml_done(self, outcome) -> None:
+        self._musicxml_task = None
+        # After a reading that took minutes the user may be anywhere else.
+        if not self.isActiveWindow():
+            QApplication.alert(self)
+        self.musicxml_button.setEnabled(bool(self._pages))
+        self.progress_bar.hide()
+        self.cancel_button.hide()
+        usage, self._claude_usage = self._claude_usage, None
+        reached, self._claude_reached = self._claude_reached, None
+        if self._explain_setup(outcome):
             return
         if isinstance(outcome, reader.LimitReached):
             if outcome.resets is not None:
@@ -1335,7 +1732,7 @@ class MainWindow(QMainWindow):
             text = f"{text} · {self.usage_text(usage)}"
         if reached is not None:
             text = f"{text} · {self.zoom_text(reached)}"
-        self.status.setText(text)
+        self._keep_result(text, outcome)
 
     def export_to(self, path: Path) -> None:
         path.write_bytes(self._pdf_bytes)
@@ -1353,12 +1750,20 @@ class MainWindow(QMainWindow):
         try:
             self.export_to(Path(name))
         except OSError as error:
-            QMessageBox.critical(self, self.tr("Export failed"), str(error))
+            QMessageBox.critical(
+                self, self.tr("Export failed"), self._write_failure(Path(name), error)
+            )
         else:
             self._remember_folder("pdf", Path(name))
-            self.status.setText(self.tr("Exported: {name}").format(name=name))
+            self._keep_result(
+                self.tr("Exported: {name}").format(name=Path(name).name), Path(name)
+            )
 
     def closeEvent(self, event) -> None:  # noqa: N802
+        running = self._musicxml_task
+        if running is not None and not ask_stop_transcription(self):
+            event.ignore()
+            return
         if not self._restarting and not self._confirm_discard():
             event.ignore()
             return
@@ -1368,12 +1773,18 @@ class MainWindow(QMainWindow):
         # hidden along with the minimised main window), so close it by hand.
         self._overlay.hide()
         self._overlay.deleteLater()
-        self._toast.hide()
+        self._series_bar.hide()
+        self._series_bar.deleteLater()
         self._hotkey.unregister()
+        self._retake_hotkey.unregister()
         if self._scan_task is not None:
             # It writes into the session folder that is about to go.
             self._scan_task.cancel()
-            self._scan_task.stopped.wait(SCAN_CLOSE_WAIT_S)
+            self._scan_task.stopped.wait(CLOSE_WAIT_S)
+        if running is not None:
+            # Audiveris works in that folder too.
+            running.cancel()
+            running.stopped.wait(CLOSE_WAIT_S)
         # Whatever is still in there goes with it: a cancelled import may
         # not have stopped writing, and a half-written file must not keep
         # the window from closing.

@@ -60,3 +60,40 @@ def test_dialog_returns_the_edited_settings(qapp):
     assert dialog.settings.align_staff_ends is False
     assert dialog.settings.scan_mode == "grey"
     assert dialog.settings.language == "de"
+
+
+def test_the_retake_hotkey_cannot_share_the_capture_hotkey(qapp, monkeypatch):
+    from PySide6.QtWidgets import QMessageBox
+
+    from scorecap.settingsdialog import SettingsDialog
+
+    warned = []
+    monkeypatch.setattr(QMessageBox, "warning", lambda *args: warned.append(args[2]))
+    dialog = SettingsDialog(Settings())
+    dialog._retake_hotkey.setText(Settings().hotkey)
+    closed = []
+    dialog.accepted.connect(lambda: closed.append(1))
+    dialog.accept()
+    assert warned
+    assert closed == []
+
+
+def test_an_unusable_retake_hotkey_is_refused(qapp, monkeypatch):
+    from PySide6.QtWidgets import QMessageBox
+
+    from scorecap.settingsdialog import SettingsDialog
+
+    warned = []
+    monkeypatch.setattr(QMessageBox, "warning", lambda *args: warned.append(args[2]))
+    dialog = SettingsDialog(Settings())
+    dialog._retake_hotkey.setText("nonsense")
+    dialog.accept()
+    assert "nonsense" in warned[0]
+
+
+def test_the_retake_hotkey_is_saved_with_the_rest(qapp):
+    from scorecap.settingsdialog import SettingsDialog
+
+    dialog = SettingsDialog(Settings())
+    dialog._retake_hotkey.setText("Alt+F8")
+    assert dialog.settings.retake_hotkey == "Alt+F8"

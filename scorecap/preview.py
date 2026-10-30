@@ -7,9 +7,10 @@ surface, with a soft shadow and the page number set in the gutter beside it.
 from __future__ import annotations
 
 import pymupdf
-from PySide6.QtCore import QPoint, Qt, QTimer, Signal
+from PySide6.QtCore import QCoreApplication, QPoint, QRect, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QImage, QPixmap
 from PySide6.QtWidgets import (
+    QFrame,
     QGraphicsDropShadowEffect,
     QHBoxLayout,
     QLabel,
@@ -18,7 +19,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from .settings import A4_WIDTH_PT
+from .settings import A4_HEIGHT_PT, A4_WIDTH_PT
 
 PAGE_SPACING_PX = 28
 GUTTER_PX = 34
@@ -79,7 +80,15 @@ class PageView(QWidget):
         self._index = number - 1
         label = QLabel()
         label.setObjectName("PageSheet")
+        label.setAccessibleName(
+            QCoreApplication.translate("Preview", "Page {number}").format(number=number)
+        )
         self._sheet = label
+        self._mark = QFrame(label)
+        self._mark.setObjectName("CaptureMark")
+        # A click on the marked capture belongs to the page, as any other.
+        self._mark.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self._mark.hide()
         self.set_image(image)
         shadow = QGraphicsDropShadowEffect(self)
         shadow.setBlurRadius(SHADOW_BLUR)
@@ -105,6 +114,16 @@ class PageView(QWidget):
         """Swap the rendered sheet in place; the widget itself stays."""
         self._sheet.setPixmap(QPixmap.fromImage(image))
         self._sheet.setFixedSize(image.size())
+
+    def mark(self, area: QRect | None) -> None:
+        """Outline one capture on the sheet, in rendered pixels; None clears it."""
+        self._mark.setVisible(area is not None)
+        if area is not None:
+            self._mark.setGeometry(area)
+
+    @property
+    def mark_widget(self) -> QFrame:
+        return self._mark
 
     def mousePressEvent(self, event) -> None:  # noqa: N802 (Qt naming)
         point = self._sheet.mapFrom(self, event.position().toPoint())
@@ -140,6 +159,13 @@ class PreviewWidget(QScrollArea):
             PAGE_SPACING_PX, PAGE_SPACING_PX, PAGE_SPACING_PX, PAGE_SPACING_PX
         )
         self._layout.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
+        self._blank = QLabel()
+        self._blank.setObjectName("BlankSheet")
+        self._blank.setWordWrap(True)
+        self._blank.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+        self._layout.addWidget(self._blank, 0, Qt.AlignHCenter)
+        # The capture marked on the proof: its page and its box in PDF points.
+        self._marked: tuple[int, tuple[float, float, float, float]] | None = None
         self.setWidget(self._container)
         self.setWidgetResizable(True)
 
@@ -155,8 +181,48 @@ class PreviewWidget(QScrollArea):
     def fits_width(self) -> bool:
         return self._fit
 
+    @property
+    def blank_text(self) -> str:
+        return self._blank.text()
+
+    def set_blank_text(self, text: str) -> None:
+        """What the empty sheet says while there is no page to show."""
+        self._blank.setText(text)
+
     def page_views(self) -> list[PageView]:
         return list(self._pages)
+
+    def mark_capture(
+        self, page: int | None, box: tuple[float, float, float, float] = (0, 0, 0, 0)
+    ) -> None:
+        """Outline a capture on its page and bring it into view; None clears."""
+        self._marked = None if page is None else (page, box)
+        self._apply_mark()
+        if page is not None and page < len(self._pages):
+            # On the next turn: a page just rendered has not been laid out yet.
+            QTimer.singleShot(0, self._show_mark)
+
+    def marked_area(self) -> tuple[int, QRect] | None:
+        """The page and the rendered rectangle now outlined, if any."""
+        for number, page in enumerate(self._pages):
+            if not page.mark_widget.isHidden():
+                return number, page.mark_widget.geometry()
+        return None
+
+    def _apply_mark(self) -> None:
+        marked_page, box = self._marked or (None, None)
+        for number, page in enumerate(self._pages):
+            if number != marked_page:
+                page.mark(None)
+                continue
+            x, y, w, h = (round(value * self._zoom) for value in box)
+            page.mark(QRect(x, y, w, h))
+
+    def _show_mark(self) -> None:
+        marked = self.marked_area()
+        if marked is not None:
+            mark = self._pages[marked[0]].mark_widget
+            self.ensureWidgetVisible(mark, 0, PAGE_SPACING_PX)
 
     def _fit_source_width(self) -> int:
         """Width to fit into, measured so a scrollbar cannot change it.
@@ -188,12 +254,21 @@ class PreviewWidget(QScrollArea):
         super().resizeEvent(event)
         if self._fit and not self._rebuilding:
             self._refit_timer.start()  # restarts on every event of a drag
+            self._size_blank()
 
     def _refit(self) -> None:
         new_zoom = fit_zoom(self._fit_source_width())
         if abs(new_zoom - self._zoom) > 0.01:
             self._zoom = new_zoom
             self._rebuild()
+
+    def _size_blank(self) -> None:
+        """Show the empty sheet at the size a page would have."""
+        self._blank.setVisible(not self._pages)
+        zoom = fit_zoom(self._fit_source_width()) if self._fit else self._zoom
+        self._blank.setFixedSize(
+            QSize(round(A4_WIDTH_PT * zoom), round(A4_HEIGHT_PT * zoom))
+        )
 
     def _page_clicked(self, index: int, point: QPoint) -> None:
         """Rendered pixels back to the points the layout worked in."""
@@ -225,5 +300,7 @@ class PreviewWidget(QScrollArea):
                 page = self._pages.pop()
                 self._layout.removeWidget(page)
                 page.deleteLater()
+            self._size_blank()
+            self._apply_mark()
         finally:
             self._rebuilding = False

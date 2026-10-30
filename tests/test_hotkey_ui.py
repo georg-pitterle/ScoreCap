@@ -48,10 +48,10 @@ def test_a_hotkey_that_is_no_hotkey_cannot_be_saved_in_the_settings(
     assert dialog.settings.hotkey == "Ctrl+Alt+M"
 
 
-def test_the_empty_state_names_the_hotkey_in_force(window, monkeypatch):
+def test_the_blank_sheet_names_the_hotkey_in_force(window, monkeypatch):
     from scorecap.settingsdialog import SettingsDialog
 
-    assert window.settings.hotkey in window.empty_state.text()
+    assert window.settings.hotkey in window.preview.blank_text
 
     def edited(dialog_settings, parent):
         dialog = SettingsDialog(dialog_settings, parent)
@@ -62,7 +62,7 @@ def test_the_empty_state_names_the_hotkey_in_force(window, monkeypatch):
     monkeypatch.setattr(SettingsDialog, "exec", lambda self: 1)
     monkeypatch.setattr(QMessageBox, "warning", lambda *a, **k: None)
     window.edit_settings()
-    assert "Ctrl+Alt+M" in window.empty_state.text()
+    assert "Ctrl+Alt+M" in window.preview.blank_text
 
 
 def test_the_hotkey_is_ignored_while_a_dialog_is_waiting(window, qapp):

@@ -15,6 +15,7 @@ MOD_WIN = 0x0008
 MOD_NOREPEAT = 0x4000
 WM_HOTKEY = 0x0312
 HOTKEY_ID = 0xA17C
+RETAKE_HOTKEY_ID = 0xA17D
 
 _MODIFIERS = {
     "ctrl": MOD_CONTROL,
@@ -68,9 +69,12 @@ def parse_hotkey(spec: str) -> tuple[int, int]:
 class HotkeyFilter(QAbstractNativeEventFilter):
     """Registers one global hotkey and calls back when it fires."""
 
-    def __init__(self, on_pressed: Callable[[], None]) -> None:
+    def __init__(
+        self, on_pressed: Callable[[], None], hotkey_id: int = HOTKEY_ID
+    ) -> None:
         super().__init__()
         self._on_pressed = on_pressed
+        self._id = hotkey_id
         self._registered = False
 
     def register(self, spec: str) -> bool:
@@ -78,7 +82,7 @@ class HotkeyFilter(QAbstractNativeEventFilter):
         modifiers, virtual_key = parse_hotkey(spec)
         ok = bool(
             ctypes.windll.user32.RegisterHotKey(
-                None, HOTKEY_ID, wintypes.UINT(modifiers), wintypes.UINT(virtual_key)
+                None, self._id, wintypes.UINT(modifiers), wintypes.UINT(virtual_key)
             )
         )
         self._registered = ok
@@ -86,12 +90,12 @@ class HotkeyFilter(QAbstractNativeEventFilter):
 
     def unregister(self) -> None:
         if self._registered:
-            ctypes.windll.user32.UnregisterHotKey(None, HOTKEY_ID)
+            ctypes.windll.user32.UnregisterHotKey(None, self._id)
             self._registered = False
 
     def nativeEventFilter(self, event_type, message):  # noqa: N802 (Qt naming)
         if event_type == b"windows_generic_MSG":
             msg = wintypes.MSG.from_address(int(message))
-            if msg.message == WM_HOTKEY and msg.wParam == HOTKEY_ID:
+            if msg.message == WM_HOTKEY and msg.wParam == self._id:
                 self._on_pressed()
         return False, 0

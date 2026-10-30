@@ -11,7 +11,7 @@ def test_the_interface_speaks_german(german, qapp):
 
     window = MainWindow()  # texts are set when a window is built
     try:
-        assert window.capture_button.text() == "Aufnahme vorbereiten"
+        assert window.capture_button.text().startswith("Serie starten")
         # Qt's own translation names the shortcut the German way.
         assert "Strg+O" in window.open_button.toolTip()
         summary = window._import_summary(ImportResult([object()] * 3, 1, [], [], []))

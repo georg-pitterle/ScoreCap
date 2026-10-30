@@ -71,5 +71,5 @@ def test_suggested_name_sits_beside_the_original(window, tmp_path):
     assert shrunk_name(tmp_path / "Perseus.pdf") == tmp_path / "Perseus-small.pdf"
 
 
-def test_the_toolbar_offers_the_action(window):
-    assert window.shrink_button.text().startswith("Shrink PDF")
+def test_the_extras_menu_offers_the_action(window):
+    assert "Shrink" in window.shrink_action.text()

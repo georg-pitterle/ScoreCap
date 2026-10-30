@@ -1,5 +1,6 @@
 from PIL import Image
-from PySide6.QtCore import QPoint, QRect, QSize
+from PySide6.QtCore import QEvent, QPoint, QRect, QSize, Qt
+from PySide6.QtGui import QKeyEvent
 
 from scorecap.cropdialog import display_rect, widget_to_source
 from scorecap.model import Shot
@@ -331,3 +332,93 @@ def test_a_vanished_page_takes_the_way_back_with_it(tmp_path, qapp):
     dialog.show_page()
     assert dialog.shot.path == band.path
     assert not dialog.page_button.isEnabled()
+
+
+def press(canvas, code, modifiers=Qt.KeyboardModifier.NoModifier):
+    canvas.keyPressEvent(QKeyEvent(QEvent.Type.KeyPress, code, modifiers))
+
+
+def test_the_arrow_keys_move_the_crop(tmp_path, qapp):
+    dialog = erase_dialog(tmp_path, qapp, crop=(100, 50, 300, 150))
+    dialog.set_mode("crop")
+    press(dialog._canvas, Qt.Key.Key_Right)
+    left, top, right, bottom = dialog.crop
+    assert left > 100 and right - left == 200
+    assert (top, bottom) == (50, 150)
+
+
+def test_shift_and_the_arrows_pull_the_right_edge_alone(tmp_path, qapp):
+    dialog = erase_dialog(tmp_path, qapp, crop=(100, 50, 300, 150))
+    dialog.set_mode("crop")
+    press(dialog._canvas, Qt.Key.Key_Left, Qt.KeyboardModifier.ShiftModifier)
+    left, _, right, _ = dialog.crop
+    assert left == 100 and right < 300
+
+
+def test_ctrl_and_the_arrows_pull_the_left_edge_alone(tmp_path, qapp):
+    dialog = erase_dialog(tmp_path, qapp, crop=(100, 50, 300, 150))
+    dialog.set_mode("crop")
+    press(dialog._canvas, Qt.Key.Key_Right, Qt.KeyboardModifier.ControlModifier)
+    left, _, right, _ = dialog.crop
+    assert left > 100 and right == 300
+
+
+def test_without_a_crop_the_keyboard_can_pull_an_edge_in(tmp_path, qapp):
+    dialog = erase_dialog(tmp_path, qapp)
+    dialog.set_mode("crop")
+    press(dialog._canvas, Qt.Key.Key_Right)
+    assert dialog.crop is None
+    press(dialog._canvas, Qt.Key.Key_Down, Qt.KeyboardModifier.ControlModifier)
+    assert dialog.crop is not None
+
+
+def test_an_erasure_can_be_made_with_the_keyboard_alone(tmp_path, qapp):
+    dialog = erase_dialog(tmp_path, qapp)
+    canvas = dialog._canvas
+    canvas.resize(800, 600)
+    press(canvas, Qt.Key.Key_Return)
+    for _ in range(6):
+        press(canvas, Qt.Key.Key_Right)
+        press(canvas, Qt.Key.Key_Down)
+    press(canvas, Qt.Key.Key_Return)
+    assert len(dialog.erasures) == 1
+
+
+def test_escape_drops_the_rectangle_begun_and_not_the_dialog(tmp_path, qapp):
+    dialog = erase_dialog(tmp_path, qapp)
+    canvas = dialog._canvas
+    canvas.resize(800, 600)
+    press(canvas, Qt.Key.Key_Return)
+    press(canvas, Qt.Key.Key_Right)
+    press(canvas, Qt.Key.Key_Escape)
+    press(canvas, Qt.Key.Key_Right)
+    assert dialog.erasures == ()
+
+
+def test_cancelling_without_changes_asks_nothing(tmp_path, qapp, monkeypatch):
+    asked = []
+    monkeypatch.setattr(
+        "scorecap.cropdialog.ask_discard_edits", lambda parent: asked.append(1)
+    )
+    erase_dialog(tmp_path, qapp).reject()
+    assert asked == []
+
+
+def test_cancelling_with_erasures_can_be_refused(tmp_path, qapp, monkeypatch):
+    monkeypatch.setattr("scorecap.cropdialog.ask_discard_edits", lambda parent: False)
+    dialog = erase_dialog(tmp_path, qapp)
+    drag(dialog._canvas, QPoint(10, 10), QPoint(60, 60))
+    closed = []
+    dialog.rejected.connect(lambda: closed.append(1))
+    dialog.reject()
+    assert closed == []
+    assert len(dialog.erasures) == 1
+
+
+def test_cancelling_with_erasures_can_be_confirmed(tmp_path, qapp):
+    dialog = erase_dialog(tmp_path, qapp)
+    drag(dialog._canvas, QPoint(10, 10), QPoint(60, 60))
+    closed = []
+    dialog.rejected.connect(lambda: closed.append(1))
+    dialog.reject()
+    assert closed == [1]

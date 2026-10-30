@@ -96,3 +96,68 @@ def test_set_edits_changes_crop_and_erasures_in_one_step():
     assert doc.revision != before
     assert doc.undo() is True
     assert (doc.shots[0].crop, doc.shots[0].erasures) == (None, ())
+
+
+def _three():
+    doc = Document()
+    for name in "abc":
+        doc.add(Shot(path=Path(f"{name}.png"), width=10, height=10))
+    return doc
+
+
+def _names(doc):
+    return [shot.path.stem for shot in doc.shots]
+
+
+def test_redo_brings_back_what_undo_took():
+    doc = _three()
+    doc.undo()
+    assert doc.redo() is True
+    assert _names(doc) == ["a", "b", "c"]
+
+
+def test_a_new_change_ends_what_can_be_redone():
+    doc = _three()
+    doc.undo()
+    doc.remove(0)
+    assert doc.can_redo is False
+    assert doc.redo() is False
+
+
+def test_redo_counts_as_a_change_for_the_save_question():
+    doc = _three()
+    doc.undo()
+    before = doc.revision
+    doc.redo()
+    assert doc.revision != before
+
+
+def test_several_captures_go_in_one_undo_step():
+    doc = _three()
+    doc.remove_many([0, 2])
+    assert _names(doc) == ["b"]
+    doc.undo()
+    assert _names(doc) == ["a", "b", "c"]
+
+
+def test_arranging_takes_only_a_true_order():
+    doc = _three()
+    doc.arrange([2, 0, 1])
+    assert _names(doc) == ["c", "a", "b"]
+    with pytest.raises(ValueError):
+        doc.arrange([0, 0, 1])
+
+
+def test_a_block_moves_together_and_keeps_its_gap():
+    from scorecap.model import shifted_order
+
+    assert shifted_order(5, [1, 3], 1) == [0, 2, 1, 4, 3]
+    assert shifted_order(5, [1, 2], -1) == [1, 2, 0, 3, 4]
+
+
+def test_a_block_at_the_edge_stays_where_it_is():
+    from scorecap.model import shifted_order
+
+    assert shifted_order(3, [0, 2], -1) is None
+    assert shifted_order(3, [0, 2], 1) is None
+    assert shifted_order(3, [], 1) is None

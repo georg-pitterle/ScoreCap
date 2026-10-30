@@ -12,6 +12,8 @@ def _never_block_on_unsaved_changes(monkeypatch):
     Tests that are about that question patch ask_save_changes themselves.
     """
     monkeypatch.setattr("scorecap.app.ask_save_changes", lambda parent: "discard")
+    monkeypatch.setattr("scorecap.app.ask_stop_transcription", lambda parent: True)
+    monkeypatch.setattr("scorecap.cropdialog.ask_discard_edits", lambda parent: True)
 
 
 @pytest.fixture(autouse=True)

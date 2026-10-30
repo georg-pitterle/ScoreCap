@@ -24,6 +24,7 @@ class Settings:
     trim_threshold: int = 245
     trim_padding_px: int = 2
     hotkey: str = "Ctrl+Shift+S"
+    retake_hotkey: str = "Ctrl+Shift+Z"  # held only while a series runs
     scan_mode: str = "bw"  # "bw" or "grey"
     language: str = ""  # "" follows Windows, else a code from i18n.LANGUAGES
 

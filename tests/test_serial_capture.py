@@ -62,16 +62,6 @@ def test_recapture_returns_to_the_window(window):
     assert window.is_dirty is False
 
 
-def test_toast_never_takes_focus(window):
-    from PySide6.QtCore import Qt
-
-    window.begin_capture()
-    window._on_selected(QRect(0, 0, 120, 80))
-    flags = window._toast.windowFlags()
-    assert flags & Qt.WindowDoesNotAcceptFocus
-    assert window._toast.text() == "Capture 1"
-
-
 def test_restoring_from_the_taskbar_ends_capture_mode(window):
     window.begin_capture()
     window._on_selected(QRect(0, 0, 120, 80))

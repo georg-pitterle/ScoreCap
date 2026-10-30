@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QDoubleSpinBox,
     QFormLayout,
+    QGroupBox,
     QLineEdit,
     QMessageBox,
     QVBoxLayout,
@@ -76,7 +77,16 @@ class SettingsDialog(QDialog):
         self._margin_bottom = _spin(settings.margin_bottom_mm, 0.0, 50.0, 1.0, 1)
         self._gap_min = _spin(settings.gap_min_mm, 0.0, 30.0, 0.5, 1)
         self._shrink_min = _spin(settings.shrink_min, 0.70, 1.00, 0.01, 2)
+        self._shrink_min.setToolTip(
+            self.tr(
+                "How far a capture may be scaled down so that it still fits on "
+                "the page; 0.85 keeps at least 85 % of its size"
+            )
+        )
         self._min_dpi = _spin(settings.min_dpi, 0.0, 600.0, 10.0, 0)
+        self._min_dpi.setToolTip(
+            self.tr("Captures that would print coarser than this get a warning")
+        )
         self._footer = QCheckBox(self.tr("Page number as footer"))
         self._footer.setChecked(settings.footer_enabled)
         self._auto_trim = QCheckBox(self.tr("Trim white margins automatically"))
@@ -92,6 +102,13 @@ class SettingsDialog(QDialog):
         self._hotkey = QLineEdit(settings.hotkey)
         self._hotkey.setToolTip(
             self.tr("One or more modifiers and a key, for example Ctrl+Shift+S")
+        )
+        self._retake_hotkey = QLineEdit(settings.retake_hotkey)
+        self._retake_hotkey.setToolTip(
+            self.tr(
+                "Takes back the last capture and lets it be dragged again. "
+                "Held only while a series runs"
+            )
         )
         self._scan_mode = QComboBox()
         self._scan_mode.addItem(self.tr("Black and white"), "bw")
@@ -111,19 +128,23 @@ class SettingsDialog(QDialog):
         self._language.setToolTip(self.tr("Takes effect the next time ScoreCap starts"))
         self._language.setCurrentIndex(max(0, self._language.findData(settings.language)))
 
-        form = QFormLayout()
-        form.addRow(self.tr("Side margin (mm)"), self._margin_side)
-        form.addRow(self.tr("Top margin (mm)"), self._margin_top)
-        form.addRow(self.tr("Bottom margin (mm)"), self._margin_bottom)
-        form.addRow(self.tr("Minimum gap (mm)"), self._gap_min)
-        form.addRow(self.tr("Smallest shrink factor"), self._shrink_min)
-        form.addRow(self.tr("Warning threshold dpi"), self._min_dpi)
-        form.addRow(self.tr("Hotkey"), self._hotkey)
-        form.addRow(self.tr("Print scans in"), self._scan_mode)
-        form.addRow(self.tr("Language"), self._language)
-        form.addRow(self._footer)
-        form.addRow(self._auto_trim)
-        form.addRow(self._align_staff_ends)
+        page, page_form = self._group(self.tr("Page"))
+        page_form.addRow(self.tr("Side margin (mm)"), self._margin_side)
+        page_form.addRow(self.tr("Top margin (mm)"), self._margin_top)
+        page_form.addRow(self.tr("Bottom margin (mm)"), self._margin_bottom)
+        page_form.addRow(self.tr("Minimum gap (mm)"), self._gap_min)
+        page_form.addRow(self.tr("Smallest shrink factor"), self._shrink_min)
+        page_form.addRow(self._footer)
+        page_form.addRow(self._align_staff_ends)
+        capture, capture_form = self._group(self.tr("Capturing"))
+        capture_form.addRow(self.tr("Hotkey"), self._hotkey)
+        capture_form.addRow(self.tr("Hotkey for capturing again"), self._retake_hotkey)
+        capture_form.addRow(self.tr("Warning threshold dpi"), self._min_dpi)
+        capture_form.addRow(self._auto_trim)
+        scans, scans_form = self._group(self.tr("Scans"))
+        scans_form.addRow(self.tr("Print scans in"), self._scan_mode)
+        general, general_form = self._group(self.tr("General"))
+        general_form.addRow(self.tr("Language"), self._language)
 
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         buttons.button(QDialogButtonBox.Ok).setText(self.tr("Save"))
@@ -132,30 +153,51 @@ class SettingsDialog(QDialog):
         buttons.rejected.connect(self.reject)
 
         layout = QVBoxLayout(self)
-        layout.addLayout(form)
+        for group in (page, capture, scans, general):
+            layout.addWidget(group)
         layout.addWidget(buttons)
+
+    def _group(self, title: str) -> tuple[QGroupBox, QFormLayout]:
+        group = QGroupBox(title)
+        form = QFormLayout(group)
+        form.setContentsMargins(0, 4, 0, 0)
+        return group, form
 
     def accept(self) -> None:  # noqa: D102 - QDialog's own slot
         """Refuse a hotkey that is no hotkey, rather than saving it.
 
         Saved, it would be read again at every start, where nothing can be
-        typed to put it right.
+        typed to put it right. The same goes for two jobs on one key: the
+        second could never be registered.
         """
-        try:
-            parse_hotkey(self.settings.hotkey)
-        except ValueError:
-            QMessageBox.warning(
-                self,
-                self.tr("Hotkey"),
-                self.tr(
-                    "{hotkey} is not a usable hotkey. It needs one or more "
-                    "modifiers and a key, for example Ctrl+Shift+S."
-                ).format(hotkey=self._hotkey.text().strip()),
+        settings = self.settings
+        for field, spec in (
+            (self._hotkey, settings.hotkey),
+            (self._retake_hotkey, settings.retake_hotkey),
+        ):
+            try:
+                parse_hotkey(spec)
+            except ValueError:
+                self._refuse(
+                    field,
+                    self.tr(
+                        "{hotkey} is not a usable hotkey. It needs one or more "
+                        "modifiers and a key, for example Ctrl+Shift+S."
+                    ).format(hotkey=field.text().strip()),
+                )
+                return
+        if parse_hotkey(settings.hotkey) == parse_hotkey(settings.retake_hotkey):
+            self._refuse(
+                self._retake_hotkey,
+                self.tr("The two hotkeys need different keys."),
             )
-            self._hotkey.setFocus()
-            self._hotkey.selectAll()
             return
         super().accept()
+
+    def _refuse(self, field: QLineEdit, message: str) -> None:
+        QMessageBox.warning(self, self.tr("Hotkey"), message)
+        field.setFocus()
+        field.selectAll()
 
     @property
     def settings(self) -> Settings:
@@ -169,6 +211,9 @@ class SettingsDialog(QDialog):
             footer_enabled=self._footer.isChecked(),
             min_dpi=self._min_dpi.value(),
             hotkey=self._hotkey.text().strip() or self._base.hotkey,
+            retake_hotkey=(
+                self._retake_hotkey.text().strip() or self._base.retake_hotkey
+            ),
             auto_trim=self._auto_trim.isChecked(),
             align_staff_ends=self._align_staff_ends.isChecked(),
             trim_threshold=self._base.trim_threshold,

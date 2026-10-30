@@ -1,4 +1,4 @@
-"""The question a project file raises: may the current captures be dropped?"""
+"""What closing asks: may the captures, or a running reading, be dropped?"""
 
 from __future__ import annotations
 
@@ -64,3 +64,36 @@ def ask_save_changes(parent: QWidget) -> str:
     if clicked is discard:
         return "discard"
     return "cancel"
+
+
+def ask_stop_transcription(parent: QWidget) -> bool:
+    """True when the transcription under way may be stopped for closing."""
+    box = QMessageBox(parent)
+    box.setIcon(QMessageBox.Icon.Warning)
+    box.setWindowTitle(
+        QCoreApplication.translate("MainWindow", "Transcription under way")
+    )
+    box.setText(
+        QCoreApplication.translate(
+            "MainWindow", "ScoreCap is still transcribing the score."
+        )
+    )
+    box.setInformativeText(
+        QCoreApplication.translate(
+            "MainWindow", "Closing stops it, and the MusicXML file is not written."
+        )
+    )
+    stop = box.addButton(
+        QCoreApplication.translate("MainWindow", "Stop and close"),
+        QMessageBox.ButtonRole.DestructiveRole,
+    )
+    keep = box.addButton(
+        QCoreApplication.translate("MainWindow", "Keep transcribing"),
+        QMessageBox.ButtonRole.RejectRole,
+    )
+    box.setDefaultButton(keep)
+    for button in box.buttons():
+        button.ensurePolished()
+        button.setMinimumWidth(button.sizeHint().width())
+    box.exec()
+    return box.clickedButton() is stop

@@ -1,5 +1,7 @@
 """Transcribing a score with Audiveris, without ever starting one."""
 
+import os
+import time
 from xml.etree import ElementTree
 
 import pytest
@@ -104,7 +106,7 @@ def test_a_soprano_stays_where_it_was_written():
 def stub_audiveris(*files: str):
     """An Audiveris that writes the MusicXML it was told to, and nothing else."""
 
-    def run(launcher, source, out_dir, progress=None, timeout=1800):
+    def run(launcher, source, out_dir, progress=None, timeout=1800, cancelled=None):
         out_dir.mkdir(parents=True, exist_ok=True)
         for number, text in enumerate(files, start=1):
             (out_dir / f"score.mvt{number}.musicxml").write_text(
@@ -480,7 +482,7 @@ def test_the_window_is_told_each_time_a_new_page_is_reached(tmp_path, monkeypatc
     monkeypatch.setattr(omr, "find_audiveris", lambda: tmp_path / "Audiveris.exe")
     seen = []
 
-    def run(launcher, source, out_dir, progress=None, timeout=1800):
+    def run(launcher, source, out_dir, progress=None, timeout=1800, cancelled=None):
         for line in (BOOK_LINE, SHEET_LINE, SHEET_LINE, "INFO  [score#3] | PAGE"):
             total = omr.sheet_total(line)
             sheet = omr.sheet_at_work(line)
@@ -511,3 +513,14 @@ SHEET_LIST_LINE = (
 def test_the_list_of_pages_to_come_is_not_mistaken_for_the_page_at_work():
     """It would read as page 5 and start the count at the finish line."""
     assert omr.sheet_at_work(SHEET_LIST_LINE) is None
+
+
+@pytest.mark.skipif(os.name != "nt", reason="the launcher here is a batch file")
+def test_cancelling_stops_audiveris_instead_of_waiting_for_the_page(tmp_path):
+    launcher = tmp_path / "Audiveris.bat"
+    launcher.write_text("@ping -n 30 127.0.0.1 >nul\n", encoding="utf-8")
+    started = time.monotonic()
+    omr.run_audiveris(
+        launcher, tmp_path / "score.pdf", tmp_path / "out", cancelled=lambda: True
+    )
+    assert time.monotonic() - started < 10
