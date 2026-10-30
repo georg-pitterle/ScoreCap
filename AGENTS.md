@@ -128,3 +128,9 @@ fix: keep scanned systems together and crop them tightly
 Nicht `feat: add crop_after_erasing()`. release-please leitet daraus die nächste
 Version ab: `fix:` → Patch, `feat:` → Minor, `feat!:` → Major. Ein falsches
 Präfix verschiebt die Version.
+
+## Branches
+
+Entwickelt wird auf einem lokalen Feature-Branch. Gepusht wird nur `main`,
+Branches bleiben lokal. Vor dem Merge wird der Branch möglichst zu einem Commit
+gesquasht, dann per Fast-Forward nach `main` gebracht und gelöscht.
