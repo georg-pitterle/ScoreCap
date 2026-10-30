@@ -9,7 +9,9 @@ dependencies = [
     # Essentials only: the app uses QtCore, QtGui and QtWidgets. The addons
     # (WebEngine, 3D, Multimedia, Charts) would only bloat the bundle.
     "PySide6-Essentials",
-    "PyMuPDF>=1.24",
+    # 2.0 loads an ONNX layout model on import: its data files are missing from
+    # the bundle, which then dies at start, and the app never analyses layout.
+    "PyMuPDF>=1.24,<2",
     "Pillow",
     "velopack",
 ]
